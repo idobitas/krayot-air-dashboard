@@ -19,7 +19,8 @@ index.html  (GitHub Pages)  טוען את שני הקבצים בעליית הד�
 
 | קובץ | תפקיד |
 |---|---|
-| `index.html` | הדאשבורד. ממזג את `live_krayot.json` לתחנות הקיימות לפי `id`; טוען את ההיסטוריה לגרף 30 הימים ולסורק ההיסטוריה |
+| `index.html` | מבנה ועיצוב בלבד (המכלים ריקים, הסקריפט ממלא אותם בטעינה) |
+| `js/app.js` | הסקריפט הראשי של הדאשבורד: ממזג את `live_krayot.json` לתחנות לפי `id`, טוען את ההיסטוריה, מרנדר הכל (נטען אחרי `js/fire_v2b.js`) |
 | `js/fire_v2b.js` | גלאי שריפות/עשן v2b לקריות (ציון 0–100, high ≥ 70, watch ≥ 55, אינוורסיה אזורית בנפרד). ניתוח: [`docs/fire-detector-analysis.md`](docs/fire-detector-analysis.md) |
 | `scripts/fetch_sviva.py` | משיכה, המרת יחידות, צבירת היסטוריה. `--backfill` מושך מחדש 90 יום מלאים |
 | `.github/workflows/update_air.yml` | מופעל כל 10 דקות מבחוץ (cron-job.org → `workflow_dispatch`); cron פנימי כגיבוי; הספרייה נעולה ל-commit `6e8bd65`; `timeout-minutes: 10` |
