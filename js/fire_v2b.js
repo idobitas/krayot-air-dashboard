@@ -21,6 +21,12 @@
   var REF_IDS = ['ref_neve_shaanan', 'ref_tivon', 'ref_nesher'], REF_REGIONAL = 5;
   var OM = { kiryat_bialik_z4: 'om_kiryat_bialik_z4', kiryat_haim_regavim: 'om_kiryat_haim_regavim' };
   var STUCK_OM_WS = 2.5, WIND_BACKUP = 'kiryat_binyamin';
+  // broad smoke wave from the villages 7-10 km east: it covers most Krayot stations at once, so the
+  // per-station local excess (LX) collapses. Network-level label (watch, never fire): Krayot median
+  // PM2.5 >= 20, Krayot median anomaly >= 8 above the references while references are clean (< 5),
+  // east wind 50-140 deg, no traffic NOx jump (median ratio <= 1.3), no dust event; 2 h persistence.
+  // 90-day backtest: 4 episodes, all at night (one is the 18/11 fire); 97% of gap hours had east wind.
+  var WAVE = { pm: 20, gap: 8, refMax: 5, wdMin: 50, wdMax: 140, nox: 1.3 };
   var SINGLE_HOUR_WATCH = 65; // one hour alone >= this -> immediate watch (fire still needs 2h)
   // hard bounds (µg/m³) for the P90 / P99 normalisation scales, and the minimum P99-P90 span
   var BOUNDS = {
@@ -233,6 +239,19 @@
 
     // 6. levels + network verdict per hour
     function level(v) { return v === null ? 'none' : (v >= HIGH ? 'high' : (v >= WATCH ? 'watch' : 'none')); }
+    var waveRaw = axis.map(function (_, i) {
+      var kpm = median(IDS.map(function (id) { return S[id].PM25[i]; }));
+      var noxr = median(IDS.map(function (id) {
+        var c = S[id].NOX, prev = win(c, i, 3, 1, 2);
+        return c[i] !== null && prev ? c[i] / prev : null;
+      }));
+      var wd = S[WIND_BACKUP].WD[i];
+      return kpm !== null && kpm >= WAVE.pm && refmed[i] !== null && refmed[i] < WAVE.refMax &&
+        netmed[i] !== null && netmed[i] - refmed[i] >= WAVE.gap &&
+        wd !== null && wd >= WAVE.wdMin && wd <= WAVE.wdMax && (noxr === null || noxr <= WAVE.nox) &&
+        !IDS.some(function (id) { return S[id].flags[i].dustEvent; });
+    });
+    var wave = waveRaw.map(function (v, i) { return v && i > 0 && waveRaw[i - 1]; });
     var verdicts = axis.map(function (t, i) {
       var st = IDS.map(function (id) { return { id: id, score: S[id].S[i], level: level(S[id].S[i]), flags: S[id].flags[i] }; });
       var hi = st.filter(function (x) { return x.level === 'high'; });
@@ -242,8 +261,8 @@
       // reference data for that hour, the Krayot-only rule applies
       var regional = netmed[i] !== null && netmed[i] >= REGIONAL &&
         (refmed[i] === null || refmed[i] >= REF_REGIONAL);
-      var kind = hi.length ? 'fire' : (wa.length ? 'smoke' : (dustSt.length >= 2 ? 'dust' : (regional ? 'regional' : 'clear')));
-      return { t: t, kind: kind, regional: regional, netmed: netmed[i], stations: st, dustStations: dustSt };
+      var kind = hi.length ? 'fire' : (wa.length ? 'smoke' : (wave[i] ? 'wave' : (dustSt.length >= 2 ? 'dust' : (regional ? 'regional' : 'clear'))));
+      return { t: t, kind: kind, regional: regional, wave: wave[i], netmed: netmed[i], refmed: refmed[i], stations: st, dustStations: dustSt };
     });
 
     // latest hour that has a PM2.5 reading in at least 3 stations
@@ -251,7 +270,7 @@
     while (li > 0 && IDS.filter(function (id) { return S[id].PM25[li] !== null; }).length < 3) li--;
 
     return {
-      axis: axis, hours: hours, S: S, netmed: netmed, refmed: refmed, verdicts: verdicts, latestIndex: li, latest: verdicts[li],
+      axis: axis, hours: hours, S: S, netmed: netmed, refmed: refmed, wave: wave, verdicts: verdicts, latestIndex: li, latest: verdicts[li],
       level: level, stationScore: function (id, i) { return S[id] ? S[id].S[i === undefined ? li : i] : null; }
     };
   }

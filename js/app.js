@@ -755,7 +755,6 @@
     // =========================================================================
     // 3. RENDER STATION PILLS, INSPECTOR, POLLUTANT CARDS (HOURLY/DAILY/MONTHLY) & CHARTS
     // =========================================================================
-    let chartBenzeneInstance = null;
     let chartTimeTrendInstance = null;
 
     function renderMatrix() {
@@ -952,6 +951,23 @@
       return v2bSignature(st) || detectPirateFireSignatureLegacy(st, allStations, opts);
     }
 
+    // WHO 2021 24-hour guidelines (legal Israeli daily limits for the red tone)
+    function whoExceedances() {
+      const LIM = { PM25: { label: 'PM2.5', who: 15, legal: 37.5 }, PM10: { label: 'PM10', who: 45, legal: 130 }, NO2: { label: 'NO₂', who: 25, legal: 80 } };
+      const out = [];
+      STATIONS_DATA.filter(st => st.group === 'krayot').forEach(st => {
+        Object.entries(LIM).forEach(([k, L]) => {
+          const m = (st.metrics || {})[k];
+          if (!m) return;
+          const hourly = m.hourly ?? null, daily = m.daily ?? null;
+          const val = Math.max(hourly ?? -1, daily ?? -1);
+          if (val > L.who) out.push({ label: L.label, station: st.shortName, value: +val.toFixed(1), limit: L.who,
+            basis: (daily ?? -1) >= (hourly ?? -1) ? 'ממוצע 24 שעות' : 'שעה אחרונה', legal: (daily ?? 0) > L.legal });
+        });
+      });
+      return out.sort((a, b) => b.value / b.limit - a.value / a.limit);
+    }
+
     function renderPublicVerdict() {
       const el = document.getElementById('publicVerdict');
       const R = window.FIRE_V2B;
@@ -965,8 +981,20 @@
         smoke: ['🌫️', 'ייתכן עשן באוויר', 'סימני עשן ב' + hot.join(', ') + '. כדאי לעקוב.', 'bg-amber-950/50 border-amber-500/50 text-amber-100'],
         dust: ['🏜️', 'אובך / אבק באזור', 'האוויר מאובק, לא עשן שריפה.', 'bg-yellow-950/40 border-yellow-500/50 text-yellow-100'],
         regional: ['🌁', 'אוויר עומד (אינוורסיה)', 'זיהום מצטבר בכל הקריות, לא שריפה מקומית.', 'bg-slate-800/80 border-slate-500/60 text-slate-100'],
-        clear: ['🟢', 'אין חריגה מיוחדת בקריות', 'לא זוהו סימני שריפה, אובך או אינוורסיה.', 'bg-emerald-950/40 border-emerald-600/50 text-emerald-100']
+        wave: ['🌫️', 'גל עשן רחב מהמזרח', 'עשן מכסה את רוב הקריות ברוח מזרחית, בזמן שתחנות הייחוס בחוץ נקיות. מומלץ לסגור חלונות.', 'bg-amber-950/50 border-amber-500/50 text-amber-100'],
+        clear: ['🟢', 'אין חריגה מיוחדת בקריות', 'לא זוהו סימני שריפה, אובך או אינוורסיה, והמדדים בתוך יעדי WHO.', 'bg-emerald-950/40 border-emerald-600/50 text-emerald-100']
       }[v.kind];
+      // green only when the live values also meet WHO 2021 (24 h guideline; latest hour or 24 h mean)
+      if (v.kind === 'clear') {
+        const w = whoExceedances();
+        if (w.length) {
+          const legal = w.some(x => x.legal);
+          V[0] = legal ? '🔴' : '🟠';
+          V[1] = 'אין סימני שריפה — אך יש חריגת WHO ב-' + [...new Set(w.map(x => x.label))].join(', ');
+          V[2] = w.map(x => `${x.label} ${x.value} µg/m³ ב${x.station} (${x.basis}; יעד WHO ליממה ${x.limit})`).slice(0, 2).join(' • ');
+          V[3] = legal ? 'bg-rose-950/50 border-rose-500/60 text-rose-100' : 'bg-orange-950/45 border-orange-500/55 text-orange-100';
+        }
+      }
       const extra = (v.kind === 'fire' || v.kind === 'smoke') && v.regional ? '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-800 border border-slate-600 text-slate-200">🌁 גם אוויר עומד באזור</span>' : '';
       const invHelp = 'אינוורסיה: בלילות שקטים שכבת אוויר חם נמצאת מעל אוויר קר ליד הקרקע וסוגרת עליו כמו מכסה, כך שהזיהום לא מתפזר ומצטבר בכל האזור. זה לא אומר שיש שריפה.';
       const help = v.regional ? `<span class="basis-full text-[11px] sm:text-xs opacity-75">ℹ️ ${invHelp}</span>` : '';
@@ -1710,44 +1738,6 @@
         });
       }
 
-      // 2. Benzene Comparison Bar Chart
-      const ctxBenzene = document.getElementById('chartBenzene');
-      if (ctxBenzene) {
-        const subset = getFilteredStations();
-        if (chartBenzeneInstance) chartBenzeneInstance.destroy();
-        chartBenzeneInstance = new Chart(ctxBenzene, {
-          type: 'bar',
-          data: {
-            labels: subset.map(s => s.shortName),
-            datasets: [
-              {
-                label: 'בנזן יממתי מרבי (µg/m³)',
-                data: subset.map(s => s.c6h6_max24h),
-                backgroundColor: subset.map(s => s.c6h6_max24h > 3.9 ? 'rgba(244, 63, 94, 0.85)' : 'rgba(14, 165, 233, 0.8)'),
-                borderRadius: 6
-              },
-              {
-                type: 'line',
-                label: 'תקן סביבה (3.9 µg/m³)',
-                data: subset.map(() => 3.9),
-                borderColor: '#ef4444',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                pointRadius: 0
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'Assistant', size: 11 } } } },
-            scales: {
-              x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(51,65,85,0.3)' } },
-              y: { beginAtZero: true, ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(51,65,85,0.3)' } }
-            }
-          }
-        });
-      }
     }
 
     // =========================================================================
