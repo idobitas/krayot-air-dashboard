@@ -7,7 +7,7 @@
 ## איך זה עובד
 
 ```
-GitHub Action (כל 15 דקות, בדקות 7/22/37/52)
+GitHub Action (workflow_dispatch כל 10 דקות מ-cron-job.org; cron של GitHub כגיבוי)
   └─ scripts/fetch_sviva.py   (py-air-sviva-api)
        ├─ live_krayot.json        נתונים עדכניים: last5m / last30m / history24h / daily30d / metrics
        └─ data/history_90d.json   ארכיון שעתי מתגלגל של 90 יום
@@ -22,7 +22,7 @@ index.html  (GitHub Pages)  טוען את שני הקבצים בעליית הד�
 | `index.html` | הדאשבורד. ממזג את `live_krayot.json` לתחנות הקיימות לפי `id`; טוען את ההיסטוריה לגרף 30 הימים ולסורק ההיסטוריה |
 | `js/fire_v2b.js` | גלאי שריפות/עשן v2b לקריות (ציון 0–100, high ≥ 70, watch ≥ 55, אינוורסיה אזורית בנפרד). ניתוח: [`docs/fire-detector-analysis.md`](docs/fire-detector-analysis.md) |
 | `scripts/fetch_sviva.py` | משיכה, המרת יחידות, צבירת היסטוריה. `--backfill` מושך מחדש 90 יום מלאים |
-| `.github/workflows/update_air.yml` | cron כל 15 דקות (לא בשעה עגולה) + `workflow_dispatch`; מבצע `git add live_krayot.json data/history_90d.json` |
+| `.github/workflows/update_air.yml` | מופעל כל 10 דקות מבחוץ (cron-job.org → `workflow_dispatch`); cron פנימי כגיבוי; הספרייה נעולה ל-commit `6e8bd65`; `timeout-minutes: 10` |
 | `live_krayot.json` | פלט חי (נכתב מחדש בכל ריצה) |
 | `data/history_90d.json` | ארכיון היסטוריה (ראו להלן) |
 | `data/archive_YYYY_MM.json` + `data/archives_index.json` | ארכיון חודשי קבוע (לא נמחק אחרי 90 יום); נטען בדפדפן רק כשבוחרים חודש |
@@ -38,12 +38,16 @@ index.html  (GitHub Pages)  טוען את שני הקבצים בעליית הד�
 | `kiryat_yam_z1` | קריית ים | 92 |
 | `kishon_mobile5` | נחל הקישון (בנזן וטולואן בלבד) | 517 |
 
+## נתוני אמת בלבד
+
+הדף מציג רק את 6 התחנות שיש להן הזנה, ובכל תחנה רק מזהמים שהיא באמת מודדת לפי `live_krayot.json`. נתוני ההדגמה של 2017 הוסרו. סיכומי החריגה מחושבים מ-30 הימים האחרונים. תחנה שנכשלה בריצה שומרת את הרשומה הקודמת שלה, עם `stale: true`.
+
 ## יחידות
 
 - גזים מומרים מ-ppb ל-µg/m³ **רק** אם ה-API החזיר ppb (ברוב המקרים הוא כבר מחזיר µg/m³). נוסחה: `ppb × משקל מולקולרי / 24.45`.
 - **CO נשמר ב-ppm** בכל הפלטים (`last30m.CO`, ההיסטוריה): `mg/m³ / 1.145`. הדאשבורד (חתימת שריפות פיראטיות) מצפה ל-ppm. בתחנות הקריות הנוכחיות אין ערוץ CO, ולכן הערך ריק.
 - רוח: `windDir` במעלות (ממוצע מעגלי), `windSpeed` ב-m/s.
-- **שעון:** חותמות הזמן מה-API הן `+02:00` קבוע (שעון חורף כל השנה, בלי מעבר לשעון קיץ). בקיץ השעה המקומית היא החותמת + שעה. זה נכון ולא באג; האלגוריתם ממיר ל-`Asia/Jerusalem` לצורך "לילה".
+- **שעון:** חותמות הזמן מה-API הן `+02:00` קבוע (שעון חורף כל השנה, בלי מעבר לשעון קיץ). בקיץ השעה המקומית היא החותמת + שעה. זה נכון ולא באג; האלגוריתם ממיר ל-`Asia/Jerusalem` לצורך "לילה". הסקריפט מבקש מה-API תמיד תאריכים לפי שעון ישראל (`today_il()`): הספרייה משתמשת ב-`date.today()` של השרת (UTC), ולכן בין חצות ל-02:00 הנתונים נתקעו ב-23:55 של היום הקודם.
 
 ## ארכיון ההיסטוריה המתגלגל (`data/history_90d.json`)
 
@@ -58,7 +62,7 @@ index.html  (GitHub Pages)  טוען את שני הקבצים בעליית הד�
 ## הרצה מקומית
 
 ```bash
-pip install git+https://github.com/GuyKh/py-air-sviva-api.git   # לא קיימת ב-PyPI
+pip install git+https://github.com/GuyKh/py-air-sviva-api.git@6e8bd65315910ef12019ac6798fa417cf5148118   # לא ב-PyPI; אותו commit כמו ב-Action
 python scripts/fetch_sviva.py            # רגיל
 python scripts/fetch_sviva.py --backfill # משיכת 90 יום מחדש
 python -m http.server 8000               # ואז http://localhost:8000
