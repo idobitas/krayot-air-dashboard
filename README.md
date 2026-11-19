@@ -1,0 +1,63 @@
+# krayot-air-dashboard
+
+דאשבורד איכות אוויר לקריות ומפרץ חיפה, מתעדכן אוטומטית מ-[air.sviva.gov.il](https://air.sviva.gov.il).
+
+**אתר חי:** https://idobitas.github.io/krayot-air-dashboard/
+
+## איך זה עובד
+
+```
+GitHub Action (כל 10 דקות)
+  └─ scripts/fetch_sviva.py   (py-air-sviva-api)
+       ├─ live_krayot.json        נתונים עדכניים: last5m / last30m / history24h / daily30d / metrics
+       └─ data/history_90d.json   ארכיון שעתי מתגלגל של 90 יום
+  └─ commit + push רק אם הקבצים השתנו
+index.html  (GitHub Pages)  טוען את שני הקבצים בעליית הדף וכל 10 דקות
+```
+
+## קבצים
+
+| קובץ | תפקיד |
+|---|---|
+| `index.html` | הדאשבורד. ממזג את `live_krayot.json` לתחנות הקיימות לפי `id`; טוען את ההיסטוריה לגרף 30 הימים ולסורק ההיסטוריה |
+| `scripts/fetch_sviva.py` | משיכה, המרת יחידות, צבירת היסטוריה. `--backfill` מושך מחדש 90 יום מלאים |
+| `.github/workflows/update_air.yml` | cron כל 10 דקות + `workflow_dispatch`; מבצע `git add live_krayot.json data/history_90d.json` |
+| `live_krayot.json` | פלט חי (נכתב מחדש בכל ריצה) |
+| `data/history_90d.json` | ארכיון היסטוריה (ראו להלן) |
+
+## תחנות
+
+| מזהה בדאשבורד | תחנה ב-API | מזהה API |
+|---|---|---|
+| `kiryat_bialik_z4` | דרום (קריית ביאליק) | 380 |
+| `kiryat_motzkin_z2` | נווה גנים (קריית מוצקין) | 382 |
+| `kiryat_binyamin` | קריית בנימין (קריית אתא) | 97 |
+| `kiryat_haim_regavim` | קרית חיים - מערבית | 499 |
+| `kiryat_yam_z1` | קריית ים | 92 |
+| `kishon_mobile5` | נחל הקישון (בנזן וטולואן בלבד) | 517 |
+
+## יחידות
+
+- גזים מומרים מ-ppb ל-µg/m³ **רק** אם ה-API החזיר ppb (ברוב המקרים הוא כבר מחזיר µg/m³). נוסחה: `ppb × משקל מולקולרי / 24.45`.
+- **CO נשמר ב-ppm** בכל הפלטים (`last30m.CO`, ההיסטוריה): `mg/m³ / 1.145`. הדאשבורד (חתימת שריפות פיראטיות) מצפה ל-ppm. בתחנות הקריות הנוכחיות אין ערוץ CO, ולכן הערך ריק.
+- רוח: `windDir` במעלות (ממוצע מעגלי), `windSpeed` ב-m/s.
+
+## ארכיון ההיסטוריה המתגלגל (`data/history_90d.json`)
+
+- שורה אחת לכל שעה שלמה לכל תחנה (שעה שעדיין רצה לא נשמרת), בפורמט שורה-לשורה כדי שה-diff ב-git יישאר קטן.
+- בכל ריצה השעות החדשות נוספות ללא כפילויות לפי `t` (ערך טרי גובר), והחלון נחתך ל-90 יום אחורה מהשורה האחרונה.
+- ה-API מחזיר 90 יום אחורה בקריאה אחת. אם חסרות יותר מ-5 ימים בארכיון (קובץ חדש או נמחק), הסקריפט מבצע backfill אוטומטי.
+- `updated` בארכיון הוא חותמת השעה האחרונה, כך שהקובץ משתנה (ונעשה commit) פעם בשעה ולא בכל 10 דקות.
+- מתוך הארכיון מחושבים: `metrics.*.monthly` (ממוצע 30 יום, רק אם יש לפחות 360 שעות; מסומן `monthlyReal: true`) ו-`daily30d` (ממוצע יומי, רק לימים עם 12 שעות לפחות).
+- פרמטר בלי נתון חודשי אמיתי נשאר עם ערך הבסיס ההיסטורי שבדאשבורד ומסומן "בסיס היסטורי".
+
+## הרצה מקומית
+
+```bash
+pip install git+https://github.com/GuyKh/py-air-sviva-api.git   # לא קיימת ב-PyPI
+python scripts/fetch_sviva.py            # רגיל
+python scripts/fetch_sviva.py --backfill # משיכת 90 יום מחדש
+python -m http.server 8000               # ואז http://localhost:8000
+```
+
+דורש Python 3.11+.
