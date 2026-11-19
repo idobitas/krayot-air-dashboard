@@ -1,5 +1,5 @@
 {
- "timestamp": "2026-11-20T01:05:00+02:00",
+ "timestamp": "2026-11-20T01:20:00+02:00",
  "source": "air.sviva.gov.il",
  "units": "ug/m3 (CO ppm), wind m/s & deg",
  "stations": [
@@ -7,72 +7,72 @@
    "id": "kiryat_bialik_z4",
    "apiStationId": 380,
    "name": "קריית ביאליק",
-   "measuredAt": "2026-11-20T01:05:00+02:00",
+   "measuredAt": "2026-11-20T01:20:00+02:00",
    "metrics": {
     "PM25": {
-     "hourly": 10.79,
-     "daily": 15.16,
+     "hourly": 11.63,
+     "daily": 15.3,
      "monthly": 16.4,
      "monthlyReal": true
     },
     "PM10": {
-     "hourly": 31.13,
-     "daily": 35.14,
+     "hourly": 29.91,
+     "daily": 35.26,
      "monthly": 32.4,
      "monthlyReal": true
     },
     "NOX": {
-     "hourly": 31.66,
-     "daily": 31.87,
+     "hourly": 29.75,
+     "daily": 31.82,
      "monthly": 30.03,
      "monthlyReal": true
     },
     "NO2": {
-     "hourly": 28.52,
-     "daily": 25.3,
+     "hourly": 26.85,
+     "daily": 25.27,
      "monthly": 21.9,
      "monthlyReal": true
     },
     "NO": {
-     "hourly": 2.06,
-     "daily": 4.3,
+     "hourly": 1.91,
+     "daily": 4.28,
      "monthly": 5.32,
      "monthlyReal": true
     }
    },
    "last5m": {
-    "windDir": 206.0,
-    "windSpeed": 0.1,
-    "PM25": 13.4,
-    "NOX": 27.2,
-    "NO": 1.6,
-    "NO2": 24.8,
-    "PM10": 28.3
+    "windDir": 128.0,
+    "windSpeed": 0.0,
+    "PM25": 17.4,
+    "NOX": 22.1,
+    "NO": 1.3,
+    "NO2": 20.1,
+    "PM10": 31.7
    },
    "last30m": {
-    "PM25": 9.97,
-    "PM10": 27.74,
+    "PM25": 12.97,
+    "PM10": 28.4,
     "CO": null,
     "C6H6": null,
     "SO2": null,
-    "NOX": 31.44,
-    "NO2": 28.41,
-    "NO": 2.0,
+    "NOX": 28.33,
+    "NO2": 25.6,
+    "NO": 1.8,
     "O3": null,
     "H2S": null,
     "Toluene": null,
-    "windDir": 140.0,
+    "windDir": 138.1,
     "windSpeed": 0.04,
     "history24h": [
      {
       "t": "2026-11-19T01:00:00+02:00",
-      "NO": 2.95,
-      "NO2": 23.68,
-      "NOX": 28.2,
-      "PM10": 19.98,
-      "PM25": 3.7,
-      "windDir": 199.7,
-      "windSpeed": 0.38
+      "NO": 2.2,
+      "NO2": 20.8,
+      "NOX": 24.1,
+      "PM10": 20.7,
+      "PM25": 5.2,
+      "windDir": 199.0,
+      "windSpeed": 0.1
      },
      {
       "t": "2026-11-19T01:30:00+02:00",
@@ -543,13 +543,13 @@
      },
      {
       "t": "2026-11-20T01:00:00+02:00",
-      "NO": 1.8,
-      "NO2": 26.4,
-      "NOX": 29.1,
-      "PM10": 27.6,
-      "PM25": 12.4,
-      "windDir": 177.0,
-      "windSpeed": 0.15
+      "NO": 1.62,
+      "NO2": 23.98,
+      "NOX": 26.44,
+      "PM10": 29.48,
+      "PM25": 14.7,
+      "windDir": 140.4,
+      "windSpeed": 0.06
      }
     ]
    },
@@ -851,67 +851,67 @@
    "id": "kiryat_motzkin_z2",
    "apiStationId": 382,
    "name": "קריית מוצקין",
-   "measuredAt": "2026-11-20T01:05:00+02:00",
+   "measuredAt": "2026-11-20T01:20:00+02:00",
    "metrics": {
     "PM25": {
-     "hourly": 25.58,
-     "daily": 14.05,
+     "hourly": 26.69,
+     "daily": 14.25,
      "monthly": 14.5,
      "monthlyReal": true
     },
     "PM10": {
-     "hourly": 44.56,
-     "daily": 33.02,
+     "hourly": 45.59,
+     "daily": 33.27,
      "monthly": 32.25,
      "monthlyReal": true
     },
     "C6H6": {
-     "hourly": 2.32,
-     "daily": 1.15,
+     "hourly": 2.46,
+     "daily": 1.16,
      "monthly": 1.03,
      "monthlyReal": true
     },
     "NOX": {
-     "hourly": 40.96,
+     "hourly": 41.68,
      "daily": 37.39,
      "monthly": 32.8,
      "monthlyReal": true
     },
     "NO2": {
-     "hourly": 39.06,
+     "hourly": 39.57,
      "daily": 32.78,
      "monthly": 26.58,
      "monthlyReal": true
     },
     "NO": {
-     "hourly": 1.26,
+     "hourly": 1.38,
      "daily": 3.01,
      "monthly": 4.07,
      "monthlyReal": true
     },
     "O3": {
-     "hourly": 21.6,
-     "daily": 42.97,
+     "hourly": 16.53,
+     "daily": 42.85,
      "monthly": 57.9,
      "monthlyReal": true
     }
    },
    "last5m": {
-    "O3": 9.8,
-    "PM25": 27.8,
-    "PM10": 47.0,
-    "C6H6": 2.65
+    "O3": 3.5,
+    "PM25": 31.0,
+    "PM10": 50.3,
+    "C6H6": 2.49
    },
    "last30m": {
-    "PM25": 26.64,
-    "PM10": 45.4,
+    "PM25": 28.23,
+    "PM10": 47.36,
     "CO": null,
-    "C6H6": 2.55,
+    "C6H6": 2.56,
     "SO2": null,
-    "NOX": 42.83,
-    "NO2": 40.93,
-    "NO": 1.23,
-    "O3": 17.79,
+    "NOX": null,
+    "NO2": null,
+    "NO": null,
+    "O3": 10.67,
     "H2S": null,
     "Toluene": null,
     "windDir": null,
@@ -919,13 +919,13 @@
     "history24h": [
      {
       "t": "2026-11-19T01:00:00+02:00",
-      "C6H6": 1.79,
+      "C6H6": 1.72,
       "NO": 2.0,
       "NO2": 28.1,
       "NOX": 31.2,
-      "O3": 15.9,
-      "PM10": 24.92,
-      "PM25": 11.33
+      "O3": 15.8,
+      "PM10": 25.4,
+      "PM25": 11.9
      },
      {
       "t": "2026-11-19T01:30:00+02:00",
@@ -1398,10 +1398,10 @@
      },
      {
       "t": "2026-11-20T01:00:00+02:00",
-      "C6H6": 2.65,
-      "O3": 11.3,
-      "PM10": 46.7,
-      "PM25": 27.55
+      "C6H6": 2.55,
+      "O3": 7.72,
+      "PM10": 47.98,
+      "PM25": 28.72
      }
     ]
    },
@@ -1690,87 +1690,81 @@
    "id": "kiryat_binyamin",
    "apiStationId": 97,
    "name": "קריית אתא/בנימין",
-   "measuredAt": "2026-11-20T01:00:00+02:00",
+   "measuredAt": "2026-11-20T01:10:00+02:00",
    "metrics": {
     "PM25": {
      "hourly": null,
-     "daily": 10.06,
+     "daily": 10.04,
      "monthly": 13.91,
      "monthlyReal": true
     },
     "PM10": {
      "hourly": 0.0,
-     "daily": 20.26,
+     "daily": 20.1,
      "monthly": 28.43,
      "monthlyReal": true
     },
     "C6H6": {
-     "hourly": 0.77,
+     "hourly": 0.81,
      "daily": 0.62,
      "monthly": 0.77,
      "monthlyReal": true
     },
     "SO2": {
-     "hourly": 3.95,
-     "daily": 2.98,
+     "hourly": 4.05,
+     "daily": 2.99,
      "monthly": 3.3,
      "monthlyReal": true
     },
     "NOX": {
-     "hourly": 21.72,
-     "daily": 13.76,
+     "hourly": 22.13,
+     "daily": 13.77,
      "monthly": 17.18,
      "monthlyReal": true
     },
     "NO2": {
-     "hourly": 19.43,
-     "daily": 11.67,
+     "hourly": 20.2,
+     "daily": 11.68,
      "monthly": 15.0,
      "monthlyReal": true
     },
     "NO": {
-     "hourly": 1.5,
+     "hourly": 1.26,
      "daily": 1.36,
      "monthly": 1.42,
      "monthlyReal": true
     }
    },
    "last5m": {
-    "SO2": 4.6,
+    "SO2": 3.1,
     "PM10": 0.0,
-    "windDir": 127.0,
-    "windSpeed": 1.0,
-    "C6H6": 0.87,
-    "NOX": 20.5,
-    "NO": 0.8,
-    "NO2": 19.2
+    "windDir": 103.0,
+    "windSpeed": 1.3,
+    "C6H6": 0.9
    },
    "last30m": {
     "PM25": null,
     "PM10": 0.0,
     "CO": null,
-    "C6H6": 0.85,
-    "SO2": 3.97,
-    "NOX": 21.67,
-    "NO2": 19.47,
-    "NO": 1.45,
+    "C6H6": 0.87,
+    "SO2": 4.04,
+    "NOX": 21.63,
+    "NO2": 19.88,
+    "NO": 1.15,
     "O3": null,
     "H2S": null,
     "Toluene": null,
-    "windDir": 103.6,
-    "windSpeed": 1.28,
+    "windDir": 103.9,
+    "windSpeed": 1.46,
     "history24h": [
      {
       "t": "2026-11-19T01:00:00+02:00",
       "C6H6": 1.64,
-      "NO": 0.7,
-      "NO2": 16.3,
-      "NOX": 17.3,
-      "PM10": 23.58,
-      "PM25": 13.82,
-      "SO2": 3.46,
-      "windDir": 137.1,
-      "windSpeed": 0.16
+      "PM10": 23.87,
+      "PM25": 14.0,
+      "SO2": 3.63,
+      "windDir": 134.8,
+      "windSpeed": 0.13
      },
      {
       "t": "2026-11-19T01:30:00+02:00",
@@ -2331,14 +2325,14 @@
      },
      {
       "t": "2026-11-20T01:00:00+02:00",
-      "C6H6": 0.87,
-      "NO": 0.8,
-      "NO2": 19.2,
-      "NOX": 20.5,
+      "C6H6": 0.89,
+      "NO": 0.75,
+      "NO2": 18.85,
+      "NOX": 20.05,
       "PM10": 0.0,
-      "SO2": 4.6,
-      "windDir": 127.0,
-      "windSpeed": 1.0
+      "SO2": 4.33,
+      "windDir": 111.3,
+      "windSpeed": 1.43
      }
     ]
    },
@@ -2698,88 +2692,88 @@
    "id": "kiryat_haim_regavim",
    "apiStationId": 499,
    "name": "קריית חיים",
-   "measuredAt": "2026-11-20T01:00:00+02:00",
+   "measuredAt": "2026-11-20T01:10:00+02:00",
    "metrics": {
     "PM25": {
-     "hourly": 13.68,
-     "daily": 15.24,
+     "hourly": 13.26,
+     "daily": 15.25,
      "monthly": 13.43,
      "monthlyReal": true
     },
     "PM10": {
-     "hourly": 32.69,
-     "daily": 34.16,
+     "hourly": 32.18,
+     "daily": 34.22,
      "monthly": 31.98,
      "monthlyReal": true
     },
     "C6H6": {
-     "hourly": 1.01,
+     "hourly": 0.93,
      "daily": 0.92,
      "monthly": 0.76,
      "monthlyReal": true
     },
     "SO2": {
-     "hourly": 2.92,
-     "daily": 2.79,
+     "hourly": 2.89,
+     "daily": 2.8,
      "monthly": 2.88,
      "monthlyReal": true
     },
     "NOX": {
-     "hourly": 33.67,
-     "daily": 28.27,
+     "hourly": 31.73,
+     "daily": 28.3,
      "monthly": 24.61,
      "monthlyReal": true
     },
     "NO2": {
-     "hourly": 31.65,
-     "daily": 25.06,
+     "hourly": 29.79,
+     "daily": 25.09,
      "monthly": 19.71,
      "monthlyReal": true
     },
     "NO": {
-     "hourly": 1.32,
+     "hourly": 1.28,
      "daily": 2.11,
      "monthly": 3.21,
      "monthlyReal": true
     }
    },
    "last5m": {
-    "windDir": 129.0,
-    "windSpeed": 2.0,
-    "C6H6": 0.79,
-    "SO2": 2.3,
-    "PM10": 29.7,
-    "NOX": 25.7,
-    "NO": 1.2,
-    "NO2": 23.8,
-    "PM25": 10.8
+    "windDir": 143.0,
+    "windSpeed": 1.8,
+    "C6H6": 0.76,
+    "SO2": 3.4,
+    "PM10": 30.5,
+    "NOX": 27.2,
+    "NO": 1.1,
+    "NO2": 25.6,
+    "PM25": 12.5
    },
    "last30m": {
-    "PM25": 12.13,
-    "PM10": 31.3,
+    "PM25": 11.39,
+    "PM10": 30.27,
     "CO": null,
-    "C6H6": 0.85,
-    "SO2": 2.9,
-    "NOX": 28.39,
-    "NO2": 26.63,
-    "NO": 1.16,
+    "C6H6": 0.8,
+    "SO2": 2.89,
+    "NOX": 26.66,
+    "NO2": 24.97,
+    "NO": 1.13,
     "O3": null,
     "H2S": null,
     "Toluene": null,
-    "windDir": 133.0,
-    "windSpeed": 0.96,
+    "windDir": 134.4,
+    "windSpeed": 1.5,
     "history24h": [
      {
       "t": "2026-11-19T01:00:00+02:00",
-      "C6H6": 0.96,
-      "NO": 1.2,
-      "NO2": 20.14,
+      "C6H6": 0.97,
+      "NO": 1.17,
+      "NO2": 20.2,
       "NOX": 22.0,
-      "PM10": 21.6,
-      "PM25": 8.98,
-      "SO2": 1.44,
-      "windDir": 130.8,
-      "windSpeed": 1.66
+      "PM10": 21.07,
+      "PM25": 8.63,
+      "SO2": 1.7,
+      "windDir": 135.0,
+      "windSpeed": 1.73
      },
      {
       "t": "2026-11-19T01:30:00+02:00",
@@ -3347,15 +3341,15 @@
      },
      {
       "t": "2026-11-20T01:00:00+02:00",
-      "C6H6": 0.79,
-      "NO": 1.2,
-      "NO2": 23.8,
-      "NOX": 25.7,
-      "PM10": 29.7,
-      "PM25": 10.8,
-      "SO2": 2.3,
-      "windDir": 129.0,
-      "windSpeed": 2.0
+      "C6H6": 0.78,
+      "NO": 1.13,
+      "NO2": 24.4,
+      "NOX": 26.1,
+      "PM10": 29.93,
+      "PM25": 11.53,
+      "SO2": 2.83,
+      "windDir": 137.3,
+      "windSpeed": 1.93
      }
     ]
    },
@@ -3715,71 +3709,70 @@
    "id": "kiryat_yam_z1",
    "apiStationId": 92,
    "name": "קריית ים",
-   "measuredAt": "2026-11-20T01:00:00+02:00",
+   "measuredAt": "2026-11-20T01:10:00+02:00",
    "metrics": {
     "PM25": {
-     "hourly": 14.65,
-     "daily": 13.26,
+     "hourly": 14.05,
+     "daily": 13.3,
      "monthly": 14.8,
      "monthlyReal": true
     },
     "NOX": {
-     "hourly": 35.77,
-     "daily": 33.7,
+     "hourly": 37.94,
+     "daily": 33.78,
      "monthly": 28.86,
      "monthlyReal": true
     },
     "NO2": {
-     "hourly": 33.49,
-     "daily": 29.2,
+     "hourly": 35.59,
+     "daily": 29.28,
      "monthly": 22.61,
      "monthlyReal": true
     },
     "NO": {
-     "hourly": 1.48,
-     "daily": 2.95,
+     "hourly": 1.52,
+     "daily": 2.94,
      "monthly": 4.09,
      "monthlyReal": true
     },
     "O3": {
-     "hourly": 34.78,
+     "hourly": 32.53,
      "daily": 46.21,
      "monthly": 58.89,
      "monthlyReal": true
     }
    },
    "last5m": {
-    "windSpeed": 3.8,
+    "windSpeed": 3.9,
     "windDir": 124.0,
-    "NOX": 40.6,
-    "NO": 1.2,
-    "NO2": 38.9,
-    "O3": 27.7,
-    "PM25": 16.3
+    "NOX": 40.0,
+    "NO": 1.7,
+    "NO2": 37.4,
+    "PM25": 17.8
    },
    "last30m": {
-    "PM25": 12.64,
+    "PM25": 14.1,
     "PM10": null,
     "CO": null,
     "C6H6": null,
     "SO2": null,
-    "NOX": 38.87,
-    "NO2": 36.57,
-    "NO": 1.49,
-    "O3": 30.06,
+    "NOX": 41.84,
+    "NO2": 39.43,
+    "NO": 1.57,
+    "O3": 25.72,
     "H2S": null,
     "Toluene": null,
-    "windDir": 107.5,
-    "windSpeed": 2.87,
+    "windDir": 111.2,
+    "windSpeed": 3.24,
     "history24h": [
      {
       "t": "2026-11-19T01:00:00+02:00",
-      "NO": 2.42,
-      "NO2": 26.22,
-      "NOX": 29.9,
-      "PM25": 11.46,
-      "windDir": 116.4,
-      "windSpeed": 2.94
+      "NO": 2.47,
+      "NO2": 26.47,
+      "NOX": 30.27,
+      "PM25": 11.2,
+      "windDir": 117.7,
+      "windSpeed": 3.13
      },
      {
       "t": "2026-11-19T01:30:00+02:00",
@@ -4253,13 +4246,13 @@
      },
      {
       "t": "2026-11-20T01:00:00+02:00",
-      "NO": 1.2,
-      "NO2": 38.9,
-      "NOX": 40.6,
+      "NO": 1.37,
+      "NO2": 38.5,
+      "NOX": 40.53,
       "O3": 27.7,
-      "PM25": 16.3,
-      "windDir": 124.0,
-      "windSpeed": 3.8
+      "PM25": 16.93,
+      "windDir": 125.0,
+      "windSpeed": 3.9
      }
     ]
    },
@@ -4561,40 +4554,40 @@
    "id": "kishon_mobile5",
    "apiStationId": 517,
    "name": "גדר בז\"ן/קישון",
-   "measuredAt": "2026-11-20T01:05:00+02:00",
+   "measuredAt": "2026-11-20T01:20:00+02:00",
    "metrics": {
     "C6H6": {
-     "hourly": 0.79,
-     "daily": 0.95
+     "hourly": 0.82,
+     "daily": 0.96
     },
     "Toluene": {
-     "hourly": 1.87,
-     "daily": 2.23
+     "hourly": 1.99,
+     "daily": 2.24
     }
    },
    "last5m": {
     "C6H6": 0.89,
-    "Toluene": 1.96
+    "Toluene": 2.26
    },
    "last30m": {
     "PM25": null,
     "PM10": null,
     "CO": null,
-    "C6H6": 0.83,
+    "C6H6": 0.88,
     "SO2": null,
     "NOX": null,
     "NO2": null,
     "NO": null,
     "O3": null,
     "H2S": null,
-    "Toluene": 1.97,
+    "Toluene": 2.1,
     "windDir": null,
     "windSpeed": null,
     "history24h": [
      {
       "t": "2026-11-19T01:00:00+02:00",
-      "C6H6": 0.6,
-      "Toluene": 1.43
+      "C6H6": 0.57,
+      "Toluene": 1.32
      },
      {
       "t": "2026-11-19T01:30:00+02:00",
@@ -4834,7 +4827,7 @@
      {
       "t": "2026-11-20T01:00:00+02:00",
       "C6H6": 0.89,
-      "Toluene": 1.96
+      "Toluene": 2.14
      }
     ]
    },
