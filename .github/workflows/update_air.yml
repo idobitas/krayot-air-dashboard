@@ -26,10 +26,10 @@ jobs:
         run: python scripts/fetch_sviva.py
       - name: Commit and push if changed
         run: |
-          if [ -n "$(git status --porcelain live_krayot.json)" ]; then
+          if [ -n "$(git status --porcelain live_krayot.json data/history_90d.json)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add live_krayot.json
+            git add live_krayot.json data/history_90d.json
             git commit -m "chore: update live_krayot.json"
             git pull --rebase origin main
             git push

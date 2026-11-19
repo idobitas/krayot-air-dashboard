@@ -1,18 +1,29 @@
 #!/usr/bin/env python3
-"""Fetch Krayot / Haifa Bay air-quality data from air.sviva.gov.il into live_krayot.json."""
+"""Fetch Krayot / Haifa Bay air-quality data from air.sviva.gov.il.
+
+Outputs:
+  live_krayot.json        - latest readings, 30-min means, 24h history, 30-day daily series
+  data/history_90d.json   - rolling 90-day hourly archive (appended on every run, no duplicates)
+
+Run with --backfill to force re-pulling the full 90 days from the API.
+"""
 import asyncio
 import json
 import math
 import sys
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import aiohttp
 from air_sviva_api.client import SvivaAirClient
 
-OUT = Path(__file__).resolve().parent.parent / "live_krayot.json"
-REGION_ID = 2  # חיפה וקריות
+ROOT = Path(__file__).resolve().parent.parent
+OUT = ROOT / "live_krayot.json"
+HISTORY = ROOT / "data" / "history_90d.json"
+WINDOW_DAYS = 90
+MIN_HOURS_PER_DAY = 12  # a day needs this many hourly rows to count as a real daily mean
+MIN_HOURS_PER_MONTH = 360  # ~half of 30*24 hours to call a monthly mean "real"
 
 # dashboard station id -> (API station id, Hebrew name)
 STATIONS = {
@@ -31,23 +42,33 @@ CHANNELS = {
     "WD": "windDir", "WS": "windSpeed",
 }
 GAS_KEYS = ("PM25", "PM10", "CO", "C6H6", "SO2", "NOX", "NO2", "NO", "O3", "H2S", "Toluene")
+VALUE_KEYS = (*GAS_KEYS, "windDir", "windSpeed")
 
 MOLAR_MASS = {"SO2": 64.07, "NO2": 46.01, "NO": 30.01, "NOX": 46.01,  # NOx expressed as NO2
               "O3": 48.00, "C6H6": 78.11, "H2S": 34.08, "Toluene": 92.14}
 MOLAR_VOLUME = 24.45  # L/mol at 25 C, 1 atm
+CO_MGM3_PER_PPM = 1.145  # 28.01 g/mol / 24.45 L/mol
 
 
-def to_ugm3(key, value, units):
-    """ppb -> ug/m3 (CO: ppm -> mg/m3). Values already in ug/m3 are untouched."""
+def to_dashboard_units(key, value, units):
+    """Normalise a reading to the dashboard's units.
+
+    Gases: ppb -> ug/m3 (values already in ug/m3 are untouched).
+    CO: always ppm (mg/m3 / 1.145), as the dashboard's fire-signature logic expects.
+    """
     if value is None:
         return None
-    u = (units or "").lower()
+    u = (units or "").lower().replace("³", "3").replace("µ", "u")
+    if key == "CO":
+        if u in ("mg/m3", "mg/m^3"):
+            return value / CO_MGM3_PER_PPM
+        if u == "ppb":
+            return value / 1000
+        if u in ("ug/m3", "ug/m^3"):
+            return value / 1000 / CO_MGM3_PER_PPM
+        return value  # already ppm
     if u == "ppb" and key in MOLAR_MASS:
         return value * MOLAR_MASS[key] / MOLAR_VOLUME
-    if u == "ppm" and key == "CO":
-        return value * 28.01 / MOLAR_VOLUME
-    if u == "ppb" and key == "CO":
-        return value * 28.01 / MOLAR_VOLUME / 1000
     return value
 
 
@@ -74,7 +95,7 @@ def parse_dt(s):
 
 
 def points_of(avg_resp):
-    """-> list of (datetime, {key: value}) with units normalised, valid readings only."""
+    """-> sorted list of (datetime, {key: value}); valid, non-negative readings only."""
     out = []
     for p in avg_resp.data or []:
         if not p.datetime:
@@ -82,8 +103,8 @@ def points_of(avg_resp):
         vals = {}
         for ch in p.channels or []:
             key = CHANNELS.get(ch.name)
-            if key and ch.valid and ch.value is not None:
-                vals[key] = round(to_ugm3(key, ch.value, ch.units), 3)
+            if key and ch.valid and ch.value is not None and ch.value >= 0:
+                vals[key] = round(to_dashboard_units(key, ch.value, ch.units), 3)
         if vals:
             out.append((parse_dt(p.datetime), vals))
     out.sort(key=lambda x: x[0])
@@ -109,53 +130,174 @@ def history_30min(points):
             for b in sorted(buckets)]
 
 
-async def fetch_station(client, dash_id, api_id, name):
-    avg = await client.get_station_average(api_id, hours_back=24, timebase=5)
-    pts = points_of(avg)
-    if not pts:
+# ---------------------------------------------------------------- history archive
+
+def hourly_rows(points):
+    """Complete hourly buckets only (the still-running hour is skipped)."""
+    if not points:
+        return {}
+    latest = points[-1][0]
+    buckets = defaultdict(lambda: defaultdict(list))
+    for t, vals in points:
+        b = t.replace(minute=0, second=0, microsecond=0)
+        for k, v in vals.items():
+            buckets[b][k].append(v)
+    rows = {}
+    for b, vals in buckets.items():
+        if latest < b + timedelta(minutes=55):
+            continue
+        rows[b.isoformat()] = {k: agg(k, v) for k, v in vals.items() if k in VALUE_KEYS}
+    return rows
+
+
+def load_history():
+    if HISTORY.exists():
+        try:
+            return json.loads(HISTORY.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            print("history file unreadable; starting empty", file=sys.stderr)
+    return {"stations": {}}
+
+
+def save_history(doc):
+    """One row per line keeps git diffs append-only and small."""
+    HISTORY.parent.mkdir(parents=True, exist_ok=True)
+    head = [
+        "{",
+        '"updated": ' + json.dumps(doc["updated"]) + ",",
+        '"windowDays": ' + str(WINDOW_DAYS) + ",",
+        '"resolution": "hourly (complete hours only)",',
+        '"units": "ug/m3 (CO ppm), wind m/s & deg",',
+        '"stations": {',
+    ]
+    blocks = []
+    for sid, st in doc["stations"].items():
+        rows = ",\n".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) for r in st["rows"])
+        blocks.append(json.dumps(sid) + ': {"apiStationId": ' + str(st["apiStationId"])
+                      + ', "rows": [\n' + rows + "\n]}")
+    text = "\n".join(head) + "\n" + ",\n".join(blocks) + "\n}\n}\n"
+    HISTORY.write_text(text, encoding="utf-8")
+
+
+def merge_rows(existing, new_rows):
+    """Append without duplicates (by timestamp, fresh value wins); rolling 90-day window."""
+    by_t = {r["t"]: r for r in existing}
+    for t, vals in new_rows.items():
+        by_t[t] = {"t": t, **vals}
+    rows = sorted(by_t.values(), key=lambda r: parse_dt(r["t"]))
+    if rows:
+        cutoff = parse_dt(rows[-1]["t"]) - timedelta(days=WINDOW_DAYS)
+        rows = [r for r in rows if parse_dt(r["t"]) > cutoff]
+    return rows
+
+
+def coverage_days(rows):
+    if len(rows) < 2:
+        return 0
+    return (parse_dt(rows[-1]["t"]) - parse_dt(rows[0]["t"])).days
+
+
+def daily_series(rows, days=30):
+    by_day = defaultdict(lambda: defaultdict(list))
+    n_rows = defaultdict(int)
+    for r in rows:
+        d = r["t"][:10]
+        n_rows[d] += 1
+        for k in VALUE_KEYS:
+            if r.get(k) is not None:
+                by_day[d][k].append(r[k])
+    out = []
+    for d in sorted(by_day)[-days:]:
+        if n_rows[d] < MIN_HOURS_PER_DAY:
+            continue
+        out.append({"d": d, **{k: agg(k, v) for k, v in sorted(by_day[d].items())}})
+    return out
+
+
+def monthly_means(rows, latest_t):
+    since = latest_t - timedelta(days=30)
+    acc = defaultdict(list)
+    for r in rows:
+        if parse_dt(r["t"]) > since:
+            for k in GAS_KEYS:
+                if r.get(k) is not None:
+                    acc[k].append(r[k])
+    return {k: mean(v) for k, v in acc.items() if len(v) >= MIN_HOURS_PER_MONTH}
+
+
+# ---------------------------------------------------------------- fetch
+
+async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
+    if backfill:
+        avg = await client.get_station_average(
+            api_id, from_date=date.today() - timedelta(days=WINDOW_DAYS), to_date=date.today())
+    else:
+        avg = await client.get_station_average(api_id, hours_back=24, timebase=5)
+    all_pts = points_of(avg)
+    if not all_pts:
         raise RuntimeError("no valid data points")
-    latest_t = pts[-1][0]
-    pts = [p for p in pts if p[0] > latest_t - timedelta(hours=24)]
-    last5 = {k: v for k, v in pts[-1][1].items()}
+    latest_t = all_pts[-1][0]
+    pts = [p for p in all_pts if p[0] > latest_t - timedelta(hours=24)]
+
+    rows = merge_rows(hist_rows, hourly_rows(all_pts))
+
+    last5 = dict(pts[-1][1])
     last30 = window_mean(pts, latest_t - timedelta(minutes=30))
     hourly = window_mean(pts, latest_t - timedelta(hours=1))
     daily = window_mean(pts, latest_t - timedelta(hours=24))
-    metrics = {k: {"hourly": hourly.get(k), "daily": daily.get(k)}
-               for k in GAS_KEYS if k in daily}
-    return latest_t, {
+    monthly = monthly_means(rows, latest_t)
+    metrics = {}
+    for k in GAS_KEYS:
+        if k in daily or k in monthly:
+            m = {"hourly": hourly.get(k), "daily": daily.get(k)}
+            if k in monthly:
+                m["monthly"] = monthly[k]
+                m["monthlyReal"] = True
+            metrics[k] = m
+    return rows, {
         "id": dash_id,
         "apiStationId": api_id,
         "name": name,
         "measuredAt": latest_t.isoformat(),
         "metrics": metrics,
         "last5m": last5,
-        "last30m": {**{k: last30.get(k) for k in (*GAS_KEYS, "windDir", "windSpeed")},
-                    "history24h": history_30min(pts)},
+        "last30m": {**{k: last30.get(k) for k in VALUE_KEYS}, "history24h": history_30min(pts)},
+        "daily30d": daily_series(rows),
+        "historyDays": coverage_days(rows),
     }
 
 
-async def main():
+async def main(force_backfill=False):
+    history = load_history()
+    hist_stations = history.setdefault("stations", {})
     stations, times = [], []
     async with aiohttp.ClientSession() as session:
         client = SvivaAirClient(session)
         await client.generate_token()
         for dash_id, (api_id, name) in STATIONS.items():
+            existing = hist_stations.get(dash_id, {}).get("rows", [])
+            need_backfill = force_backfill or coverage_days(existing) < WINDOW_DAYS - 5
             try:
-                t, st = await fetch_station(client, dash_id, api_id, name)
+                rows, st = await fetch_station(client, dash_id, api_id, name, existing, need_backfill)
+                hist_stations[dash_id] = {"apiStationId": api_id, "rows": rows}
                 stations.append(st)
-                times.append(t)
-                print(f"OK   {name} ({api_id}) @ {t.isoformat()}")
+                times.append(parse_dt(st["measuredAt"]))
+                tag = " [backfill]" if need_backfill else ""
+                print(f"OK   {name} ({api_id}) @ {st['measuredAt']} history={st['historyDays']}d{tag}")
             except Exception as exc:  # keep going; one station must not kill the run
                 print(f"FAIL {name} ({api_id}): {exc!r}", file=sys.stderr)
     if not stations:
-        print("No station data fetched; leaving live_krayot.json untouched.", file=sys.stderr)
+        print("No station data fetched; leaving output files untouched.", file=sys.stderr)
         return 1
-    doc = {"timestamp": max(times).isoformat(), "source": "air.sviva.gov.il", "units": "ug/m3 (CO mg/m3), wind m/s & deg",
+    ts = max(times).isoformat()
+    history["updated"] = max(r["t"] for s in hist_stations.values() for r in s["rows"][-1:])
+    save_history(history)
+    doc = {"timestamp": ts, "source": "air.sviva.gov.il", "units": "ug/m3 (CO ppm), wind m/s & deg",
            "stations": stations}
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    print(f"Wrote {OUT} ({len(stations)} stations)")
+    print(f"Wrote {OUT.name} and {HISTORY.relative_to(ROOT)} ({len(stations)} stations)")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    sys.exit(asyncio.run(main(force_backfill="--backfill" in sys.argv)))

@@ -3252,6 +3252,9 @@ PPB_TO_UGM3 = {
               העלה קובץ JSON / CSV
               <input id="historyFileInput" type="file" accept=".json,.csv,.txt" class="hidden">
             </label>
+            <button id="btnLoadRealHistory" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-500/40 transition">
+              טען היסטוריה אמיתית (30 יום, התחנה הנבחרת)
+            </button>
             <button id="btnLoadHistorySample" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 border border-orange-500/40 transition">
               טען דוגמה היסטורית (14 רשומות)
             </button>
@@ -4827,7 +4830,7 @@ PPB_TO_UGM3 = {
               <div class="space-y-2 pt-1">
                 ${renderTimeRow('hourly', 'שעתי', m.hourly, hLimit, hPct, std.hLabel, std.hTarget)}
                 ${renderTimeRow('daily', 'יומי (24ש\')', m.daily, dLimit, dPct, std.dLabel, std.dTarget)}
-                ${renderTimeRow('monthly', 'חודשי', m.monthly, mLimit, mPct, std.mLabel, std.mTarget)}
+                ${renderTimeRow('monthly', 'חודשי', m.monthly, mLimit, mPct, std.mLabel + (m.monthlyReal ? ' • ממוצע אמיתי 30 יום' : ' • בסיס היסטורי'), std.mTarget)}
               </div>
             </div>
 
@@ -4887,10 +4890,16 @@ PPB_TO_UGM3 = {
           rawSeries = slots.map(s => base.hourly * byHour[(s.hour24 + offset) % 24]);
           rawThreshold = APP_STATE.benchmarkMode === 'target' ? std.hTarget : std.hEnv;
         } else if (hor === 'daily') {
-          labels = Array.from({length: 15}, (_, i) => `יום ${i * 2 + 1}`);
-          const baseDaily = [0.58,0.68,0.78,1.05,0.86,0.54,0.49,0.72,0.96,0.81,0.64,0.58,0.92,0.74,0.62];
-          const stFactors = shift(baseDaily, stIdx);
-          rawSeries = stFactors.map(f => base.daily * f);
+          const realDays = (st.daily30d || []).filter(x => x[pol] != null);
+          if (realDays.length >= 5) {
+            labels = realDays.map(x => x.d.slice(8, 10) + '/' + x.d.slice(5, 7));
+            rawSeries = realDays.map(x => x[pol]);
+          } else {
+            labels = Array.from({length: 15}, (_, i) => `יום ${i * 2 + 1} (בסיס היסטורי)`);
+            const baseDaily = [0.58,0.68,0.78,1.05,0.86,0.54,0.49,0.72,0.96,0.81,0.64,0.58,0.92,0.74,0.62];
+            const stFactors = shift(baseDaily, stIdx);
+            rawSeries = stFactors.map(f => base.daily * f);
+          }
           rawThreshold = APP_STATE.benchmarkMode === 'target' ? std.dTarget : std.dEnv;
         } else {
           labels = ['ינו','פבר','מרץ','אפר','מאי','יוני','יול','אוג','ספט','אוק','נוב','דצמ'];
@@ -5809,16 +5818,24 @@ PPB_TO_UGM3 = {
       renderCalculatorSliders();
       initApiTab();
 
+      async function fetchJson(url) {
+        const res = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+        return res.json();
+      }
+
       async function loadLiveData() {
         try {
-          const res = await fetch(`./live_krayot.json?t=${Date.now()}`, { cache: 'no-store' });
-          if (!res.ok) return;
-          const data = await res.json();
+          const data = await fetchJson('./live_krayot.json');
           if (!data || !Array.isArray(data.stations)) return;
           data.stations.forEach(live => {
             const st = STATIONS_DATA.find(s => s.id === live.id);
             if (!st) return;
             st.live = live;
+            const { history24h, ...last30 } = live.last30m || {};
+            st.last30m = Object.assign(st.last30m || {}, Object.fromEntries(Object.entries(last30).filter(([, x]) => x != null)));
+            st.history24h = history24h || [];
+            st.daily30d = live.daily30d || [];
             Object.entries(live.metrics || {}).forEach(([k, v]) => {
               st.metrics[k] = Object.assign(st.metrics[k] || {}, Object.fromEntries(Object.entries(v).filter(([, x]) => x != null)));
             });
@@ -5826,11 +5843,44 @@ PPB_TO_UGM3 = {
           if (data.timestamp) {
             updateLastUpdatedTimestamp(new Date(data.timestamp).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }));
           }
-          renderMatrix();
         } catch (e) {
           console.warn('live_krayot.json not loaded', e);
         }
+        try {
+          const hist = await fetchJson('./data/history_90d.json');
+          window.HISTORY_90D = (hist && hist.stations) || {};
+        } catch (e) {
+          console.warn('history_90d.json not loaded', e);
+        }
+        renderMatrix();
+        try { updateCharts(); } catch (e) {}
       }
+
+      function historyRowsForScanner(stationId, days) {
+        const rows = ((window.HISTORY_90D || {})[stationId] || {}).rows || [];
+        const cutoff = rows.length ? new Date(rows[rows.length - 1].t).getTime() - days * 86400000 : 0;
+        return rows.filter(r => new Date(r.t).getTime() > cutoff).map(r => {
+          const o = { datetime: r.t.slice(0, 16).replace('T', ' ') };
+          [['PM25', 'PM25'], ['PM10', 'PM10'], ['CO', 'CO'], ['C6H6', 'C6H6'], ['windDir', 'WD'], ['windSpeed', 'WS']]
+            .forEach(([from, to]) => { if (r[from] != null) o[to] = r[from]; });
+          return o;
+        });
+      }
+      window.historyRowsForScanner = historyRowsForScanner;
+
+      document.getElementById('btnLoadRealHistory')?.addEventListener('click', () => {
+        const ta = document.getElementById('historyJsonTextarea');
+        const st = STATIONS_DATA.find(x => x.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
+        const rows = historyRowsForScanner(st.id, 30);
+        const status = document.getElementById('historyScanStatus');
+        if (!rows.length) {
+          if (status) { status.textContent = `אין היסטוריה אמיתית לתחנה ${st.shortName} (נטענות רק 6 תחנות הקריות)`; status.className = 'text-xs font-bold text-rose-400'; }
+          return;
+        }
+        ta.value = JSON.stringify(rows);
+        document.getElementById('btnScanHistory')?.click();
+      });
+
       loadLiveData();
       setInterval(loadLiveData, 10 * 60 * 1000);
 
