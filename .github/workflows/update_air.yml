@@ -2,7 +2,8 @@ name: Update air data
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    # Every 15 min, offset from :00 (GitHub drops/delays many schedules at the top of the hour).
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
 
 permissions:
