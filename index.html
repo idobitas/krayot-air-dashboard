@@ -4276,11 +4276,13 @@ PPB_TO_UGM3 = {
         clear: ['🟢', 'אין חריגה מיוחדת בקריות', 'לא זוהו סימני שריפה, אובך או אינוורסיה.', 'bg-emerald-950/40 border-emerald-600/50 text-emerald-100']
       }[v.kind];
       const extra = (v.kind === 'fire' || v.kind === 'smoke') && v.regional ? '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-800 border border-slate-600 text-slate-200">🌁 גם אוויר עומד באזור</span>' : '';
+      const invHelp = 'אינוורסיה: בלילות שקטים שכבת אוויר חם נמצאת מעל אוויר קר ליד הקרקע וסוגרת עליו כמו מכסה, כך שהזיהום לא מתפזר ומצטבר בכל האזור. זה לא אומר שיש שריפה.';
+      const help = v.regional ? `<span class="basis-full text-[11px] sm:text-xs opacity-75">ℹ️ ${invHelp}</span>` : '';
       el.className = 'rounded-2xl border px-4 py-3 shadow-md flex flex-wrap items-center gap-x-3 gap-y-1 ' + V[3];
       el.innerHTML = `<span class="text-2xl leading-none">${V[0]}</span>
-        <span class="text-base sm:text-lg font-extrabold">${V[1]}</span>
+        <span class="text-base sm:text-lg font-extrabold"${v.regional ? ` title="${invHelp}"` : ''}>${V[1]}</span>
         <span class="text-xs sm:text-sm opacity-90">${V[2]}</span>${extra}
-        <span class="text-[11px] opacity-70 mono ms-auto">נכון ל-${at}</span>`;
+        <span class="text-[11px] opacity-70 mono ms-auto">נכון ל-${at}</span>${help}`;
     }
 
     function detectPirateFireSignatureLegacy(st, allStations = null, opts = {}) {

@@ -17,6 +17,17 @@
   };
   var IDS = Object.keys(STATIONS);
   var W = { lvl: 10, anom: 14, rise: 12, ratio: 16, nox: 10, bz: 10, east: 8, lx: 20 };
+  var SINGLE_HOUR_WATCH = 65; // one hour alone >= this -> immediate watch (fire still needs 2h)
+  // hard bounds (µg/m³) for the P90 / P99 normalisation scales, and the minimum P99-P90 span
+  var BOUNDS = {
+    anom: { p90: [8, 16], p99: [20, 35], span: 8 },
+    lx: { p90: [3, 10], p99: [10, 25], span: 5 }
+  };
+  function clampScale(p90, p99, b) {
+    var lo = Math.max(b.p90[0], Math.min(b.p90[1], p90 === null ? b.p90[0] : p90));
+    var hi = Math.max(b.p99[0], Math.min(b.p99[1], p99 === null ? b.p99[1] : p99));
+    return [lo, Math.max(hi, lo + b.span)];
+  }
 
   var hourFmt = null;
   function localHour(ms) {
@@ -109,8 +120,11 @@
     IDS.forEach(function (id) {
       var ch = S[id];
       ch.LX = ch.A.map(function (v, i) { return v === null || netmed[i] === null ? null : v - netmed[i]; });
-      ch.lx90 = quantile(ch.LX, 0.90); ch.lx99 = quantile(ch.LX, 0.99);
-      ch.a90 = quantile(ch.A, 0.90); ch.a99 = quantile(ch.A, 0.99);
+      // P90/P99 scales clamped to physical bounds (µg/m³) so a fire-heavy month can't blind the
+      // detector and a very clean month can't amplify noise. Current 90-day values sit inside these.
+      var a = clampScale(quantile(ch.A, 0.90), quantile(ch.A, 0.99), BOUNDS.anom);
+      var l = clampScale(quantile(ch.LX, 0.90), quantile(ch.LX, 0.99), BOUNDS.lx);
+      ch.a90 = a[0]; ch.a99 = a[1]; ch.lx90 = l[0]; ch.lx99 = l[1];
     });
 
     // 4. raw hourly score
@@ -151,13 +165,16 @@
       }
     });
 
-    // 5. persistence (two consecutive hours) + Yam cap
+    // 5. persistence (two consecutive hours) + single-hour watch + Yam cap
     IDS.forEach(function (id) {
       var ch = S[id];
       ch.S = ch.T.map(function (v, i) {
+        if (v === null) return null; // a missing hour never inherits the previous score
         var p = i > 0 ? ch.T[i - 1] : null;
-        if (v === null) return p;
-        return p === null ? v : Math.min(v, p);
+        var s = p === null ? v : Math.min(v, p);
+        // blind-hour fix: a strong single hour raises watch now, but stays below HIGH until it persists
+        if (v >= SINGLE_HOUR_WATCH && s < v) s = Math.max(s, Math.min(v, HIGH - 1));
+        return s;
       });
     });
     var yam = S.kiryat_yam_z1, mot = S.kiryat_motzkin_z2;
