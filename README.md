@@ -7,7 +7,7 @@
 ## איך זה עובד
 
 ```
-GitHub Action (כל 10 דקות)
+GitHub Action (כל 15 דקות, בדקות 7/22/37/52)
   └─ scripts/fetch_sviva.py   (py-air-sviva-api)
        ├─ live_krayot.json        נתונים עדכניים: last5m / last30m / history24h / daily30d / metrics
        └─ data/history_90d.json   ארכיון שעתי מתגלגל של 90 יום
@@ -20,8 +20,9 @@ index.html  (GitHub Pages)  טוען את שני הקבצים בעליית הד�
 | קובץ | תפקיד |
 |---|---|
 | `index.html` | הדאשבורד. ממזג את `live_krayot.json` לתחנות הקיימות לפי `id`; טוען את ההיסטוריה לגרף 30 הימים ולסורק ההיסטוריה |
+| `js/fire_v2b.js` | גלאי שריפות/עשן v2b לקריות (ציון 0–100, high ≥ 70, watch ≥ 55, אינוורסיה אזורית בנפרד). ניתוח: [`docs/fire-detector-analysis.md`](docs/fire-detector-analysis.md) |
 | `scripts/fetch_sviva.py` | משיכה, המרת יחידות, צבירת היסטוריה. `--backfill` מושך מחדש 90 יום מלאים |
-| `.github/workflows/update_air.yml` | cron כל 10 דקות + `workflow_dispatch`; מבצע `git add live_krayot.json data/history_90d.json` |
+| `.github/workflows/update_air.yml` | cron כל 15 דקות (לא בשעה עגולה) + `workflow_dispatch`; מבצע `git add live_krayot.json data/history_90d.json` |
 | `live_krayot.json` | פלט חי (נכתב מחדש בכל ריצה) |
 | `data/history_90d.json` | ארכיון היסטוריה (ראו להלן) |
 
@@ -62,3 +63,7 @@ python -m http.server 8000               # ואז http://localhost:8000
 ```
 
 דורש Python 3.11+.
+
+## גלאי השריפות (v2b)
+
+במסך הראשי מוצגת שורה תחתונה פשוטה לציבור: 🔥 חשד לשריפה, 🌫️ ייתכן עשן, 🏜️ אובך, 🌁 אינוורסיה (אוויר עומד) או 🟢 אין חריגה. הציון מחושב בדפדפן מתוך הארכיון השעתי של 5 תחנות ה-PM. כפתור "סרוק 30 יום אמיתיים" בלשונית החיבור מציג את האירועים של התחנה הנבחרת. פירוט: [`docs/fire-detector-analysis.md`](docs/fire-detector-analysis.md).
