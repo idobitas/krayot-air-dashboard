@@ -28,7 +28,9 @@ IL_TZ = ZoneInfo("Asia/Jerusalem")
 
 
 def today_il():
-    """Calendar date in Israel (the runner's clock is UTC: between 00:00 and 02/03:00 IL its date is yesterday)."""
+    """Calendar date in Israel. py-air-sviva-api turns hours_back / missing dates into the
+    runner's date.today() (UTC), so between 00:00 and 02:00/03:00 Israel time it asked only for
+    the previous day and the data froze at 23:55. Always pass explicit Israel dates."""
     return datetime.now(IL_TZ).date()
 WINDOW_DAYS = 90
 MIN_HOURS_PER_DAY = 12  # a day needs this many hourly rows to count as a real daily mean
@@ -312,9 +314,10 @@ def monthly_means(rows, latest_t):
 async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
     if backfill:
         avg = await client.get_station_average(
-            api_id, from_date=today_il() - timedelta(days=WINDOW_DAYS), to_date=today_il() + timedelta(days=1))
+            api_id, from_date=today_il() - timedelta(days=WINDOW_DAYS), to_date=today_il())
     else:
-        avg = await client.get_station_average(api_id, hours_back=24, timebase=5)
+        avg = await client.get_station_average(
+            api_id, from_date=today_il() - timedelta(days=1), to_date=today_il(), timebase=5)
     all_pts = points_of(avg)
     if not all_pts:
         raise RuntimeError("no valid data points")
@@ -352,9 +355,10 @@ async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
 async def fetch_reference(client, api_id, hist_rows, backfill):
     if backfill:
         avg = await client.get_station_average(
-            api_id, from_date=today_il() - timedelta(days=WINDOW_DAYS), to_date=today_il() + timedelta(days=1))
+            api_id, from_date=today_il() - timedelta(days=WINDOW_DAYS), to_date=today_il())
     else:
-        avg = await client.get_station_average(api_id, hours_back=24, timebase=5)
+        avg = await client.get_station_average(
+            api_id, from_date=today_il() - timedelta(days=1), to_date=today_il(), timebase=5)
     new = {t: {k: v[k] for k in REF_KEYS if v.get(k) is not None}
            for t, v in hourly_rows(points_of(avg)).items()}
     return merge_rows(hist_rows, {t: v for t, v in new.items() if v})
