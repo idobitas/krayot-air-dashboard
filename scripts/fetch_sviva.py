@@ -35,6 +35,21 @@ STATIONS = {
     "kishon_mobile5": (517, 'גדר בז"ן/קישון'),
 }
 
+# Reference stations outside the Krayot line (history only, PM2.5 only; not shown in live_krayot.json).
+# Used by js/fire_v2b.js as a regional baseline. Chosen in docs/fire-detector-analysis.md.
+REF_STATIONS = {
+    "ref_neve_shaanan": (86, "נווה שאנן (ייחוס)"),
+    "ref_tivon": (137, "קריית טבעון (ייחוס)"),
+    "ref_nesher": (87, "נשר (ייחוס)"),
+}
+REF_KEYS = ("PM25",)
+
+# Open-Meteo model wind at Krayot stations whose anemometers stall at 0 (stuck-sensor check in fire_v2b.js).
+OPEN_METEO = {
+    "om_kiryat_bialik_z4": (380, 32.814143, 35.077715),
+    "om_kiryat_haim_regavim": (499, 32.829129, 35.056529),
+}
+
 # API channel name -> dashboard key
 CHANNELS = {
     "PM2.5": "PM25", "PM10": "PM10", "CO": "CO", "Benzene": "C6H6", "SO2": "SO2",
@@ -173,7 +188,7 @@ def save_history(doc):
     blocks = []
     for sid, st in doc["stations"].items():
         rows = ",\n".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) for r in st["rows"])
-        blocks.append(json.dumps(sid) + ': {"apiStationId": ' + str(st["apiStationId"])
+        blocks.append(json.dumps(sid) + ': {"apiStationId": ' + json.dumps(st["apiStationId"])
                       + ', "rows": [\n' + rows + "\n]}")
     text = "\n".join(head) + "\n" + ",\n".join(blocks) + "\n}\n}\n"
     HISTORY.write_text(text, encoding="utf-8")
@@ -267,6 +282,44 @@ async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
     }
 
 
+async def fetch_reference(client, api_id, hist_rows, backfill):
+    if backfill:
+        avg = await client.get_station_average(
+            api_id, from_date=date.today() - timedelta(days=WINDOW_DAYS), to_date=date.today())
+    else:
+        avg = await client.get_station_average(api_id, hours_back=24, timebase=5)
+    new = {t: {k: v[k] for k in REF_KEYS if v.get(k) is not None}
+           for t, v in hourly_rows(points_of(avg)).items()}
+    return merge_rows(hist_rows, {t: v for t, v in new.items() if v})
+
+
+async def fetch_open_meteo(session, lat, lon, hist_rows, backfill):
+    """Hourly 10 m wind, aligned to the archive's hour buckets (+02:00, value = mean of t and t+1h)."""
+    common = (f"latitude={lat}&longitude={lon}&hourly=wind_speed_10m,wind_direction_10m"
+              "&wind_speed_unit=ms&timezone=UTC")
+    if backfill:
+        url = ("https://historical-forecast-api.open-meteo.com/v1/forecast?" + common
+               + f"&start_date={date.today() - timedelta(days=WINDOW_DAYS)}&end_date={date.today()}")
+    else:
+        url = "https://api.open-meteo.com/v1/forecast?" + common + "&past_days=2&forecast_days=1"
+    async with session.get(url, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+        resp.raise_for_status()
+        h = (await resp.json())["hourly"]
+    tz = datetime.fromisoformat("2000-01-01T00:00:00+02:00").tzinfo
+    now = datetime.now(tz)
+    times = [datetime.fromisoformat(t + "+00:00").astimezone(tz) for t in h["time"]]
+    new = {}
+    for i in range(len(times) - 1):
+        if times[i] + timedelta(hours=1) > now:
+            break
+        ws = [h["wind_speed_10m"][i], h["wind_speed_10m"][i + 1]]
+        wd = [h["wind_direction_10m"][i], h["wind_direction_10m"][i + 1]]
+        if None in ws or None in wd:
+            continue
+        new[times[i].isoformat()] = {"windSpeed": mean(ws), "windDir": circ_mean(wd)}
+    return merge_rows(hist_rows, new)
+
+
 async def main(force_backfill=False):
     history = load_history()
     hist_stations = history.setdefault("stations", {})
@@ -286,11 +339,30 @@ async def main(force_backfill=False):
                 print(f"OK   {name} ({api_id}) @ {st['measuredAt']} history={st['historyDays']}d{tag}")
             except Exception as exc:  # keep going; one station must not kill the run
                 print(f"FAIL {name} ({api_id}): {exc!r}", file=sys.stderr)
+        # auxiliary series for the fire detector; failures never affect the Krayot output
+        for ref_id, (api_id, name) in REF_STATIONS.items():
+            existing = hist_stations.get(ref_id, {}).get("rows", [])
+            need_backfill = force_backfill or coverage_days(existing) < WINDOW_DAYS - 5
+            try:
+                rows = await fetch_reference(client, api_id, existing, need_backfill)
+                hist_stations[ref_id] = {"apiStationId": api_id, "rows": rows}
+                print(f"OK   {name} ({api_id}) rows={len(rows)}{' [backfill]' if need_backfill else ''}")
+            except Exception as exc:
+                print(f"FAIL {name} ({api_id}): {exc!r}", file=sys.stderr)
+        for om_id, (api_id, lat, lon) in OPEN_METEO.items():
+            existing = hist_stations.get(om_id, {}).get("rows", [])
+            need_backfill = force_backfill or coverage_days(existing) < WINDOW_DAYS - 5
+            try:
+                rows = await fetch_open_meteo(session, lat, lon, existing, need_backfill)
+                hist_stations[om_id] = {"apiStationId": f"open-meteo@{api_id}", "rows": rows}
+                print(f"OK   Open-Meteo wind @ {api_id} rows={len(rows)}{' [backfill]' if need_backfill else ''}")
+            except Exception as exc:
+                print(f"FAIL Open-Meteo @ {api_id}: {exc!r}", file=sys.stderr)
     if not stations:
         print("No station data fetched; leaving output files untouched.", file=sys.stderr)
         return 1
     ts = max(times).isoformat()
-    history["updated"] = max(r["t"] for s in hist_stations.values() for r in s["rows"][-1:])
+    history["updated"] = max(r["t"] for k, s in hist_stations.items() if k in STATIONS for r in s["rows"][-1:])
     save_history(history)
     doc = {"timestamp": ts, "source": "air.sviva.gov.il", "units": "ug/m3 (CO ppm), wind m/s & deg",
            "stations": stations}

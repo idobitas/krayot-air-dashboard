@@ -17,6 +17,10 @@
   };
   var IDS = Object.keys(STATIONS);
   var W = { lvl: 10, anom: 14, rise: 12, ratio: 16, nox: 10, bz: 10, east: 8, lx: 20 };
+  // reference stations (history ids written by scripts/fetch_sviva.py) and Open-Meteo wind series
+  var REF_IDS = ['ref_neve_shaanan', 'ref_tivon', 'ref_nesher'], REF_REGIONAL = 5;
+  var OM = { kiryat_bialik_z4: 'om_kiryat_bialik_z4', kiryat_haim_regavim: 'om_kiryat_haim_regavim' };
+  var STUCK_OM_WS = 2.5, WIND_BACKUP = 'kiryat_binyamin';
   var SINGLE_HOUR_WATCH = 65; // one hour alone >= this -> immediate watch (fire still needs 2h)
   // hard bounds (µg/m³) for the P90 / P99 normalisation scales, and the minimum P99-P90 span
   var BOUNDS = {
@@ -75,6 +79,15 @@
     var N = axis.length, pos = {};
     axis.forEach(function (t, i) { pos[t] = i; });
     var hours = axis.map(localHour);
+    function aligned(hid, key) { // one channel of an auxiliary history series on the Krayot axis
+      var a = [];
+      for (var i = 0; i < N; i++) a.push(null);
+      ((histStations[hid] || {}).rows || []).forEach(function (r) {
+        var i = pos[Date.parse(r.t)];
+        if (i !== undefined) a[i] = num(r[key]);
+      });
+      return a;
+    }
 
     // 2. aligned, cleaned channels
     var S = {};
@@ -90,15 +103,30 @@
         ch.NOX[i] = num(r.NOX); ch.C6H6[i] = num(r.C6H6);
         ch.WD[i] = num(r.windDir); ch.WS[i] = num(r.windSpeed);
       });
-      // stalled anemometer: windSpeed == 0 inside a run of >= 3 identical values -> missing
+      // windSpeed == 0 for >= 3 h: with Open-Meteo >= 2.5 m/s it is a stuck sensor (direction taken
+      // from 97, else Open-Meteo); below that it is real calm (speed 0, direction undefined).
+      // Without Open-Meteo data both are unknown (previous behaviour).
+      var omWS = OM[id] ? aligned(OM[id], 'windSpeed') : null;
+      ch.omWD = OM[id] ? aligned(OM[id], 'windDir') : null;
+      ch.stuck = [];
       var i0 = 0;
       while (i0 < N) {
         var j = i0;
         while (j + 1 < N && ch.WS[j + 1] !== null && ch.WS[j + 1] === ch.WS[i0]) j++;
-        if (ch.WS[i0] === 0 && j - i0 + 1 >= 3) for (var k = i0; k <= j; k++) { ch.WS[k] = null; ch.WD[k] = null; }
+        if (ch.WS[i0] === 0 && j - i0 + 1 >= 3) for (var k = i0; k <= j; k++) {
+          ch.WD[k] = null;
+          if (omWS && omWS[k] !== null && omWS[k] >= STUCK_OM_WS) { ch.WS[k] = null; ch.stuck.push(k); }
+          else if (!(omWS && omWS[k] !== null)) ch.WS[k] = null;
+        }
         i0 = j + 1;
       }
       S[id] = ch;
+    });
+    IDS.forEach(function (id) {
+      var ch = S[id], backup = S[WIND_BACKUP];
+      ch.stuck.forEach(function (k) {
+        ch.WD[k] = backup.WD[k] !== null ? backup.WD[k] : (ch.omWD ? ch.omWD[k] : null);
+      });
     });
 
     // 3. per-station baselines and anomalies
@@ -117,9 +145,29 @@
       if (from) S[id].ra = axis.map(function (_, i) { return mean(from.map(function (n) { return S[n].ra[i]; })); });
     });
     var netmed = axis.map(function (_, i) { return median(IDS.map(function (id) { return S[id].A[i]; })); });
+    // reference stations outside the Krayot line (PM2.5 hour-of-day anomaly); refmed needs >= 2 of 3
+    var refA = REF_IDS.map(function (rid) {
+      var pm = aligned(rid, 'PM25').map(function (v) { return v !== null && v > 0 ? v : null; }), byHour = [];
+      for (var h = 0; h < 24; h++) byHour.push([]);
+      for (var i = 0; i < N; i++) if (pm[i] !== null) byHour[hours[i]].push(pm[i]);
+      var hm = byHour.map(median);
+      return pm.map(function (v, i) { return v === null || hm[hours[i]] === null ? null : v - hm[hours[i]]; });
+    });
+    var refmed = axis.map(function (_, i) {
+      var v = refA.map(function (a) { return a[i]; }).filter(function (x) { return x !== null; });
+      return v.length >= 2 ? median(v) : null;
+    });
     IDS.forEach(function (id) {
       var ch = S[id];
-      ch.LX = ch.A.map(function (v, i) { return v === null || netmed[i] === null ? null : v - netmed[i]; });
+      // local excess vs. the median of the OTHER Krayot stations (never the station itself), so a fire
+      // doesn't dilute its own excess. References are not mixed in here: during inversions they rise
+      // less than the Krayot and would inflate LX (backtest, variant A); they only gate "regional".
+      var others = IDS.filter(function (o) { return o !== id; });
+      ch.LX = ch.A.map(function (v, i) {
+        if (v === null) return null;
+        var base = median(others.map(function (o) { return S[o].A[i]; }));
+        return base === null ? null : v - base;
+      });
       // P90/P99 scales clamped to physical bounds (µg/m³) so a fire-heavy month can't blind the
       // detector and a very clean month can't amplify noise. Current 90-day values sit inside these.
       var a = clampScale(quantile(ch.A, 0.90), quantile(ch.A, 0.99), BOUNDS.anom);
@@ -189,7 +237,10 @@
       var hi = st.filter(function (x) { return x.level === 'high'; });
       var wa = st.filter(function (x) { return x.level === 'watch'; });
       var dustSt = IDS.filter(function (id) { return S[id].flags[i].dustEvent; });
-      var regional = netmed[i] !== null && netmed[i] >= REGIONAL;
+      // inversion only when the references rise too (Krayot >= 8 and references >= 5); without
+      // reference data for that hour, the Krayot-only rule applies
+      var regional = netmed[i] !== null && netmed[i] >= REGIONAL &&
+        (refmed[i] === null || refmed[i] >= REF_REGIONAL);
       var kind = hi.length ? 'fire' : (wa.length ? 'smoke' : (dustSt.length >= 2 ? 'dust' : (regional ? 'regional' : 'clear')));
       return { t: t, kind: kind, regional: regional, netmed: netmed[i], stations: st, dustStations: dustSt };
     });
@@ -199,7 +250,7 @@
     while (li > 0 && IDS.filter(function (id) { return S[id].PM25[li] !== null; }).length < 3) li--;
 
     return {
-      axis: axis, hours: hours, S: S, netmed: netmed, verdicts: verdicts, latestIndex: li, latest: verdicts[li],
+      axis: axis, hours: hours, S: S, netmed: netmed, refmed: refmed, verdicts: verdicts, latestIndex: li, latest: verdicts[li],
       level: level, stationScore: function (id, i) { return S[id] ? S[id].S[i === undefined ? li : i] : null; }
     };
   }
