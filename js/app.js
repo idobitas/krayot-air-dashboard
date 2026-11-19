@@ -1185,7 +1185,7 @@
       if (!R || !R.S[st.id] || !window.FireV2B) return { peakHours: [], peakDays: [], peakMonths: [] };
       const eps = FireV2B.episodes(R, st.id);
       const lastT = R.axis[R.axis.length - 1];
-      const fmt = e => (e.peak >= FireV2B.HIGH ? '🔥 ' : '🌫️ ') + v2bHourLabel(R.axis[e.start]) + ' (' + (e.end - e.start + 2) + ' שעות • ציון ' + Math.round(e.peak) + ')';
+      const fmt = e => (e.peak >= FireV2B.HIGH ? '🔥 ' : '🌫️ ') + v2bHourLabel(R.axis[e.start]) + ' (' + v2bEpisodeHours(R, st.id, e) + ' שעות • ציון ' + Math.round(e.peak) + ')';
       const peakHours = eps.filter(e => lastT - R.axis[e.end] <= 86400000).map(fmt);
       const peakDays = eps.filter(e => lastT - R.axis[e.end] <= 30 * 86400000).slice(-12).reverse().map(fmt);
       const byMonth = {};
@@ -1219,7 +1219,8 @@
 
       const badgeStyle = sig.level === 'high'
         ? 'bg-orange-500/20 text-orange-200 border-orange-500/60'
-        : (sig.level === 'watch' ? 'bg-amber-500/20 text-amber-200 border-amber-500/60' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40');
+        : (sig.level === 'watch' ? 'bg-amber-500/20 text-amber-200 border-amber-500/60'
+          : ((sig.isMineralDust || sig.level === 'dust') ? 'bg-yellow-500/20 text-yellow-200 border-yellow-500/60' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'));
 
       panel.innerHTML = `
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-orange-500/25 pb-3">
@@ -1555,6 +1556,28 @@
       }).join('');
     }
 
+    // "HH:00 (DD/MM)" in Israel local time (correct in summer too; archive stamps are fixed +02:00)
+    function ilHourLabel(t) {
+      const d = new Date(t);
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', day: '2-digit', month: '2-digit', hourCycle: 'h23' })
+        .formatToParts(d).map(x => [x.type, x.value]));
+      return `${p.hour}:00 (${p.day}/${p.month})`;
+    }
+
+    // length of a v2b episode in hours: flagged hours, plus the previous hour when the 2-hour
+    // persistence rule used it (a lone single-hour alert is 1 hour, not 2)
+    function v2bEpisodeHours(R, id, e) {
+      const T = R.S[id].T;
+      return e.end - e.start + 1 + (e.start > 0 && T[e.start - 1] != null && T[e.start - 1] >= FireV2B.WATCH ? 1 : 0);
+    }
+
+    // top-level so both loadLiveData and the JSON import (btnParseJson) can call it
+    function updateLastUpdatedTimestamp(customLabel) {
+      const el = document.getElementById('lastUpdatedBadge');
+      if (!el || !customLabel) return;
+      el.textContent = `נתוני אמת מיובאים (נכון ל-${customLabel}) • תחזית רוח: חיה (Open-Meteo)`;
+    }
+
     function updateCharts() {
       // 1. Time Trend Chart (Hourly 24h / Daily 30d / Monthly 12m)
       const ctxTrend = document.getElementById('chartTimeTrend');
@@ -1570,7 +1593,8 @@
         const shift = (arr, k) => arr.map((_, i) => arr[(i + k) % arr.length]);
 
         const convertVal = (v) => {
-          if (std.isGas && APP_STATE.unit === 'ppb' && GAS_CONVERSION[pol]) {
+          if (v == null || isNaN(v)) return null;
+          if (std.isGas && APP_STATE.unitMode === 'ppb' && GAS_CONVERSION[pol]) {
             return +(v / GAS_CONVERSION[pol]).toFixed(pol === 'BaP' ? 5 : 2);
           }
           return +(Number(v).toFixed(pol === 'BaP' ? 5 : 2));
@@ -1583,7 +1607,7 @@
           const useReal = realRows.length >= 6;
           const slots = Array.from({length: 12}, (_, i) => getPastHourSlot((11 - i) * 2));
           labels = useReal
-            ? realRows.map(r => r.t.slice(11, 13) + ':00 (' + r.t.slice(8, 10) + '/' + r.t.slice(5, 7) + ')')
+            ? realRows.map(r => ilHourLabel(r.t))
             : slots.map(s => String(s.hour24).padStart(2, "0") + ":00 (פרופיל)");
           let byHour;
           if (pol === 'O3') {
@@ -1615,14 +1639,16 @@
           const factors = pol === 'O3'
             ? [0.72,0.78,0.90,1.02,1.12,1.18,1.22,1.19,1.06,0.94,0.80,0.74]
             : [1.22,1.14,1.04,0.92,0.84,0.78,0.76,0.80,0.88,1.02,1.16,1.26];
-          rawSeries = factors.map(f => base.monthly * f);
+          const mBase = Number.isFinite(base.monthly) ? base.monthly : (Number.isFinite(base.daily) ? base.daily : 0);
+          rawSeries = factors.map(f => mBase * f);
           rawThreshold = APP_STATE.benchmarkMode === 'target' ? std.mTarget : std.mEnv;
         }
 
         const series = rawSeries.map(convertVal);
         const threshold = convertVal(rawThreshold);
-        const maxVal = Math.max(...series);
-        const avgVal = +(series.reduce((a, b) => a + b, 0) / series.length).toFixed(pol === 'BaP' ? 5 : 2);
+        const finite = series.filter(v => v != null);
+        const maxVal = finite.length ? Math.max(...finite) : 0;
+        const avgVal = finite.length ? +(finite.reduce((a, b) => a + b, 0) / finite.length).toFixed(pol === 'BaP' ? 5 : 2) : 0;
         const exceedCount = series.filter(v => v > threshold).length;
 
         const sumEl = document.getElementById('trendChartSummary');
@@ -1853,8 +1879,10 @@
       if (!container) return;
       const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
       const sig = detectPirateFireSignature(st);
-      const pm25_30m = st.metrics?.PM25?.hourly || st.pm25_max24h || 18;
-      const c6_30m = st.metrics?.C6H6?.hourly || st.c6h6_max24h || 1.5;
+      // only measured values; stations without a sensor (e.g. 517 has no PM) get null, never a default
+      const pm25_30m = st.metrics?.PM25 ? (st.metrics.PM25.hourly ?? st.metrics.PM25.daily ?? null) : null;
+      const c6_30m = st.metrics?.C6H6 ? (st.metrics.C6H6.hourly ?? st.metrics.C6H6.daily ?? null) : null;
+      const isDust = !!(sig.isMineralDust || sig.level === 'dust');
 
       // Incorporate next-3-hour Open-Meteo wind forecast if available
       let forecastNote = 'טוען שקלול תחזית רוח לשעות הקרובות...';
@@ -1869,12 +1897,14 @@
           (nextGoodWindow ? ` • חלון אוורור טוב צפוי ב-<strong class="mono text-emerald-300">${nextGoodWindow.time}</strong> (${nextGoodWindow.ws} m/s ${degToCompassHe(nextGoodWindow.wd)})` : ' • אין חלון פיזור מלא ב-12 השעות הקרובות');
       }
 
-      const highRisk = sig.level === 'high' || st.status === 'exceed_env' || pm25_30m >= 30;
-      const modRisk = !highRisk && (sig.level === 'watch' || pm25_30m >= 18 || c6_30m >= 2.0);
+      const highRisk = sig.level === 'high' || st.status === 'exceed_env' || (pm25_30m != null && pm25_30m >= 30);
+      const modRisk = !highRisk && (sig.level === 'watch' || isDust || (pm25_30m != null && pm25_30m >= 18) || (c6_30m != null && c6_30m >= 2.0));
 
       const windowAdvice = highRisk
         ? { badge: '🔴 מומלץ לסגור חלונות כעת', col: 'border-rose-600/60 bg-rose-950/25 text-rose-200', text: 'נמדדת עלייה משמעותית בחלקיקי עשן או בחריגת תקן. השאר חלונות סגורים והפעל מזגן במצב סירקולציה פנימית / מסנן HEPA.' }
-        : (modRisk
+        : (modRisk && isDust
+          ? { badge: '🏜️ אובך / אבק – אוורור מוגבל', col: 'border-yellow-600/60 bg-yellow-950/20 text-yellow-200', text: 'אבק או אובך באוויר (לא עשן שריפה). מומלץ להפחית מאמץ בחוץ ולאוורר לזמן קצר.' }
+          : modRisk
           ? { badge: '🟡 אוורור מוגבל / זהירות בלילה', col: 'border-amber-600/60 bg-amber-950/20 text-amber-200', text: 'רמות גבוהות מהיעד הבריאותי. העדף לאוורר בחלון הפיזור המומלץ מטה, וסגור חלונות אם מורגש ריח עשן מזרחי.' }
           : { badge: '🟢 אפשר לפתוח חלונות ולאוורר', col: 'border-emerald-600/60 bg-emerald-950/20 text-emerald-200', text: 'המדדים הקצרי-טווח תקינים ללא חתימת שריפה פעילה. תנאים נוחים לאוורור הבית.' });
 
@@ -1884,7 +1914,7 @@
           ? { badge: '🟡 מותר למרבית האוכלוסייה • זהירות לרגישים', text: 'פעילות מתונה תקינה; קבוצות רגישות (אסטמה/לב) יעדיפו שעות יום מאווררות.' }
           : { badge: '🟢 תנאים טובים לספורט וילדים בגינה', text: 'אין מגבלה לפעילות גופנית בחוץ או לשהייה בגינות ציבוריות.' });
 
-      const reportSummary = `דיווח מפגע אוויר – ${st.name} (${st.code}) | ${new Date().toLocaleString('he-IL')} | PM2.5 (30 דק'): ${pm25_30m} µg/m³ | סטטוס: ${sig.badgeText}`;
+      const reportSummary = `דיווח מפגע אוויר – ${st.name} (${st.code}) | ${new Date().toLocaleString('he-IL')} | PM2.5 (30 דק'): ${pm25_30m == null ? 'לא נמדד בתחנה' : pm25_30m + ' µg/m³'} | סטטוס: ${sig.badgeText}`;
 
       container.innerHTML = `
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
@@ -1953,6 +1983,8 @@
           cache[url].p.catch(() => { delete cache[url]; });
         }
         const data = await cache[url].p;
+        // the user may have switched station while this request was in flight
+        if ((STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0]).id !== st.id) return;
         const h = data.hourly;
         const nowLocal = new Date();
         const pad = n => String(n).padStart(2, '0');
@@ -2410,11 +2442,6 @@
         btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
       });
 
-      function updateLastUpdatedTimestamp(customLabel) {
-        const el = document.getElementById('lastUpdatedBadge');
-        if (!el || !customLabel) return;
-        el.textContent = `נתוני אמת מיובאים (נכון ל-${customLabel}) • תחזית רוח: חיה (Open-Meteo)`;
-      }
 
       document.getElementById('btnDownloadStandaloneHtml')?.addEventListener('click', async () => {
         // the standalone file must carry its scripts inline (they are separate files on the site)
@@ -2526,7 +2553,7 @@
 
       renderDailyGuidancePanel();
       fetchWindForecast();
-      document.getElementById('btnRefreshWindForecast')?.addEventListener('click', fetchWindForecast);
+      document.getElementById('btnRefreshWindForecast')?.addEventListener('click', () => { window.__windFcCache = {}; fetchWindForecast(); });
       document.getElementById('btnToggleAqiCalculator')?.addEventListener('click', (e) => {
         const d = document.getElementById('aqiCalculatorDrawer');
         if (!d) return;
@@ -2655,7 +2682,7 @@
             <div class="flex items-center gap-2">
               <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${hi ? 'bg-rose-500/20 text-rose-200' : 'bg-amber-500/20 text-amber-200'}">${hi ? '🔥 חשד גבוה' : '🌫️ חשד לעשן'}</span>
               <span class="mono font-extrabold text-white">${v2bHourLabel(R.axis[e.start])}</span>
-              <span class="text-slate-400">${e.end - e.start + 2} שעות • ציון ${Math.round(e.peak)} • PM2.5 עד ${Math.round(Math.max(...idx.filter(i => i >= e.start - 1 && i <= e.end).map(i => ch.PM25[i] ?? 0)))}</span>
+              <span class="text-slate-400">${v2bEpisodeHours(R, st.id, e)} שעות • ציון ${Math.round(e.peak)} • PM2.5 עד ${Math.round(Math.max(...idx.filter(i => i >= e.start - 1 && i <= e.end).map(i => ch.PM25[i] ?? 0)))}</span>
             </div>
             <div class="text-[11px] text-slate-300">${why.join(' • ')}${wd !== null && wd !== undefined ? ' • רוח ' + Math.round(wd) + '°' : ''}${reg}</div>
           </div>`;
@@ -2686,7 +2713,7 @@
         }
         return archiveIndexP;
       }
-      ['pointerdown', 'focus'].forEach(ev => monthSel?.addEventListener(ev, () => { ensureArchiveIndex().catch(e => console.warn('archive index', e)); }, { once: true }));
+      ['pointerdown', 'focus'].forEach(ev => monthSel?.addEventListener(ev, () => { ensureArchiveIndex().catch(e => console.warn('archive index', e)); }));
       monthSel?.addEventListener('change', async () => {
         const opt = monthSel.selectedOptions[0];
         if (!opt || !opt.value) return;
