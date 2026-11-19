@@ -21,6 +21,8 @@ from air_sviva_api.client import SvivaAirClient
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "live_krayot.json"
 HISTORY = ROOT / "data" / "history_90d.json"
+ARCHIVE_DIR = ROOT / "data"  # archive_YYYY_MM.json: permanent monthly copies (never trimmed)
+ARCHIVE_INDEX = ROOT / "data" / "archives_index.json"
 WINDOW_DAYS = 90
 MIN_HOURS_PER_DAY = 12  # a day needs this many hourly rows to count as a real daily mean
 MIN_HOURS_PER_MONTH = 360  # ~half of 30*24 hours to call a monthly mean "real"
@@ -174,24 +176,75 @@ def load_history():
     return {"stations": {}}
 
 
-def save_history(doc):
+def history_text(updated, stations, extra_head=()):
     """One row per line keeps git diffs append-only and small."""
-    HISTORY.parent.mkdir(parents=True, exist_ok=True)
-    head = [
-        "{",
-        '"updated": ' + json.dumps(doc["updated"]) + ",",
-        '"windowDays": ' + str(WINDOW_DAYS) + ",",
-        '"resolution": "hourly (complete hours only)",',
-        '"units": "ug/m3 (CO ppm), wind m/s & deg",',
-        '"stations": {',
-    ]
+    head = ["{", '"updated": ' + json.dumps(updated) + ",", *extra_head,
+            '"resolution": "hourly (complete hours only)",',
+            '"units": "ug/m3 (CO ppm), wind m/s & deg",',
+            '"stations": {']
     blocks = []
-    for sid, st in doc["stations"].items():
+    for sid, st in stations.items():
         rows = ",\n".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) for r in st["rows"])
         blocks.append(json.dumps(sid) + ': {"apiStationId": ' + json.dumps(st["apiStationId"])
                       + ', "rows": [\n' + rows + "\n]}")
-    text = "\n".join(head) + "\n" + ",\n".join(blocks) + "\n}\n}\n"
-    HISTORY.write_text(text, encoding="utf-8")
+    return "\n".join(head) + "\n" + ",\n".join(blocks) + "\n}\n}\n"
+
+
+def save_history(doc):
+    HISTORY.parent.mkdir(parents=True, exist_ok=True)
+    HISTORY.write_text(history_text(doc["updated"], doc["stations"],
+                                   ['"windowDays": ' + str(WINDOW_DAYS) + ","]), encoding="utf-8")
+
+
+def update_archives(hist_stations):
+    """Copy every hourly row into data/archive_YYYY_MM.json (month of the +02:00 timestamp).
+
+    Archives only grow (fresh value wins per timestamp), so hours that fall out of the 90-day
+    window are kept forever. Files are rewritten only when their content changes.
+    Returns the list of month keys written.
+    """
+    by_month = defaultdict(lambda: defaultdict(list))
+    for sid, st in hist_stations.items():
+        for r in st["rows"]:
+            by_month[r["t"][:7]][sid].append(r)
+    written = []
+    for ym, stations in sorted(by_month.items()):
+        path = ARCHIVE_DIR / f"archive_{ym.replace('-', '_')}.json"
+        old = {}
+        if path.exists():
+            try:
+                old = json.loads(path.read_text(encoding="utf-8")).get("stations", {})
+            except (OSError, ValueError):
+                print(f"archive {path.name} unreadable; rebuilding from history", file=sys.stderr)
+        merged = {}
+        for sid in sorted(set(old) | set(stations)):
+            by_t = {r["t"]: r for r in old.get(sid, {}).get("rows", [])}
+            for r in stations.get(sid, []):
+                by_t[r["t"]] = r
+            api = (hist_stations.get(sid) or old.get(sid) or {}).get("apiStationId")
+            merged[sid] = {"apiStationId": api, "rows": sorted(by_t.values(), key=lambda r: parse_dt(r["t"]))}
+        last = max((s["rows"][-1]["t"] for k, s in merged.items() if k in STATIONS and s["rows"]), default=None)
+        text = history_text(last, merged, ['"month": ' + json.dumps(ym) + ","])
+        if not path.exists() or path.read_text(encoding="utf-8") != text:
+            path.write_text(text, encoding="utf-8")
+            written.append(ym)
+    # index of all archive files (including months no longer in the 90-day history)
+    months = []
+    for path in sorted(ARCHIVE_DIR.glob("archive_????_??.json")):
+        try:
+            st = json.loads(path.read_text(encoding="utf-8"))["stations"]
+        except (OSError, ValueError, KeyError):
+            continue
+        krayot = [r["t"] for k, s in st.items() if k in STATIONS for r in s["rows"]]
+        if not krayot:
+            continue
+        months.append({"month": path.stem[8:].replace("_", "-"), "file": "data/" + path.name,
+                       "from": min(krayot, key=parse_dt), "to": max(krayot, key=parse_dt),
+                       "hours": len(set(krayot))})
+    index = json.dumps({"months": months}, ensure_ascii=False, indent=1) + "\n"
+    if not ARCHIVE_INDEX.exists() or ARCHIVE_INDEX.read_text(encoding="utf-8") != index:
+        ARCHIVE_INDEX.write_text(index, encoding="utf-8")
+    return written
 
 
 def merge_rows(existing, new_rows):
@@ -364,6 +417,11 @@ async def main(force_backfill=False):
     ts = max(times).isoformat()
     history["updated"] = max(r["t"] for k, s in hist_stations.items() if k in STATIONS for r in s["rows"][-1:])
     save_history(history)
+    # archive before anything is trimmed on the next run (merge_rows already cut >90 d, but those
+    # hours were archived on earlier runs while they were still inside the window)
+    written = update_archives(hist_stations)
+    if written:
+        print("Archive updated: " + ", ".join(written))
     doc = {"timestamp": ts, "source": "air.sviva.gov.il", "units": "ug/m3 (CO ppm), wind m/s & deg",
            "stations": stations}
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")

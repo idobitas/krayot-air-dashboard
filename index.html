@@ -3261,6 +3261,9 @@ PPB_TO_UGM3 = {
             <button id="btnLoadRealHistory" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-500/40 transition">
               סרוק 30 יום אמיתיים (v2b, התחנה הנבחרת)
             </button>
+            <select id="archiveMonthSelect" title="סריקת חודש מהארכיון (נטען רק לפי בחירה)" class="px-2 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-200 border border-slate-700">
+              <option value="">חודש מהארכיון…</option>
+            </select>
             <button id="btnLoadHistorySample" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 border border-orange-500/40 transition">
               טען דוגמה היסטורית (14 רשומות)
             </button>
@@ -5935,8 +5938,7 @@ PPB_TO_UGM3 = {
         setTimeout(() => { b.textContent = 'רענן נתוני אמת'; b.disabled = false; }, 2000);
       });
 
-      function renderV2BScan(st, days) {
-        const R = window.FIRE_V2B;
+      function renderV2BScan(st, days, R = window.FIRE_V2B, periodLabel = null) {
         const status = document.getElementById('historyScanStatus');
         const listEl = document.getElementById('historyFireEventsList');
         const canvas = document.getElementById('chartHistoryFireTimeline');
@@ -5945,11 +5947,11 @@ PPB_TO_UGM3 = {
           return;
         }
         const ch = R.S[st.id];
-        const from = Math.max(0, R.axis.length - days * 24);
+        const from = days ? Math.max(0, R.axis.length - days * 24) : 0;
         const idx = []; for (let i = from; i < R.axis.length; i++) idx.push(i);
         const eps = FireV2B.episodes(R, st.id, 'watch').filter(e => e.end >= from);
         const highN = eps.filter(e => e.peak >= FireV2B.HIGH).length;
-        status.textContent = `v2b • ${st.shortName} • ${days} יום: ${highN} חשד גבוה לשריפה, ${eps.length - highN} חשד לעשן`;
+        status.textContent = `v2b • ${st.shortName} • ${periodLabel || days + ' יום'}: ${highN} חשד גבוה לשריפה, ${eps.length - highN} חשד לעשן`;
         status.className = eps.length ? 'text-xs font-extrabold text-orange-300' : 'text-xs font-bold text-emerald-300';
         if (canvas && window.Chart) {
           const old = Chart.getChart(canvas); if (old) old.destroy();
@@ -6000,6 +6002,48 @@ PPB_TO_UGM3 = {
       document.getElementById('btnLoadRealHistory')?.addEventListener('click', () => {
         const st = STATIONS_DATA.find(x => x.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
         renderV2BScan(st, 30);
+      });
+
+      // monthly archives: never fetched on page load; the small index is fetched on first interaction
+      // with the month picker, and a month file only when it is chosen
+      const ARCHIVE_CACHE = {};
+      let archiveIndexP = null;
+      const monthSel = document.getElementById('archiveMonthSelect');
+      async function ensureArchiveIndex() {
+        if (!archiveIndexP) {
+          archiveIndexP = fetchJson('./data/archives_index.json').then(ix => {
+            (ix.months || []).slice().reverse().forEach(m => {
+              const o = document.createElement('option');
+              o.value = m.month; o.dataset.file = m.file;
+              o.textContent = `${m.month.slice(5)}/${m.month.slice(0, 4)} (${m.hours} שעות)`;
+              monthSel.appendChild(o);
+            });
+            return ix;
+          }).catch(e => { archiveIndexP = null; throw e; });
+        }
+        return archiveIndexP;
+      }
+      ['pointerdown', 'focus'].forEach(ev => monthSel?.addEventListener(ev, () => { ensureArchiveIndex().catch(e => console.warn('archive index', e)); }, { once: true }));
+      monthSel?.addEventListener('change', async () => {
+        const opt = monthSel.selectedOptions[0];
+        if (!opt || !opt.value) return;
+        const st = STATIONS_DATA.find(x => x.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
+        const status = document.getElementById('historyScanStatus');
+        if (status) { status.textContent = 'טוען ארכיון ' + opt.textContent + '…'; status.className = 'text-xs font-bold text-slate-300'; }
+        try {
+          if (!ARCHIVE_CACHE[opt.value]) {
+            const doc = await fetchJson('./' + opt.dataset.file);
+            ARCHIVE_CACHE[opt.value] = FireV2B.compute(doc.stations || {});
+          }
+          if (!ARCHIVE_CACHE[opt.value]) {
+            if (status) { status.textContent = 'מעט מדי נתונים בחודש הזה לסריקה (פחות מ-48 שעות)'; status.className = 'text-xs font-bold text-amber-300'; }
+            return;
+          }
+          renderV2BScan(st, null, ARCHIVE_CACHE[opt.value], 'חודש ' + opt.value.slice(5) + '/' + opt.value.slice(0, 4));
+        } catch (e) {
+          console.warn('archive month failed', e);
+          if (status) { status.textContent = 'טעינת הארכיון נכשלה'; status.className = 'text-xs font-bold text-rose-400'; }
+        }
       });
 
       loadLiveData();
