@@ -16,13 +16,14 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install py-air-sviva-api (not on PyPI; installed from GitHub)
-        run: pip install git+https://github.com/GuyKh/py-air-sviva-api.git
+      - name: Install py-air-sviva-api (not on PyPI; pinned GitHub commit)
+        run: pip install git+https://github.com/GuyKh/py-air-sviva-api.git@6e8bd65315910ef12019ac6798fa417cf5148118
       - name: Fetch data
         run: python scripts/fetch_sviva.py
       - name: Commit and push if changed

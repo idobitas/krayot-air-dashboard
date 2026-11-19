@@ -218,8 +218,9 @@
       var ch = S[id];
       ch.S = ch.T.map(function (v, i) {
         if (v === null) return null; // a missing hour never inherits the previous score
-        var p = i > 0 ? ch.T[i - 1] : null;
-        var s = p === null ? v : Math.min(v, p);
+        // missing previous hour counts as 0: a lone hour can reach watch (via the rule below), never high
+        var p = i > 0 && ch.T[i - 1] !== null ? ch.T[i - 1] : 0;
+        var s = Math.min(v, p);
         // blind-hour fix: a strong single hour raises watch now, but stays below HIGH until it persists
         if (v >= SINGLE_HOUR_WATCH && s < v) s = Math.max(s, Math.min(v, HIGH - 1));
         return s;
@@ -227,7 +228,7 @@
     });
     var yam = S.kiryat_yam_z1, mot = S.kiryat_motzkin_z2;
     yam.S = yam.S.map(function (v, i) {
-      return v !== null && mot.S[i] !== null && mot.S[i] < 50 ? Math.min(v, 59) : v;
+      return v !== null && (mot.S[i] === null || mot.S[i] < 50) ? Math.min(v, 59) : v; // Motzkin missing -> Yam can't raise fire alone
     });
 
     // 6. levels + network verdict per hour

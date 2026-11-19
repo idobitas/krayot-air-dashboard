@@ -51,13 +51,13 @@
   <!-- Compact Mobile-First Header -->
   <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-3 sm:px-5 py-2.5">
     <div class="max-w-7xl mx-auto flex flex-col gap-2.5">
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-2.5 min-w-0">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5 min-w-[13rem] flex-1">
           <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-400 to-emerald-400 flex items-center justify-center shadow-lg shadow-sky-500/20 shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="wind" class="lucide lucide-wind w-5 h-5 text-slate-950"><path d="M12.8 19.6A2 2 0 1 0 14 16H2"></path><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"></path><path d="M9.8 4.4A2 2 0 1 1 11 8H2"></path></svg>
           </div>
           <div class="min-w-0">
-            <h1 class="text-lg sm:text-xl md:text-2xl font-extrabold text-white tracking-tight leading-tight truncate">איכות אוויר בקריות ומפרץ חיפה</h1>
+            <h1 class="text-base sm:text-xl md:text-2xl font-extrabold text-white tracking-tight leading-tight line-clamp-2 break-words">איכות אוויר בקריות ומפרץ חיפה</h1>
           </div>
         </div>
 
@@ -126,7 +126,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900 border border-amber-500/40 rounded-2xl px-3.5 py-2.5 shadow-md">
       <div class="flex items-center gap-2 text-xs sm:text-sm font-extrabold text-amber-300">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="clock" class="lucide lucide-clock w-4 h-4 text-amber-400 shrink-0"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-        <span id="lastUpdatedBadge" class="mono">נתוני מזהמים: בסיס דוח שנתי המשרד להגנ"ס (2017) + חישוב פרופיל מייצג • תחזית רוח: חיה (Open-Meteo)</span>
+        <span id="lastUpdatedBadge" class="mono">טוען נתוני אמת מ-air.sviva.gov.il… • תחזית רוח: חיה (Open-Meteo)</span>
         <button id="btnRefreshLive" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/50 transition">רענן נתוני אמת</button>
       </div>
       <div class="text-[11px] text-slate-300 flex flex-wrap items-center gap-2">
@@ -1125,7 +1125,7 @@
                 <span>ניתוח לאחור – מתי המדדים ב-קריית ביאליק עלו בתבנית שריפה פיראטית?</span>
               </h2>
               <p class="text-xs text-slate-400 mt-0.5">
-                סינון אוטומטי לפי הנוסחה התלת-שכבתית האחידה (<span class="mono">PM2.5</span>, <span class="mono">Δ</span> מול <span class="mono">P25</span> של 24 שעות, ויחס <span class="mono">PM2.5/PM10</span>).
+                אירועים אמיתיים מהארכיון השעתי (גלאי v2b; רק בתחנות שמודדות חלקיקים).
               </p>
             </div>
             <button type="button" onclick="jumpToTrend('PM25','hourly')" class="px-3 py-1.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/50 text-orange-200 text-xs font-extrabold shrink-0 self-start sm:self-center transition">
@@ -1135,19 +1135,19 @@
 
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 text-xs">
             <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1.5">
-              <div class="font-bold text-white">1. חלונות ליליים (פרופיל יומי מייצג):</div>
+              <div class="font-bold text-white">1. אירועים ב-24 השעות האחרונות:</div>
               <div class="flex flex-wrap gap-1">
-                <span class="text-slate-400">לא זוהו שעות לילה מעל 18 µg/m³ בפרופיל הנוכחי.</span>
+                <span class="text-slate-400">לא זוהו אירועי עשן או שריפה.</span>
               </div>
             </div>
             <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1.5">
-              <div class="font-bold text-white">2. ימי שיא (פרופיל 30 ימים מייצג):</div>
+              <div class="font-bold text-white">2. אירועים ב-30 הימים האחרונים:</div>
               <div class="flex flex-wrap gap-1">
-                <span class="text-slate-400">אין ימים מעל הסף היומי בפרופיל זה.</span>
+                <span class="text-slate-400">לא זוהו אירועים.</span>
               </div>
             </div>
             <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1.5">
-              <div class="font-bold text-white">3. עונתיות שיא (סתיו-חורף + אינברסיה):</div>
+              <div class="font-bold text-white">3. אירועים לפי חודש (90 יום):</div>
               <div class="flex flex-wrap gap-1">
                 <button type="button" onclick="jumpToTrend('PM25','monthly')" class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-sky-200 mono hover:bg-slate-700 transition">ינו (21 µg/m³)</button><button type="button" onclick="jumpToTrend('PM25','monthly')" class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-sky-200 mono hover:bg-slate-700 transition">פבר (19.9 µg/m³)</button><button type="button" onclick="jumpToTrend('PM25','monthly')" class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-sky-200 mono hover:bg-slate-700 transition">מרץ (18.7 µg/m³)</button><button type="button" onclick="jumpToTrend('PM25','monthly')" class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-sky-200 mono hover:bg-slate-700 transition">אפר (16.9 µg/m³)</button><button type="button" onclick="jumpToTrend('PM25','monthly')" class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-sky-200 mono hover:bg-slate-700 transition">אוק (17.8 µg/m³)</button><button type="button" onclick="jumpToTrend('PM25','monthly')" class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-sky-200 mono hover:bg-slate-700 transition">נוב (19.9 µg/m³)</button><button type="button" onclick="jumpToTrend('PM25','monthly')" class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-sky-200 mono hover:bg-slate-700 transition">דצמ (21.4 µg/m³)</button>
               </div>
@@ -3861,6 +3861,51 @@ PPB_TO_UGM3 = {
     ];
 
     // Standards config per pollutant and timeframe (Hourly, Daily, Monthly/Annual)
+    // Only stations with a real feed (scripts/fetch_sviva.py) are shown. The 2017 demo values that
+    // shipped with the original page are wiped before the first render; every number shown after
+    // loadLiveData() comes from live_krayot.json (only pollutants the station actually measures).
+    const LIVE_STATION_IDS = ['kiryat_motzkin_z2', 'kiryat_yam_z1', 'kiryat_bialik_z4', 'kiryat_binyamin', 'kiryat_haim_regavim', 'kishon_mobile5'];
+    const DEMO_FIELDS = ['c6h6_max24h', 'c6h6_exceedDays', 'c6h6_annual', 'ch2o_max1h', 'ch2o_exceed1h', 'ch2o_max24h', 'bap_exceedDays', 'bap_annual',
+      'h2s_max24h', 'h2s_annual', 'no2_annual', 'nox_max24h', 'nox_exceed30m', 'pm25_annual', 'pm25_max24h', 'pm10_annual', 'pm10_max24h', 'o3_annual', 'so2_max24h', 'so2_annual'];
+    for (let i = STATIONS_DATA.length - 1; i >= 0; i--) if (!LIVE_STATION_IDS.includes(STATIONS_DATA[i].id)) STATIONS_DATA.splice(i, 1);
+    STATIONS_DATA.forEach(st => {
+      DEMO_FIELDS.forEach(f => { st[f] = null; });
+      st.metrics = {};
+      st.status = 'unknown'; st.statusText = 'ממתין לנתוני אמת…'; st.aqiIndex = null;
+      st.wind = ''; st.notes = ''; st.metals_meteo = '';
+    });
+
+    // summary fields recomputed from real data only (30-day daily means + real 30-day averages)
+    function deriveRealSummary(st) {
+      const m = st.metrics || {}, days = st.daily30d || [];
+      const dmax = k => { const v = days.map(d => d[k]).filter(x => x != null); return v.length ? +Math.max(...v).toFixed(2) : null; };
+      const dcount = (k, thr) => days.filter(d => d[k] != null && d[k] > thr).length;
+      const mon = k => (m[k] && m[k].monthlyReal) ? m[k].monthly : null;
+      if (m.C6H6) { st.c6h6_max24h = dmax('C6H6'); st.c6h6_exceedDays = dcount('C6H6', 3.9); st.c6h6_annual = mon('C6H6'); }
+      if (m.PM25) { st.pm25_max24h = dmax('PM25'); st.pm25_annual = mon('PM25'); }
+      if (m.PM10) { st.pm10_max24h = dmax('PM10'); st.pm10_annual = mon('PM10'); }
+      if (m.NO2) st.no2_annual = mon('NO2');
+      if (m.O3) st.o3_annual = mon('O3');
+      if (m.SO2) { st.so2_max24h = dmax('SO2'); st.so2_annual = mon('SO2'); }
+      if (m.H2S) st.h2s_annual = mon('H2S');
+      const legal = [], health = [];
+      if (st.c6h6_exceedDays > 0) legal.push('בנזן');
+      if (st.pm25_max24h > 37.5) legal.push('PM2.5');
+      if (st.pm10_max24h > 130) legal.push('PM10');
+      if (st.no2_annual > 40) legal.push('NO₂');
+      if (st.pm25_annual > 5) health.push('PM2.5');
+      if (st.pm10_annual > 15) health.push('PM10');
+      if (st.no2_annual > 10) health.push('NO₂');
+      st.status = legal.length ? 'exceed_env' : (health.length ? 'exceed_target' : 'ok');
+      st.statusText = (legal.length ? 'חריגה מתקן חוקי ב-30 יום: ' + legal.join(', ')
+        : (health.length ? 'תקין חוקית • מעל יעד WHO 2021: ' + health.join(', ') : 'תקין (30 יום אחרונים)')) + (st.stale ? ' • נתון ישן' : '');
+      const w = st.last30m || {};
+      st.wind = (w.windDir != null) ? ('עכשיו ' + Math.round(w.windDir) + '°' + (w.windSpeed != null ? ' • ' + Number(w.windSpeed).toFixed(1) + ' מ/ש' : ''))
+        : (st.id === 'kiryat_motzkin_z2' ? 'אין מד רוח בתחנה (הגלאי משתמש ברוח מקריית בנימין)' : 'אין מד רוח בתחנה');
+      const measured = Object.keys(m).filter(k => POLLUTANT_STANDARDS[k]).map(k => POLLUTANT_STANDARDS[k].formula);
+      st.notes = 'כל הערכים מ-air.sviva.gov.il. נמדד בתחנה: ' + (measured.join(', ') || '—') + '. "30 יום" = ממוצע אמיתי של 30 הימים האחרונים.';
+    }
+
     const POLLUTANT_STANDARDS = {
       C6H6: { name: 'בנזן', formula: 'C₆H₆', isGas: true, hEnv: 12.0, hTarget: 3.9, dEnv: 3.9, dTarget: 3.9, mEnv: 1.3, mTarget: 1.3, hLabel: 'הערכה שעתית', dLabel: 'תקן יממתי: 3.9', mLabel: 'תקן שנתי/חודשי: 1.3' },
       PM25: { name: 'חלקיקים עדינים', formula: 'PM2.5', isGas: false, hEnv: 37.5, hTarget: 15.0, dEnv: 37.5, dTarget: 15.0, mEnv: 25.0, mTarget: 5.0, hLabel: 'רציף שעתי', dLabel: 'תקן יממתי: 37.5 (יעד WHO: 15)', mLabel: 'תקן שנתי: 25 (יעד WHO: 5)' },
@@ -4101,7 +4146,12 @@ PPB_TO_UGM3 = {
       const strip = document.getElementById('stationPillsStrip');
       strip.innerHTML = filtered.map(st => {
         const active = st.id === APP_STATE.selectedStationId;
-        const isRed = st.status === 'exceed_env';
+        const dotCls = { exceed_env: 'bg-purple-500 pulse-red', exceed_target: 'bg-rose-500', ok: 'bg-emerald-400' }[st.status] || 'bg-slate-500';
+        const pk = st.metrics.C6H6 ? 'C6H6' : (st.metrics.PM25 ? 'PM25' : null);
+        const pv = pk ? st.metrics[pk].daily : null;
+        const plim = pk === 'C6H6' ? 3.9 : (APP_STATE.benchmarkMode === 'target' ? 15 : 37.5);
+        const plbl = pk === 'C6H6' ? 'בנזן 24 שעות' : (pk ? 'PM2.5 24 שעות' : 'ממתין לנתונים');
+        const pval = pk === 'C6H6' ? formatGasValue(pv, 'C6H6') + ' ' + getUnitLabel('C6H6') : (pv == null ? '—' : Number(pv).toFixed(1) + ' µg/m³');
         return `
           <button type="button" data-station-id="${st.id}" class="station-pill snap-start shrink-0 text-right rounded-2xl p-3 min-w-[175px] sm:min-w-[195px] border transition ${
             active
@@ -4112,13 +4162,13 @@ PPB_TO_UGM3 = {
               <span class="text-xs sm:text-sm font-extrabold text-white truncate">${st.shortName}</span>
               <div class="flex items-center gap-1 shrink-0">
                 ${(() => { const s = detectPirateFireSignature(st); return (s.detected || s.level === 'dust') ? `<span title="${s.badgeText}" class="text-[10px] px-1.5 py-0.5 rounded ${s.level === 'high' ? 'bg-orange-500/20 text-orange-300 border-orange-500/40' : (s.level === 'dust' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40' : 'bg-amber-500/20 text-amber-300 border-amber-500/40')} border font-bold">${s.level === 'high' ? '🔥' : (s.level === 'dust' ? '🏜️' : '🌫️')}</span>` : ''; })()}
-                <span class="w-2.5 h-2.5 rounded-full ${isRed ? 'bg-purple-500 pulse-red' : 'bg-rose-500'}"></span>
+                <span class="w-2.5 h-2.5 rounded-full ${dotCls}"></span>
               </div>
             </div>
-            <div class="text-[10px] text-slate-400 mono mt-0.5">${st.code} • מדד ${st.aqiIndex > 0 ? '+' + st.aqiIndex : st.aqiIndex}</div>
+            <div class="text-[10px] text-slate-400 mono mt-0.5">${st.code}${st.stale ? ' • נתון ישן' : ''}</div>
             <div class="mt-2 flex items-center justify-between text-[11px]">
-              <span class="text-slate-400">בנזן יומי:</span>
-              <span class="mono font-extrabold ${st.c6h6_max24h > 3.9 ? 'text-rose-400' : 'text-emerald-300'}">${formatGasValue(st.c6h6_max24h, 'C6H6')} ${getUnitLabel('C6H6')}</span>
+              <span class="text-slate-400">${plbl}:</span>
+              <span class="mono font-extrabold ${pv != null && pv > plim ? 'text-rose-400' : 'text-emerald-300'}">${pval}</span>
             </div>
           </button>
         `;
@@ -4135,10 +4185,13 @@ PPB_TO_UGM3 = {
       const tbody = document.getElementById('matrixTableBody');
       const isTarget = APP_STATE.benchmarkMode === 'target';
       tbody.innerHTML = filtered.map(st => {
-        const c6Pct = Math.round((st.c6h6_max24h / 3.9) * 100);
-        const no2Pct = Math.round((st.no2_annual / 40) * 100);
-        const pm25Pct = Math.round((st.pm25_annual / (isTarget ? 10 : 25)) * 100);
-        const pm10Pct = Math.round((st.pm10_annual / (isTarget ? 20 : 50)) * 100);
+        // annual/30-day limits: legal (Israel) vs. WHO 2021 guideline (PM2.5 5, PM10 15, NO2 10)
+        const pct = (v, lim) => v == null ? 0 : Math.round((v / lim) * 100);
+        const dash = v => v == null ? '—' : v;
+        const c6Pct = pct(st.c6h6_max24h, 3.9);
+        const no2Pct = pct(st.no2_annual, isTarget ? 10 : 40);
+        const pm25Pct = pct(st.pm25_annual, isTarget ? 5 : 25);
+        const pm10Pct = pct(st.pm10_annual, isTarget ? 15 : 50);
         return `
           <tr data-station-id="${st.id}" class="station-row cursor-pointer hover:bg-slate-800/70 ${st.id === APP_STATE.selectedStationId ? 'bg-sky-950/30' : ''}">
             <td class="py-2 px-3 sticky right-0 bg-slate-900 border-l border-slate-800 font-bold text-white">${st.name}</td>
@@ -4148,14 +4201,14 @@ PPB_TO_UGM3 = {
               const lbl = s.level === 'high' ? '🔥 שריפה' : (s.level === 'dust' ? '🏜️ אובך' : (s.level === 'watch' ? '🌫️ חשד עשן' : '🟢 תקין'));
               return `<td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded text-[11px] font-bold ${cls}">${lbl}</span></td>`;
             })()}
-            <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(c6Pct, st.c6h6_exceedDays > 7)} mono">${formatGasValue(st.c6h6_max24h, 'C6H6')} (${c6Pct}%)</span></td>
+            <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(c6Pct, st.c6h6_exceedDays > 7)} mono">${formatGasValue(st.c6h6_max24h, 'C6H6')}${st.c6h6_max24h == null ? '' : ' (' + c6Pct + '%)'}</span></td>
             <td class="py-2 px-2.5 text-center mono">${formatGasValue(st.c6h6_annual, 'C6H6')}</td>
-            <td class="py-2 px-2.5 text-center mono ${st.ch2o_exceed1h > 0 ? 'text-rose-300 font-bold' : ''}">${formatGasValue(st.ch2o_max1h, 'CH2O', 1)} (${st.ch2o_exceed1h} שע')</td>
-            <td class="py-2 px-2.5 text-center mono ${st.bap_exceedDays > 0 ? 'text-amber-300' : ''}">${st.bap_exceedDays} ימ'</td>
+            <td class="py-2 px-2.5 text-center mono text-slate-500" title="לא נמדד בתחנה">—</td>
+            <td class="py-2 px-2.5 text-center mono text-slate-500" title="לא נמדד בתחנה">—</td>
             <td class="py-2 px-2.5 text-center mono">${formatGasValue(st.h2s_annual, 'H2S')}</td>
             <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(no2Pct, st.no2_annual > 40)} mono">${formatGasValue(st.no2_annual, 'NO2', 1)}</span></td>
-            <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(pm25Pct)} mono">${st.pm25_max24h} / ${st.pm25_annual}</span></td>
-            <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(pm10Pct)} mono">${st.pm10_max24h} / ${st.pm10_annual}</span></td>
+            <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(pm25Pct)} mono">${dash(st.pm25_max24h)} / ${dash(st.pm25_annual)}</span></td>
+            <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(pm10Pct)} mono">${dash(st.pm10_max24h)} / ${dash(st.pm10_annual)}</span></td>
             <td class="py-2 px-2.5 text-center mono">${formatGasValue(st.o3_annual, 'O3', 1)}</td>
             <td class="py-2 px-2.5 text-center mono">${formatGasValue(st.so2_max24h, 'SO2', 1)}</td>
           </tr>
@@ -4260,6 +4313,10 @@ PPB_TO_UGM3 = {
       return { ...base, detected: false, level: 'none', isMineralDust: false, badgeText: R.latest.regional ? '🌁 אירוע אזורי / אינוורסיה (לא שריפה מקומית)' : '🟢 ללא חתימת שריפה', shortBadge: '', summary: 'ציון ' + sc + '/100 • נכון ל-' + at };
     }
     function detectPirateFireSignature(st, allStations = null, opts = {}) {
+      if (st && LIVE_STATION_IDS.includes(st.id) && !(st.metrics && st.metrics.PM25)) {
+        return { score: 0, level: 'none', detected: false, isMineralDust: false, matched: [], sensorCount: 0, lowConfidence: true,
+          badgeText: '— אין חיישן חלקיקים בתחנה (הגלאי לא רלוונטי)', shortBadge: '', summary: 'נמדד כאן: בנזן וטולואן בלבד', windowLabel: '', engine: 'none' };
+      }
       return v2bSignature(st) || detectPirateFireSignatureLegacy(st, allStations, opts);
     }
 
@@ -4491,66 +4548,20 @@ PPB_TO_UGM3 = {
     }
 
     function runRetrospectiveFireScan(st) {
-      const m = st.metrics || {};
-      const pm25Base = m.PM25 || { hourly: st.pm25_max24h || 20, daily: st.pm25_max24h || 28, monthly: st.pm25_annual || 15 };
-      const pm10Base = m.PM10 || { hourly: st.pm10_max24h || 45, daily: st.pm10_max24h || 85, monthly: st.pm10_annual || 36 };
-      const c6Base = m.C6H6 || { hourly: st.c6h6_max24h || 1.8, daily: st.c6h6_max24h || 1.8, monthly: st.c6h6_annual || 0.4 };
-
-      const diurnalByHour = {
-        0:1.06, 1:1.10, 2:1.14, 3:1.15, 4:1.12, 5:1.05, 6:0.96, 7:0.88,
-        8:0.82, 9:0.74, 10:0.66, 11:0.58, 12:0.54, 13:0.52, 14:0.50, 15:0.54,
-        16:0.60, 17:0.70, 18:0.82, 19:0.92, 20:0.98, 21:1.04, 22:1.08, 23:1.10
-      };
-      const hourlySeriesPM25 = Array.from({length: 12}, (_, i) => {
-        const slot = getPastHourSlot((11 - i) * 2);
-        return +(pm25Base.hourly * (diurnalByHour[slot.hour24] || 0.9)).toFixed(1);
+      // real episodes from the hourly archive (js/fire_v2b.js), no synthetic profiles
+      const R = window.FIRE_V2B;
+      if (!R || !R.S[st.id] || !window.FireV2B) return { peakHours: [], peakDays: [], peakMonths: [] };
+      const eps = FireV2B.episodes(R, st.id);
+      const lastT = R.axis[R.axis.length - 1];
+      const fmt = e => (e.peak >= FireV2B.HIGH ? '🔥 ' : '🌫️ ') + v2bHourLabel(R.axis[e.start]) + ' (' + (e.end - e.start + 2) + ' שעות • ציון ' + Math.round(e.peak) + ')';
+      const peakHours = eps.filter(e => lastT - R.axis[e.end] <= 86400000).map(fmt);
+      const peakDays = eps.filter(e => lastT - R.axis[e.end] <= 30 * 86400000).slice(-12).reverse().map(fmt);
+      const byMonth = {};
+      eps.forEach(e => {
+        const k = new Date(R.axis[e.start]).toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem', month: '2-digit', year: 'numeric' });
+        byMonth[k] = byMonth[k] || { n: 0, hi: 0 }; byMonth[k].n++; if (e.peak >= FireV2B.HIGH) byMonth[k].hi++;
       });
-      const p25Hourly = computePercentile25(hourlySeriesPM25);
-
-      const peakHours = [];
-      for (let idx = 0; idx < 12; idx++) {
-        const slot = getPastHourSlot((11 - idx) * 2);
-        const f = diurnalByHour[slot.hour24] || 0.9;
-        const pm25Val = +(pm25Base.hourly * f).toFixed(1);
-        const pm10Val = +(pm10Base.hourly * f).toFixed(1);
-        const c6Val = +(c6Base.hourly * f).toFixed(2);
-        const sig = detectPirateFireSignature({
-          id: st.id, group: st.group, wind: st.wind,
-          last30m: { PM25: pm25Val, PM10: pm10Val, C6H6: c6Val, baselinePM25: p25Hourly, hour: slot.hour24 }
-        }, null, { skipNeighborDust: true });
-        if (sig.level === 'high' || sig.level === 'watch') {
-          const hhStr = String(slot.hour24).padStart(2, '0') + ':00';
-          peakHours.push(`${sig.level === 'high' ? '🔥' : '🌫️'} שעה ${hhStr} (פרופיל מייצג • PM2.5 ≈ ${pm25Val})`);
-        }
-      }
-
-      const dFactors = [0.65,0.72,0.80,1.00,0.85,0.60,0.55,0.70,0.92,0.78,0.68,0.62,0.88,0.75,0.66];
-      const dailySeriesPM25 = dFactors.map(f => +(pm25Base.daily * f).toFixed(1));
-      const p25Daily = computePercentile25(dailySeriesPM25);
-
-      const peakDays = [];
-      dFactors.forEach((f, i) => {
-        const daysAgo = (dFactors.length - 1 - i) * 2;
-        const dateStr = getPastDateLabel(daysAgo);
-        const pmD = +(pm25Base.daily * f).toFixed(1);
-        const pm10D = +(pm10Base.daily * f).toFixed(1);
-        const sig = detectPirateFireSignature({
-          id: st.id, group: st.group, wind: st.wind,
-          last30m: { PM25: pmD, PM10: pm10D, baselinePM25: p25Daily, hour: 23 }
-        }, null, { skipNeighborDust: true });
-        if (sig.level === 'high' || sig.level === 'watch') {
-          peakDays.push(`${sig.level === 'high' ? '🔥' : '🌫️'} יום ${i * 2 + 1}/30 (פרופיל מייצג • PM2.5: ${pmD})`);
-        }
-      });
-
-      const mLabels = ['ינו','פבר','מרץ','אפר','מאי','יוני','יול','אוג','ספט','אוק','נוב','דצמ'];
-      const mFactors = [1.18,1.12,1.05,0.95,0.88,0.82,0.80,0.84,0.90,1.00,1.12,1.20];
-      const peakMonths = [];
-      mLabels.forEach((lbl, i) => {
-        const pmM = +(pm25Base.monthly * mFactors[i]).toFixed(1);
-        if (pmM >= 16.5) peakMonths.push(`${lbl} (${pmM} µg/m³)`);
-      });
-
+      const peakMonths = Object.entries(byMonth).map(([k, v]) => k + ': ' + v.n + ' אירועים' + (v.hi ? ' (' + v.hi + ' 🔥)' : ''));
       return { peakHours, peakDays, peakMonths };
     }
 
@@ -4636,7 +4647,7 @@ PPB_TO_UGM3 = {
                 <span>ניתוח לאחור – מתי המדדים ב-${st.shortName} עלו בתבנית שריפה פיראטית?</span>
               </h2>
               <p class="text-xs text-slate-400 mt-0.5">
-                סינון אוטומטי לפי הנוסחה התלת-שכבתית האחידה (<span class="mono">PM2.5</span>, <span class="mono">Δ</span> מול <span class="mono">P25</span> של 24 שעות, ויחס <span class="mono">PM2.5/PM10</span>).
+                אירועים אמיתיים מהארכיון השעתי (גלאי v2b; רק בתחנות שמודדות חלקיקים).
               </p>
             </div>
             <button type="button" onclick="jumpToTrend('PM25','hourly')" class="px-3 py-1.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/50 text-orange-200 text-xs font-extrabold shrink-0 self-start sm:self-center transition">
@@ -4646,28 +4657,28 @@ PPB_TO_UGM3 = {
 
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 text-xs">
             <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1.5">
-              <div class="font-bold text-white">1. חלונות ליליים (פרופיל יומי מייצג):</div>
+              <div class="font-bold text-white">1. אירועים ב-24 השעות האחרונות:</div>
               <div class="flex flex-wrap gap-1">
-                ${retro.peakHours.length ? retro.peakHours.map(h => `<button type="button" onclick="jumpToTrend('PM25','hourly')" class="px-2 py-0.5 rounded bg-orange-950/60 border border-orange-700/50 text-orange-200 mono hover:bg-orange-900/60 transition">${h}</button>`).join('') : '<span class="text-slate-400">לא זוהו שעות לילה מעל 18 µg/m³ בפרופיל הנוכחי.</span>'}
+                ${retro.peakHours.length ? retro.peakHours.map(h => `<button type="button" onclick="jumpToTrend('PM25','hourly')" class="px-2 py-0.5 rounded bg-orange-950/60 border border-orange-700/50 text-orange-200 mono hover:bg-orange-900/60 transition">${h}</button>`).join('') : '<span class="text-slate-400">לא זוהו אירועי עשן או שריפה.</span>'}
               </div>
             </div>
             <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1.5">
-              <div class="font-bold text-white">2. ימי שיא (פרופיל 30 ימים מייצג):</div>
+              <div class="font-bold text-white">2. אירועים ב-30 הימים האחרונים:</div>
               <div class="flex flex-wrap gap-1">
-                ${retro.peakDays.length ? retro.peakDays.map(d => `<button type="button" onclick="jumpToTrend('PM25','daily')" class="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-700/50 text-amber-200 mono hover:bg-amber-900/60 transition">${d}</button>`).join('') : '<span class="text-slate-400">אין ימים מעל הסף היומי בפרופיל זה.</span>'}
+                ${retro.peakDays.length ? retro.peakDays.map(d => `<button type="button" onclick="jumpToTrend('PM25','daily')" class="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-700/50 text-amber-200 mono hover:bg-amber-900/60 transition">${d}</button>`).join('') : '<span class="text-slate-400">לא זוהו אירועים.</span>'}
               </div>
             </div>
             <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1.5">
-              <div class="font-bold text-white">3. עונתיות שיא (סתיו-חורף + אינברסיה):</div>
+              <div class="font-bold text-white">3. אירועים לפי חודש (90 יום):</div>
               <div class="flex flex-wrap gap-1">
-                ${retro.peakMonths.length ? retro.peakMonths.map(mo => `<button type="button" onclick="jumpToTrend('PM25','monthly')" class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-sky-200 mono hover:bg-slate-700 transition">${mo}</button>`).join('') : '<span class="text-slate-400">ממוצעים חודשיים מתונים.</span>'}
+                ${retro.peakMonths.length ? retro.peakMonths.map(mo => `<button type="button" onclick="jumpToTrend('PM25','monthly')" class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-sky-200 mono hover:bg-slate-700 transition">${mo}</button>`).join('') : '<span class="text-slate-400">לא זוהו אירועים ב-90 הימים.</span>'}
               </div>
             </div>
           </div>
 
           <div class="bg-slate-950/60 border border-slate-800/90 rounded-xl p-3 text-xs text-slate-300 leading-relaxed">
             <strong class="text-white">סיכום תחנה (${st.shortName}):</strong>
-            שיא <span class="mono">PM2.5</span> יממתי מדווח: <span class="mono text-white">${st.pm25_max24h} µg/m³</span> • ממוצע שנתי: <span class="mono text-white">${st.pm25_annual} µg/m³</span>. כל המועדים המסומנים מעלה עברו את סינון האובך ואת הנוסחה התלת-שכבתית האחידה.
+            שיא <span class="mono">PM2.5</span> יממתי ב-30 יום: <span class="mono text-white">${st.pm25_max24h ?? '—'} µg/m³</span> • ממוצע 30 יום: <span class="mono text-white">${st.pm25_annual ?? '—'} µg/m³</span>. האירועים מחושבים מהארכיון השעתי האמיתי בגלאי v2b (כולל סינון אובך ואינוורסיה).
           </div>
         `;
         if (window.lucide) window.lucide.createIcons();
@@ -4746,13 +4757,15 @@ PPB_TO_UGM3 = {
       const container = document.getElementById('stationInspectorCard');
 
       const exceedances = [];
-      if (st.c6h6_max24h > 3.9) exceedances.push({ color: 'purple', text: `בנזן יממתי ${st.c6h6_max24h} µg/m³ (${Math.round((st.c6h6_max24h/3.9)*100)}% מהתקן 3.9, ${st.c6h6_exceedDays} יממות)` });
-      if (st.pm25_max24h > 37.5) exceedances.push({ color: 'purple', text: `PM2.5 יממתי ${st.pm25_max24h} µg/m³ (חריגה מתקן הסביבה 37.5)` });
-      else if (st.pm25_annual > 5) exceedances.push({ color: 'rose', text: `PM2.5 חורג מערך היעד הבריאותי (שנתי ${st.pm25_annual} מול יעד WHO: 5; תקין בחוק < 25)` });
+      if (st.c6h6_max24h > 3.9) exceedances.push({ color: 'purple', text: `בנזן: ${st.c6h6_exceedDays} ימים מעל התקן היממתי 3.9 ב-30 יום (שיא ${st.c6h6_max24h} µg/m³)` });
+      if (st.pm25_max24h > 37.5) exceedances.push({ color: 'purple', text: `PM2.5: שיא יממתי ${st.pm25_max24h} µg/m³ ב-30 יום (תקן 37.5)` });
+      else if (st.pm25_annual > 5) exceedances.push({ color: 'rose', text: `PM2.5 מעל יעד WHO 2021 (ממוצע 30 יום ${st.pm25_annual} מול 5; תקן חוקי שנתי 25)` });
       if (st.ch2o_exceed1h > 0) exceedances.push({ color: 'purple', text: `פורמאלדהיד: ${st.ch2o_exceed1h} עליות שעתיות מעל 15 µg/m³` });
-      if (st.no2_annual > 40) exceedances.push({ color: 'purple', text: `NO₂ שנתי ${st.no2_annual} µg/m³ (חריגה מתקן 40)` });
+      if (st.no2_annual > 40) exceedances.push({ color: 'purple', text: `NO₂ ממוצע 30 יום ${st.no2_annual} µg/m³ (מעל התקן השנתי 40)` });
       if (st.bap_exceedDays > 0) exceedances.push({ color: 'rose', text: `בנזו-א-פירן (מסרטן): ${st.bap_exceedDays} יממות מעל ערך היעד הבריאותי` });
-      if (st.o3_annual > 70) exceedances.push({ color: 'rose', text: `אוזון שנתי גבוה (${st.o3_annual} µg/m³) עם עליות מעל יעד 8-שעתי` });
+      if (st.pm10_max24h > 130) exceedances.push({ color: 'purple', text: `PM10: שיא יממתי ${st.pm10_max24h} µg/m³ ב-30 יום (תקן 130)` });
+      if (!exceedances.length && st.status !== 'unknown') exceedances.push({ color: 'green', text: 'אין חריגה מתקן או מיעד WHO במזהמים שנמדדים כאן (30 יום)' });
+      if (st.o3_annual > 100) exceedances.push({ color: 'rose', text: `אוזון שנתי גבוה (${st.o3_annual} µg/m³) עם עליות מעל יעד 8-שעתי` });
 
       container.innerHTML = `
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
@@ -4766,10 +4779,10 @@ PPB_TO_UGM3 = {
           </div>
           <div class="flex items-center gap-2.5 self-start sm:self-center">
             <div class="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-center">
-              <div class="text-[10px] text-slate-400">מדד AQI</div>
-              <div class="text-lg font-extrabold mono ${st.aqiIndex >= 51 ? 'text-emerald-400' : (st.aqiIndex >= 0 ? 'text-amber-400' : 'text-rose-400')}">${st.aqiIndex > 0 ? '+' + st.aqiIndex : st.aqiIndex}</div>
+              <div class="text-[10px] text-slate-400">נמדד</div>
+              <div class="text-sm font-extrabold mono text-sky-300">${Object.keys(st.metrics || {}).filter(k => POLLUTANT_STANDARDS[k]).length} מזהמים</div>
             </div>
-            <div class="px-3 py-2 rounded-xl text-xs font-extrabold ${st.status === 'exceed_env' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'}">
+            <div class="px-3 py-2 rounded-xl text-xs font-extrabold ${st.status === 'exceed_env' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : (st.status === 'ok' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/40' : (st.status === 'unknown' ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'))}">
               ${st.statusText}
             </div>
             ${(() => { const s = detectPirateFireSignature(st); return (s.detected || s.level === 'dust') ? `<div class="px-2.5 py-2 rounded-xl text-xs font-extrabold ${s.level === 'high' ? 'bg-orange-500/20 text-orange-200 border-orange-500/50' : (s.level === 'dust' ? 'bg-yellow-500/20 text-yellow-200 border-yellow-500/50' : 'bg-amber-500/20 text-amber-200 border-amber-500/50')} border">${s.shortBadge}</div>` : ''; })()}
@@ -4784,8 +4797,8 @@ PPB_TO_UGM3 = {
             </div>
             <div class="flex flex-wrap gap-1.5">
               ${exceedances.map(ex => `
-                <span class="px-2.5 py-1 rounded-lg text-xs font-semibold border ${ex.color === 'purple' ? 'bg-purple-950/50 border-purple-700/70 text-purple-200' : 'bg-rose-950/50 border-rose-700/70 text-rose-200'}">
-                  ${ex.color === 'purple' ? '🟣' : '🔴'} ${ex.text}
+                <span class="px-2.5 py-1 rounded-lg text-xs font-semibold border ${ex.color === 'purple' ? 'bg-purple-950/50 border-purple-700/70 text-purple-200' : (ex.color === 'green' ? 'bg-emerald-950/40 border-emerald-700/60 text-emerald-200' : 'bg-rose-950/50 border-rose-700/70 text-rose-200')}">
+                  ${ex.color === 'purple' ? '🟣' : (ex.color === 'green' ? '🟢' : '🔴')} ${ex.text}
                 </span>
               `).join('')}
             </div>
@@ -4808,7 +4821,8 @@ PPB_TO_UGM3 = {
       const isTarget = APP_STATE.benchmarkMode === 'target';
       const tf = APP_STATE.timeframeView;
 
-      const keys = Object.keys(POLLUTANT_STANDARDS);
+      const keys = Object.keys(POLLUTANT_STANDARDS).filter(k => st.metrics && st.metrics[k]);
+      if (!keys.length) { grid.innerHTML = '<div class="p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-xs">ממתין לנתוני אמת מהתחנה…</div>'; return; }
       grid.innerHTML = keys.map(key => {
         const std = POLLUTANT_STANDARDS[key];
         const m = st.metrics[key];
@@ -4818,9 +4832,9 @@ PPB_TO_UGM3 = {
         const dLimit = isTarget ? std.dTarget : std.dEnv;
         const mLimit = isTarget ? std.mTarget : std.mEnv;
 
-        const hPct = Math.round((m.hourly / hLimit) * 100);
-        const dPct = Math.round((m.daily / dLimit) * 100);
-        const mPct = Math.round((m.monthly / mLimit) * 100);
+        const hPct = m.hourly == null ? 0 : Math.round((m.hourly / hLimit) * 100);
+        const dPct = m.daily == null ? 0 : Math.round((m.daily / dLimit) * 100);
+        const mPct = (m.monthly == null || !m.monthlyReal) ? 0 : Math.round((m.monthly / mLimit) * 100);
 
         const maxPct = Math.max(
           tf === 'all' || tf === 'hourly' ? hPct : 0,
@@ -4834,6 +4848,9 @@ PPB_TO_UGM3 = {
 
         const renderTimeRow = (tfKey, label, val, limit, pct, subNote, targetLimit) => {
           if (tf !== 'all' && tf !== tfKey) return '';
+          if (val === null || val === undefined || isNaN(val)) {
+            return `<div class="flex items-center justify-between text-xs"><span class="text-slate-400 font-semibold">${label}</span><span class="text-slate-500">${tfKey === 'monthly' ? 'עוד אין 30 יום מלאים' : 'אין נתון'}</span></div>`;
+          }
           const barW = Math.min(100, pct);
           const barCol = pct > 100 ? (isTarget ? 'bg-rose-500' : 'bg-purple-500') : 'bg-emerald-400';
           const txtCol = pct > 100 ? (isTarget ? 'text-rose-300 font-extrabold' : 'text-purple-300 font-extrabold') : 'text-emerald-300 font-bold';
@@ -4886,7 +4903,7 @@ PPB_TO_UGM3 = {
               <div class="space-y-2 pt-1">
                 ${renderTimeRow('hourly', 'שעתי', m.hourly, hLimit, hPct, std.hLabel, std.hTarget)}
                 ${renderTimeRow('daily', 'יומי (24ש\')', m.daily, dLimit, dPct, std.dLabel, std.dTarget)}
-                ${renderTimeRow('monthly', 'חודשי', m.monthly, mLimit, mPct, std.mLabel + (m.monthlyReal ? ' • ממוצע אמיתי 30 יום' : ' • בסיס היסטורי'), std.mTarget)}
+                ${renderTimeRow('monthly', 'חודשי', m.monthlyReal ? m.monthly : null, mLimit, mPct, std.mLabel + ' • ממוצע אמיתי 30 יום', std.mTarget)}
               </div>
             </div>
 
@@ -5297,9 +5314,13 @@ PPB_TO_UGM3 = {
       statusEl.textContent = 'מושך תחזית לחיפה/קריות...';
       try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=ms&timezone=auto&forecast_days=2`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
+        const cache = (window.__windFcCache = window.__windFcCache || {});
+        const hit = cache[url];
+        if (!hit || Date.now() - hit.t > 15 * 60 * 1000) {
+          cache[url] = { t: Date.now(), p: fetch(url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }) };
+          cache[url].p.catch(() => { delete cache[url]; });
+        }
+        const data = await cache[url].p;
         const h = data.hourly;
         const nowLocal = new Date();
         const pad = n => String(n).padStart(2, '0');
@@ -5896,9 +5917,11 @@ PPB_TO_UGM3 = {
             st.last30m = Object.assign(st.last30m || {}, Object.fromEntries(Object.entries(last30).filter(([, x]) => x != null)));
             st.history24h = history24h || [];
             st.daily30d = live.daily30d || [];
+            st.stale = !!live.stale;
             Object.entries(live.metrics || {}).forEach(([k, v]) => {
               st.metrics[k] = Object.assign(st.metrics[k] || {}, Object.fromEntries(Object.entries(v).filter(([, x]) => x != null)));
             });
+            deriveRealSummary(st);
           });
           if (data.timestamp) {
             updateLastUpdatedTimestamp(new Date(data.timestamp).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }));

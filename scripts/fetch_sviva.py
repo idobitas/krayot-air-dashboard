@@ -13,6 +13,7 @@ import math
 import sys
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import aiohttp
@@ -23,6 +24,12 @@ OUT = ROOT / "live_krayot.json"
 HISTORY = ROOT / "data" / "history_90d.json"
 ARCHIVE_DIR = ROOT / "data"  # archive_YYYY_MM.json: permanent monthly copies (never trimmed)
 ARCHIVE_INDEX = ROOT / "data" / "archives_index.json"
+IL_TZ = ZoneInfo("Asia/Jerusalem")
+
+
+def today_il():
+    """Calendar date in Israel (the runner's clock is UTC: between 00:00 and 02/03:00 IL its date is yesterday)."""
+    return datetime.now(IL_TZ).date()
 WINDOW_DAYS = 90
 MIN_HOURS_PER_DAY = 12  # a day needs this many hourly rows to count as a real daily mean
 MIN_HOURS_PER_MONTH = 360  # ~half of 30*24 hours to call a monthly mean "real"
@@ -154,14 +161,21 @@ def hourly_rows(points):
     if not points:
         return {}
     latest = points[-1][0]
+    # a bucket needs readings covering at least half the hour (6 x 5-min); the step is measured
+    # from the data so coarser API timebases still work
+    gaps = sorted((points[i + 1][0] - points[i][0]).total_seconds() / 60 for i in range(len(points) - 1))
+    step = max(1.0, gaps[len(gaps) // 2]) if gaps else 5.0
+    need = max(1, math.ceil(30 / step))
     buckets = defaultdict(lambda: defaultdict(list))
+    stamps = defaultdict(set)
     for t, vals in points:
         b = t.replace(minute=0, second=0, microsecond=0)
+        stamps[b].add(t)
         for k, v in vals.items():
             buckets[b][k].append(v)
     rows = {}
     for b, vals in buckets.items():
-        if latest < b + timedelta(minutes=55):
+        if latest < b + timedelta(minutes=55) or len(stamps[b]) < need:
             continue
         rows[b.isoformat()] = {k: agg(k, v) for k, v in vals.items() if k in VALUE_KEYS}
     return rows
@@ -298,7 +312,7 @@ def monthly_means(rows, latest_t):
 async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
     if backfill:
         avg = await client.get_station_average(
-            api_id, from_date=date.today() - timedelta(days=WINDOW_DAYS), to_date=date.today())
+            api_id, from_date=today_il() - timedelta(days=WINDOW_DAYS), to_date=today_il() + timedelta(days=1))
     else:
         avg = await client.get_station_average(api_id, hours_back=24, timebase=5)
     all_pts = points_of(avg)
@@ -338,7 +352,7 @@ async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
 async def fetch_reference(client, api_id, hist_rows, backfill):
     if backfill:
         avg = await client.get_station_average(
-            api_id, from_date=date.today() - timedelta(days=WINDOW_DAYS), to_date=date.today())
+            api_id, from_date=today_il() - timedelta(days=WINDOW_DAYS), to_date=today_il() + timedelta(days=1))
     else:
         avg = await client.get_station_average(api_id, hours_back=24, timebase=5)
     new = {t: {k: v[k] for k in REF_KEYS if v.get(k) is not None}
@@ -352,7 +366,7 @@ async def fetch_open_meteo(session, lat, lon, hist_rows, backfill):
               "&wind_speed_unit=ms&timezone=UTC")
     if backfill:
         url = ("https://historical-forecast-api.open-meteo.com/v1/forecast?" + common
-               + f"&start_date={date.today() - timedelta(days=WINDOW_DAYS)}&end_date={date.today()}")
+               + f"&start_date={today_il() - timedelta(days=WINDOW_DAYS)}&end_date={today_il()}")
     else:
         url = "https://api.open-meteo.com/v1/forecast?" + common + "&past_days=2&forecast_days=1"
     async with session.get(url, timeout=aiohttp.ClientTimeout(total=60)) as resp:
@@ -415,13 +429,27 @@ async def main(force_backfill=False):
         print("No station data fetched; leaving output files untouched.", file=sys.stderr)
         return 1
     ts = max(times).isoformat()
-    history["updated"] = max(r["t"] for k, s in hist_stations.items() if k in STATIONS for r in s["rows"][-1:])
+    history["updated"] = max((r["t"] for k, s in hist_stations.items() if k in STATIONS for r in s["rows"][-1:]),
+                             default=ts)
     save_history(history)
     # archive before anything is trimmed on the next run (merge_rows already cut >90 d, but those
     # hours were archived on earlier runs while they were still inside the window)
     written = update_archives(hist_stations)
     if written:
         print("Archive updated: " + ", ".join(written))
+    # keep the previous record of any station that failed this run instead of dropping it
+    fetched = {st["id"] for st in stations}
+    try:
+        prev = json.loads(OUT.read_text(encoding="utf-8")).get("stations", []) if OUT.exists() else []
+    except (OSError, ValueError):
+        prev = []
+    for old in prev:
+        if old.get("id") in STATIONS and old["id"] not in fetched:
+            old["stale"] = True
+            stations.append(old)
+            print(f"KEEP {old['id']}: previous record kept (measuredAt {old.get('measuredAt')})")
+    order = list(STATIONS)
+    stations.sort(key=lambda st: order.index(st["id"]) if st["id"] in order else len(order))
     doc = {"timestamp": ts, "source": "air.sviva.gov.il", "units": "ug/m3 (CO ppm), wind m/s & deg",
            "stations": stations}
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
