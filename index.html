@@ -125,6 +125,7 @@
       <div class="flex items-center gap-2 text-xs sm:text-sm font-extrabold text-amber-300">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="clock" class="lucide lucide-clock w-4 h-4 text-amber-400 shrink-0"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
         <span id="lastUpdatedBadge" class="mono">נתוני מזהמים: בסיס דוח שנתי המשרד להגנ"ס (2017) + חישוב פרופיל מייצג • תחזית רוח: חיה (Open-Meteo)</span>
+        <button id="btnRefreshLive" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/50 transition">רענן נתוני אמת</button>
       </div>
       <div class="text-[11px] text-slate-300 flex flex-wrap items-center gap-2">
         <span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 font-semibold">תקנות אוויר נקי (התשפ"ב–2022) + WHO 2021</span>
@@ -4874,8 +4875,12 @@ PPB_TO_UGM3 = {
 
         let labels = [], rawSeries = [], rawThreshold = 0;
         if (hor === 'hourly') {
+          const realRows = (((window.HISTORY_90D || {})[st.id] || {}).rows || []).slice(-24).filter(r => r[pol] != null);
+          const useReal = realRows.length >= 6;
           const slots = Array.from({length: 12}, (_, i) => getPastHourSlot((11 - i) * 2));
-          labels = slots.map(s => String(s.hour24).padStart(2, "0") + ":00 (פרופיל)");
+          labels = useReal
+            ? realRows.map(r => r.t.slice(11, 13) + ':00 (' + r.t.slice(8, 10) + '/' + r.t.slice(5, 7) + ')')
+            : slots.map(s => String(s.hour24).padStart(2, "0") + ":00 (פרופיל)");
           let byHour;
           if (pol === 'O3') {
             byHour = [0.48,0.45,0.42,0.40,0.38,0.42,0.46,0.58,0.68,0.78,0.88,0.96,1.02,1.08,1.12,1.10,1.04,0.94,0.82,0.72,0.62,0.56,0.52,0.50];
@@ -4887,7 +4892,7 @@ PPB_TO_UGM3 = {
             byHour = [0.95,1.02,1.08,1.12,1.14,1.06,0.98,0.90,0.84,0.76,0.68,0.62,0.58,0.56,0.55,0.59,0.64,0.72,0.82,0.88,0.94,1.00,1.04,1.00];
           }
           const offset = stIdx % 2 === 0 ? 0 : 1;
-          rawSeries = slots.map(s => base.hourly * byHour[(s.hour24 + offset) % 24]);
+          rawSeries = useReal ? realRows.map(r => r[pol]) : slots.map(s => base.hourly * byHour[(s.hour24 + offset) % 24]);
           rawThreshold = APP_STATE.benchmarkMode === 'target' ? std.hTarget : std.hEnv;
         } else if (hor === 'daily') {
           const realDays = (st.daily30d || []).filter(x => x[pol] != null);
@@ -5867,6 +5872,14 @@ PPB_TO_UGM3 = {
         });
       }
       window.historyRowsForScanner = historyRowsForScanner;
+
+      document.getElementById('btnRefreshLive')?.addEventListener('click', async (e) => {
+        const b = e.currentTarget;
+        b.disabled = true; b.textContent = 'מרענן...';
+        try { await loadLiveData(); renderMatrix(); fetchWindForecast(); b.textContent = 'רוענן ✓'; }
+        catch (err) { b.textContent = 'שגיאה'; }
+        setTimeout(() => { b.textContent = 'רענן נתוני אמת'; b.disabled = false; }, 2000);
+      });
 
       document.getElementById('btnLoadRealHistory')?.addEventListener('click', () => {
         const ta = document.getElementById('historyJsonTextarea');
