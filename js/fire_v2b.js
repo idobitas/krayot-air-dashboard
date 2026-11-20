@@ -21,12 +21,13 @@
   var REF_IDS = ['ref_neve_shaanan', 'ref_tivon', 'ref_nesher'], REF_REGIONAL = 5;
   var OM = { kiryat_bialik_z4: 'om_kiryat_bialik_z4', kiryat_haim_regavim: 'om_kiryat_haim_regavim' };
   var STUCK_OM_WS = 2.5, WIND_BACKUP = 'kiryat_binyamin';
-  // broad smoke wave from the villages 7-10 km east: it covers most Krayot stations at once, so the
-  // per-station local excess (LX) collapses. Network-level label (watch, never fire): Krayot median
-  // PM2.5 >= 20, Krayot median anomaly >= 8 above the references while references are clean (< 5),
-  // east wind 50-140 deg, no traffic NOx jump (median ratio <= 1.3), no dust event; 2 h persistence.
-  // 90-day backtest: 4 episodes, all at night (one is the 18/11 fire); 97% of gap hours had east wind.
-  var WAVE = { pm: 20, gap: 8, refMax: 5, wdMin: 50, wdMax: 140, nox: 1.3 };
+  // corridor excess: a smoke wave from the villages 7-10 km east covers most Krayot stations at once,
+  // so the local excess (vs. the other Krayot) collapses. When all four gates hold, the Krayot-vs-
+  // references excess (netmed - refmed) may stand in for it: east wind at night, positive fine-particle
+  // ratio, no traffic NOx rise, quiet references.
+  var CORRIDOR = { ra: 0.08, nox: 0.5, refMax: 5 };
+  // stations without a benzene channel borrow it from these (never from 499) on an east-wind rise
+  var BZ_LENDERS = ['kiryat_motzkin_z2', 'kiryat_binyamin'];
   var SINGLE_HOUR_WATCH = 65; // one hour alone >= this -> immediate watch (fire still needs 2h)
   // hard bounds (µg/m³) for the P90 / P99 normalisation scales, and the minimum P99-P90 span
   var BOUNDS = {
@@ -182,6 +183,16 @@
     });
 
     // 4. raw hourly score
+    // 4a. benzene jump per station (so stations without benzene can borrow it)
+    IDS.forEach(function (id) {
+      var ch = S[id];
+      ch.hasBz = ch.C6H6.some(function (v) { return v !== null; });
+      ch.bzc = ch.C6H6.map(function (v, i) {
+        var bzPrev = win(ch.C6H6, i, 6, 1, 3);
+        var bzx = v !== null && bzPrev !== null ? v / Math.max(0.2, bzPrev) : null;
+        return bzx === null ? null : clip01((bzx - 1.5) / 1.5);
+      });
+    });
     IDS.forEach(function (id) {
       var ch = S[id], wsrc = S[STATIONS[id].wind || id];
       ch.pm10p90 = quantile(ch.PM10, 0.9);
@@ -190,9 +201,7 @@
         var pm = ch.PM25[i];
         var base = win(ch.PM25, i, 6, 3, 2);
         var noxPrev = win(ch.NOX, i, 3, 1, 2);
-        var bzPrev = win(ch.C6H6, i, 6, 1, 3);
         var noxd = ch.NOX[i] !== null && noxPrev ? ch.NOX[i] / noxPrev : null;
-        var bzx = ch.C6H6[i] !== null && bzPrev !== null ? ch.C6H6[i] / Math.max(0.2, bzPrev) : null;
         var wd = wsrc.WD[i], h = hours[i];
         var night = h >= 20 || h <= 6;
         var c = {
@@ -201,10 +210,23 @@
           rise: pm === null || base === null ? null : clip01((pm - base) / 15),
           ratio: ch.ra[i] === null ? null : clip01((ch.ra[i] - 0.05) / 0.2),
           nox: noxd === null ? 0.5 : (noxd <= 1.15 ? 1 : (noxd <= 1.5 ? 0.47 : 0)),
-          bz: bzx === null ? 0 : clip01((bzx - 1.5) / 1.5),
+          bz: ch.bzc[i] === null ? 0 : ch.bzc[i],
           east: wd !== null && wd >= 30 && wd <= 150 && night ? 1 : 0,
-          lx: ch.LX[i] === null ? null : clip01((ch.LX[i] - ch.lx90) / (ch.lx99 - ch.lx90))
+          lx: null
         };
+        // local excess, or the corridor excess when all four gates hold
+        var lxv = ch.LX[i];
+        var corridor = c.east === 1 && ch.ra[i] !== null && ch.ra[i] >= CORRIDOR.ra && c.nox >= CORRIDOR.nox &&
+          refmed[i] !== null && refmed[i] < CORRIDOR.refMax && netmed[i] !== null;
+        if (corridor && lxv !== null) lxv = Math.max(lxv, netmed[i] - refmed[i]);
+        c.lx = lxv === null ? null : clip01((lxv - ch.lx90) / (ch.lx99 - ch.lx90));
+        // no benzene channel (380, 92): borrow the benzene jump from 382/97 (never 499) on an east-wind
+        // rise. Rescaling the other hours to /90 was tested and rejected: +2 high, and the 24-25/10
+        // inversion night crossed 70.
+        if (!ch.hasBz) {
+          var lent = BZ_LENDERS.map(function (o) { return S[o].bzc[i]; }).filter(function (x) { return x !== null; });
+          c.bz = (c.east === 1 && c.rise !== null && c.rise > 0 && lent.length) ? Math.max.apply(null, lent) : 0;
+        }
         var tot = 0, missing = false;
         Object.keys(W).forEach(function (k) { if (c[k] === null) missing = true; else tot += c[k] * W[k]; });
         var prev = i > 0 ? ch.PM25[i - 1] : null;
@@ -239,19 +261,6 @@
 
     // 6. levels + network verdict per hour
     function level(v) { return v === null ? 'none' : (v >= HIGH ? 'high' : (v >= WATCH ? 'watch' : 'none')); }
-    var waveRaw = axis.map(function (_, i) {
-      var kpm = median(IDS.map(function (id) { return S[id].PM25[i]; }));
-      var noxr = median(IDS.map(function (id) {
-        var c = S[id].NOX, prev = win(c, i, 3, 1, 2);
-        return c[i] !== null && prev ? c[i] / prev : null;
-      }));
-      var wd = S[WIND_BACKUP].WD[i];
-      return kpm !== null && kpm >= WAVE.pm && refmed[i] !== null && refmed[i] < WAVE.refMax &&
-        netmed[i] !== null && netmed[i] - refmed[i] >= WAVE.gap &&
-        wd !== null && wd >= WAVE.wdMin && wd <= WAVE.wdMax && (noxr === null || noxr <= WAVE.nox) &&
-        !IDS.some(function (id) { return S[id].flags[i].dustEvent; });
-    });
-    var wave = waveRaw.map(function (v, i) { return v && i > 0 && waveRaw[i - 1]; });
     var verdicts = axis.map(function (t, i) {
       var st = IDS.map(function (id) { return { id: id, score: S[id].S[i], level: level(S[id].S[i]), flags: S[id].flags[i] }; });
       var hi = st.filter(function (x) { return x.level === 'high'; });
@@ -261,8 +270,8 @@
       // reference data for that hour, the Krayot-only rule applies
       var regional = netmed[i] !== null && netmed[i] >= REGIONAL &&
         (refmed[i] === null || refmed[i] >= REF_REGIONAL);
-      var kind = hi.length ? 'fire' : (wa.length ? 'smoke' : (wave[i] ? 'wave' : (dustSt.length >= 2 ? 'dust' : (regional ? 'regional' : 'clear'))));
-      return { t: t, kind: kind, regional: regional, wave: wave[i], netmed: netmed[i], refmed: refmed[i], stations: st, dustStations: dustSt };
+      var kind = hi.length ? 'fire' : (wa.length ? 'smoke' : (dustSt.length >= 2 ? 'dust' : (regional ? 'regional' : 'clear')));
+      return { t: t, kind: kind, regional: regional, netmed: netmed[i], refmed: refmed[i], stations: st, dustStations: dustSt };
     });
 
     // latest hour that has a PM2.5 reading in at least 3 stations
@@ -270,7 +279,7 @@
     while (li > 0 && IDS.filter(function (id) { return S[id].PM25[li] !== null; }).length < 3) li--;
 
     return {
-      axis: axis, hours: hours, S: S, netmed: netmed, refmed: refmed, wave: wave, verdicts: verdicts, latestIndex: li, latest: verdicts[li],
+      axis: axis, hours: hours, S: S, netmed: netmed, refmed: refmed, verdicts: verdicts, latestIndex: li, latest: verdicts[li],
       level: level, stationScore: function (id, i) { return S[id] ? S[id].S[i === undefined ? li : i] : null; }
     };
   }

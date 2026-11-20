@@ -981,7 +981,6 @@
         smoke: ['🌫️', 'ייתכן עשן באוויר', 'סימני עשן ב' + hot.join(', ') + '. כדאי לעקוב.', 'bg-amber-950/50 border-amber-500/50 text-amber-100'],
         dust: ['🏜️', 'אובך / אבק באזור', 'האוויר מאובק, לא עשן שריפה.', 'bg-yellow-950/40 border-yellow-500/50 text-yellow-100'],
         regional: ['🌁', 'אוויר עומד (אינוורסיה)', 'זיהום מצטבר בכל הקריות, לא שריפה מקומית.', 'bg-slate-800/80 border-slate-500/60 text-slate-100'],
-        wave: ['🌫️', 'גל עשן רחב מהמזרח', 'עשן מכסה את רוב הקריות ברוח מזרחית, בזמן שתחנות הייחוס בחוץ נקיות. מומלץ לסגור חלונות.', 'bg-amber-950/50 border-amber-500/50 text-amber-100'],
         clear: ['🟢', 'אין חריגה מיוחדת בקריות', 'לא זוהו סימני שריפה, אובך או אינוורסיה, והמדדים בתוך יעדי WHO.', 'bg-emerald-950/40 border-emerald-600/50 text-emerald-100']
       }[v.kind];
       // green only when the live values also meet WHO 2021 (24 h guideline; latest hour or 24 h mean)
