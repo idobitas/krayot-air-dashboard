@@ -2561,11 +2561,19 @@
 
       document.querySelectorAll('.matrix-filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          APP_STATE.matrixFilter = btn.getAttribute('data-matrix-filter');
+          // real toggle: clicking the active filter again returns to the default view (Krayot)
+          const val = btn.getAttribute('data-matrix-filter');
+          APP_STATE.matrixFilter = (APP_STATE.matrixFilter === val && val !== 'krayot') ? 'krayot' : val;
           document.querySelectorAll('.matrix-filter-btn').forEach(b => {
-            b.className = 'matrix-filter-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+            const on = b.getAttribute('data-matrix-filter') === APP_STATE.matrixFilter;
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            b.className = 'matrix-filter-btn shrink-0 px-3 py-1.5 rounded-xl text-xs transition ' + (on
+              ? 'font-extrabold bg-sky-500 text-slate-950 ring-2 ring-sky-300/60'
+              : 'font-bold bg-slate-800 text-slate-300 hover:bg-slate-700');
+            if (!b.dataset.label) b.dataset.label = b.innerHTML.trim();
+            const toggleable = !['krayot', 'all'].includes(b.getAttribute('data-matrix-filter'));
+            b.innerHTML = (on && toggleable ? '✓ ' : '') + b.dataset.label + (on && toggleable ? ' <span class="opacity-70 font-normal">✕ ביטול</span>' : '');
           });
-          btn.className = 'matrix-filter-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-sky-500 text-slate-950 transition';
           renderMatrix();
         });
       });

@@ -128,14 +128,6 @@
           <button type="button" data-matrix-filter="exceed_env" class="matrix-filter-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-rose-300 border border-rose-800/50 hover:bg-rose-950/60 transition">
             רק עם חריגות מתקן סביבה
           </button>
-          <div class="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px]">
-            <button id="btnBenchEnv" type="button" class="px-2 py-1.5 rounded-md font-bold bg-purple-600 text-white transition" title="השוואה לתקן הסביבה החוקי">
-              תקן חוקי
-            </button>
-            <button id="btnBenchTarget" type="button" class="px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition" title="השוואה לערך היעד הבריאותי המחמיר">
-              יעד בריאותי
-            </button>
-          </div>
 
           <div class="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px] mono">
             <button id="btnUnitUg" type="button" class="px-2 py-1.5 rounded-md font-bold bg-sky-600 text-white transition">
@@ -205,7 +197,14 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="navigation" class="lucide lucide-navigation w-4 h-4 text-sky-400"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>
             <span>בחר תחנה בקריות לצפייה במדדים שעתיים, יומיים וחודשיים:</span>
           </h2>
-          <span id="matrixBenchmarkBanner" class="text-[11px] font-bold text-purple-300">בסיס השוואה: תקן סביבה חוקי</span>
+          <div title="בסיס השוואה לצבעים ולאחוזים" class="shrink-0 flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px]">
+            <button id="btnBenchEnv" type="button" class="px-2 py-1.5 rounded-md font-bold bg-purple-600 text-white transition" title="השוואה לתקן הסביבה החוקי">
+              תקן חוקי
+            </button>
+            <button id="btnBenchTarget" type="button" class="px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition" title="השוואה לערך היעד הבריאותי המחמיר">
+              יעד בריאותי
+            </button>
+          </div>
         </div>
         <div id="stationPillsStrip" class="flex gap-2.5 overflow-x-auto no-scrollbar pb-1.5 snap-x"></div>
       </div>
