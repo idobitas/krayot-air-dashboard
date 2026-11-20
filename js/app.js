@@ -10,7 +10,7 @@
       matrixSearch: '',
       selectedStationId: (() => { try { return localStorage.getItem('krayot.station') || 'kiryat_motzkin_z2'; } catch (e) { return 'kiryat_motzkin_z2'; } })(),
       timeframeView: 'all', // 'all', 'hourly', 'daily', 'monthly'
-      paramCategory: 'all',
+      paramCategory: 'live',
       paramSearch: '',
       aqiInputs: { PM25: 24.4, PM10: 34.5, O3: 36.1, SO2: 0.8, NO2: 2.4, NOX: 38.0, CO: 0.3 }
     };
@@ -29,12 +29,12 @@
       PM25: {
         short: 'אבק זעיר שחודר עמוק לריאות ולדם',
         simple: 'חלקיקים מיקרוסקופיים (קטנים פי 30 משערה) מפליטות דיזל, ארובות ואובך. בגלל גודלם הם לא נעצרים באף אלא נכנסים לריאות ולמחזור הדם.',
-        action: 'מעל 25 (יעד) / 37.5 (תקן יומי): רגישים ואסתמטיים צריכים להפחית מאמץ גופני בחוץ.'
+        action: 'מעל 15 (יעד WHO 2021 יומי; שנתי 5) / 37.5 (תקן יומי): רגישים ואסתמטיים צריכים להפחית מאמץ גופני בחוץ.'
       },
       PM10: {
         short: 'אבק נשימתי מאובך, רסס ים וכבישים',
         simple: 'חלקיקי אבק גסים יותר (עד 10 מיקרון) שמגיעים מסופות חול, מלח מהים התיכון ושחיקת כבישים. גורמים לגירוי בגרון, שיעול והחמרת אסתמה.',
-        action: 'מעל 50 (יעד) / 130 (תקן יומי): יום אובך – מומלץ להפעיל מזגן במצב סירקולציה פנימית.'
+        action: 'מעל 45 (יעד WHO 2021 יומי; שנתי 15) / 130 (תקן יומי): יום אובך – מומלץ להפעיל מזגן במצב סירקולציה פנימית.'
       },
       CH2O: {
         short: 'גז מגרה ומסרטן מפליטות ושמש',
@@ -54,7 +54,7 @@
       SO2: {
         short: 'גז צורב משריפת דלקים גופריתיים במפרץ',
         simple: 'נפלט משריפת מזוט ודלקים כבדים בתעשייה ובאוניות. גורם להתכווצות מהירה של דרכי הנשימה אצל חולי אסתמה.',
-        action: 'מעל 20 (יעד יומי) / 50 (תקן יומי) / 350 (שעתי): להישאר במבנה סגור בזמן גל ריח.'
+        action: 'מעל 40 (יעד WHO 2021 יומי; שנתי 20) / 50 (תקן יומי) / 350 (שעתי): להישאר במבנה סגור בזמן גל ריח.'
       },
       H2S: {
         short: 'גז "ביצים סרוחות" ממפעלים וביוב',
@@ -559,11 +559,11 @@
       { id: 'PM25', nameHe: 'חלקיקים נשימים עדינים (<2.5 µm)', nameEn: 'Fine Particulate Matter', formula: 'PM2.5', category: 'criteria', iarc: 'Group 1 – מסרטן ודאי', isCarcinogen: true, unit: 'µg/m³', averaging: 'יממתי ושנתי',
         intuitive: 'אבק זעיר כל כך (1/30 מקוטר שערה) שהוא חודר דרך הריאות ישר למחזור הדם. מגיע מרכבי דיזל, תעשייה ואובך.',
         standards: [{ period: 'יממה', target: '15 µg/m³ (WHO 2021)', env: '37.5 µg/m³ (סופות אבק: 18)', alert: '130 µg/m³' }, { period: 'שנה', target: '5 µg/m³ (WHO 2021)', env: '25 µg/m³', alert: '—' }],
-        whatIsIt: 'מוצקים וטיפונות מיקרוסקופיות המרחפות באוויר.', sources: 'שריפת דלקים, תחבורה (דיזל), אבק מדברי וזיהום חוצה גבולות.', health: 'מחלות לב וכלי דם, סרטן ריאה, אסתמה ולידה מוקדמת.', haifaContext: 'בקריות הממוצע השנתי סביב 15–17 µg/m³ (מתחת לתקן החוקי 25, אך מעל היעד הבריאותי 10).' },
+        whatIsIt: 'מוצקים וטיפונות מיקרוסקופיות המרחפות באוויר.', sources: 'שריפת דלקים, תחבורה (דיזל), אבק מדברי וזיהום חוצה גבולות.', health: 'מחלות לב וכלי דם, סרטן ריאה, אסתמה ולידה מוקדמת.', haifaContext: 'בקריות הממוצע השנתי סביב 15–17 µg/m³ (מתחת לתקן החוקי 25, אך פי 3 מהיעד הבריאותי של WHO 2021, 5).' },
       { id: 'PM10', nameHe: 'חלקיקים נשימים (<10 µm)', nameEn: 'Respirable Particulate Matter', formula: 'PM10', category: 'criteria', iarc: 'Group 1 – מסרטן ודאי', isCarcinogen: true, unit: 'µg/m³', averaging: 'יממתי ושנתי',
         intuitive: 'אבק נשימתי מאובך מדברי, מלח מהים התיכון ושחיקת צמיגים וכבישים. גורם לשיעול ולגירוי בדרכי הנשימה.',
         standards: [{ period: 'יממה', target: '45 µg/m³ (WHO 2021)', env: '130 µg/m³ (סופות אבק: 18)', alert: '300 µg/m³' }, { period: 'שנה', target: '15 µg/m³ (WHO 2021)', env: '50 µg/m³', alert: '—' }],
-        whatIsIt: 'חלקיקים בקוטר קטן מ-10 מיקרון.', sources: 'סופות אבק, רסס ים (~11 µg/m³ במפרץ), בנייה ותחבורה.', health: 'מחלות נשימה, אסתמה וסרטן ריאה.', haifaContext: 'הממוצע בקריות נע סביב 36–40 µg/m³ (עומד בתקן 50 אך כפול מהיעד 20).' },
+        whatIsIt: 'חלקיקים בקוטר קטן מ-10 מיקרון.', sources: 'סופות אבק, רסס ים (~11 µg/m³ במפרץ), בנייה ותחבורה.', health: 'מחלות נשימה, אסתמה וסרטן ריאה.', haifaContext: 'הממוצע בקריות נע סביב 36–40 µg/m³ (עומד בתקן 50 אך יותר מפי 2 מהיעד של WHO 2021, 15).' },
       { id: 'NO2', nameHe: 'חנקן דו-חמצני', nameEn: 'Nitrogen Dioxide', formula: 'NO₂', category: 'criteria', iarc: 'סמן תחבורה ראשי', isCarcinogen: false, unit: 'µg/m³ / ppb', averaging: 'שעתי ושנתי',
         intuitive: 'גז ממנועי מכוניות, אוטובוסים ומשאיות. איפה שיש פקקים (דרך עכו, צ\'ק פוסט, עצמאות) – הוא עולה מיד.',
         standards: [{ period: 'שעה / יממה', target: '200 שעתי | 25 יממתי', env: '200 שעתי (עד 8/שנה)', alert: '400 µg/m³' }, { period: 'שנה', target: '10 µg/m³ (WHO 2021)', env: '40 µg/m³', alert: '—' }],
@@ -838,8 +838,6 @@
             })()}
             <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(c6Pct, st.c6h6_exceedDays > 7)} mono">${formatGasValue(st.c6h6_max24h, 'C6H6')}${st.c6h6_max24h == null ? '' : ' (' + c6Pct + '%)'}</span></td>
             <td class="py-2 px-2.5 text-center mono">${formatGasValue(st.c6h6_annual, 'C6H6')}</td>
-            <td class="py-2 px-2.5 text-center mono text-slate-500" title="לא נמדד בתחנה">—</td>
-            <td class="py-2 px-2.5 text-center mono text-slate-500" title="לא נמדד בתחנה">—</td>
             <td class="py-2 px-2.5 text-center mono">${formatGasValue(st.h2s_annual, 'H2S')}</td>
             <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(no2Pct, st.no2_annual > 40)} mono">${formatGasValue(st.no2_annual, 'NO2', 1)}</span></td>
             <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(pm25Pct)} mono">${dash(st.pm25_max24h)} / ${dash(st.pm25_annual)}</span></td>
@@ -1352,8 +1350,15 @@
       if (!R || !R.S[st.id] || !window.FireV2B) return { peakHours: [], peakDays: [], peakMonths: [] };
       const eps = FireV2B.episodes(R, st.id);
       const lastT = R.axis[R.axis.length - 1];
-      const fmt = e => (e.peak >= FireV2B.HIGH ? '🔥 ' : '🌫️ ') + v2bHourLabel(R.axis[e.start]) + ' (' + v2bEpisodeHours(R, st.id, e) + ' שעות • ציון ' + Math.round(e.peak) + ')';
+      const hrs = n => n === 1 ? 'שעה אחת' : n + ' שעות';
+      const fmt = e => (e.peak >= FireV2B.HIGH ? '🔥 ' : '💨 ') + v2bHourLabel(R.axis[e.start]) + ' (' + hrs(v2bEpisodeHours(R, st.id, e)) + ' • ציון ' + Math.round(e.peak) + ')';
       const peakHours = eps.filter(e => lastT - R.axis[e.end] <= 86400000).map(fmt);
+      if (!peakHours.length) { // no smoke score >= 55 in the last 24 h: show WHO 2021 hours and the PM2.5 peak instead
+        const ch = R.S[st.id], from = Math.max(0, R.axis.length - 24);
+        let n = 0, pk = -1, pkI = -1;
+        for (let i = from; i < R.axis.length; i++) { const v = ch.PM25[i]; if (v == null) continue; if (v > 15) n++; if (v > pk) { pk = v; pkI = i; } }
+        if (pkI >= 0) peakHours.push(`ℹ️ אין אירוע עשן; ${n ? hrs(n) + ' מעל יעד WHO 2021 (15)' : 'כל השעות בתוך יעד WHO 2021'} • שיא PM2.5 ${pk.toFixed(1)} µg/m³ ב-${v2bHourLabel(R.axis[pkI])}`);
+      }
       const peakDays = eps.filter(e => lastT - R.axis[e.end] <= 30 * 86400000).slice(-12).reverse().map(fmt);
       const byMonth = {};
       eps.forEach(e => {
@@ -1424,7 +1429,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs mt-2">
           <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1">
             <div class="font-extrabold text-orange-300">1. עשן אמיתי, לא שגרה</div>
-            <p class="text-slate-300 leading-relaxed">PM2.5 מעל 20, חריג לשעה זו ביממה, ועולה מול 3–6 השעות הקודמות. נדרשות שתי שעות רצופות.</p>
+            <p class="text-slate-300 leading-relaxed">PM2.5 מעל 20, חריג לשעה זו ביממה, ועולה מול 3–6 השעות הקודמות. מחושב על השעה המתגלגלת: שעה אחת בציון ≥ 65 מדליקה חשד לעשן, ושעתיים ברצף ≥ 70 חשד גבוה.</p>
           </div>
           <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1">
             <div class="font-extrabold text-rose-300">2. עשן או אבק?</div>
@@ -1432,7 +1437,7 @@
           </div>
           <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1">
             <div class="font-extrabold text-amber-300">3. מקומי או אזורי?</div>
-            <p class="text-slate-300 leading-relaxed">שריפה מעלה תחנה אחת-שתיים יותר מהשאר. כשכל התחנות עולות יחד זו אינוורסיה (אוויר עומד) ומוצג בנפרד.</p>
+            <p class="text-slate-300 leading-relaxed">שריפה מעלה תחנה אחת-שתיים יותר מהשאר. גל רחב מהמזרח נבדק מול נווה שאנן, טבעון ונשר; כשגם הן עולות זו אינוורסיה (אוויר עומד) ומוצג בנפרד.</p>
           </div>
           <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1">
             <div class="font-extrabold text-sky-300">4. אימות</div>
@@ -1881,9 +1886,10 @@
       const grid = document.getElementById('paramCardsGrid');
       const q = APP_STATE.paramSearch.trim().toLowerCase();
       const filtered = PARAMETERS_DATA.filter(p => {
+        if (APP_STATE.paramCategory === 'live' && !['PM25', 'PM10', 'NO2', 'NOX', 'O3', 'SO2', 'C6H6', 'WS', 'WD', 'AQI_INDEX'].includes(p.id)) return false;
         if (APP_STATE.paramCategory === 'carcinogen' && !p.isCarcinogen) return false;
         if (APP_STATE.paramCategory === 'fire' && !['PM25','PM10','CO','C6H6','CH2O','WD','WS','STABILITY_ZL'].includes(p.id)) return false;
-        if (APP_STATE.paramCategory !== 'all' && APP_STATE.paramCategory !== 'carcinogen' && APP_STATE.paramCategory !== 'fire' && p.category !== APP_STATE.paramCategory) return false;
+        if (APP_STATE.paramCategory !== 'all' && APP_STATE.paramCategory !== 'live' && APP_STATE.paramCategory !== 'carcinogen' && APP_STATE.paramCategory !== 'fire' && p.category !== APP_STATE.paramCategory) return false;
         if (q) {
           const hay = (p.nameHe + ' ' + p.nameEn + ' ' + p.formula + ' ' + p.intuitive + ' ' + p.whatIsIt + ' ' + p.sources + ' ' + p.haifaContext).toLowerCase();
           if (!hay.includes(q)) return false;
@@ -1927,7 +1933,7 @@
             </div>
           </div>
           <div class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-amber-200">
-            <strong>בקריות ובמפרץ:</strong> ${p.haifaContext}
+            <strong>בקריות ובמפרץ</strong> <span class="text-[10px] text-slate-500">(מדוחות היסטוריים 2017–2023, לא מדידה חיה)</span>: ${p.haifaContext}
           </div>
         </article>
       `).join('');

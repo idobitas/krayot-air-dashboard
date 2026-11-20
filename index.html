@@ -174,8 +174,9 @@
       <div class="bg-slate-900/70 border border-slate-800 rounded-2xl px-3.5 py-2 flex flex-wrap items-center justify-center sm:justify-between gap-2 text-[11px] text-slate-300">
         <span class="font-extrabold text-slate-200">מקרא סימונים:</span>
         <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-          <span>🔥 <strong>שריפה פיראטית</strong> (הצלבת מדדי עשן ב-30 דק')</span>
-          <span>🌫️ <strong>חשד לעשן בעירה</strong> (עלייה מתונה בסמני עשן)</span>
+          <span>🔥 <strong>חשד גבוה לשריפה</strong> (שעתיים ברצף בציון ≥ 70)</span>
+          <span>🌫️ <strong>חשד לעשן</strong> (שעה אחת ≥ 65, או שעתיים ≥ 55)</span>
+          <span class="basis-full text-slate-400">הציון (גלאי C-A) מחושב על השעה המתגלגלת האחרונה, וגל עשן רחב נבדק מול תחנות הייחוס נווה שאנן, טבעון ונשר.</span>
           <span>🏜️ <strong>אובך מינרלי</strong> (יחס PM2.5/PM10 נמוך)</span>
           <span>🔴 <strong>חריגה מיעד בריאותי</strong></span>
           <span>🟣 <strong>חריגה מתקן חוקי</strong></span>
@@ -318,11 +319,9 @@
             <thead>
               <tr class="bg-slate-950 text-slate-300 border-b border-slate-800 text-[11px]">
                 <th class="py-2.5 px-3 sticky right-0 z-10 bg-slate-950 border-l border-slate-800">תחנה</th>
-                <th class="py-2.5 px-2.5 text-center">חתימת שריפה (30 דק')</th>
+                <th class="py-2.5 px-2.5 text-center">חתימת שריפה (שעה מתגלגלת)</th>
                 <th class="py-2.5 px-2.5 text-center">בנזן C₆H₆ (יממתי)</th>
                 <th class="py-2.5 px-2.5 text-center">בנזן (שנתי)</th>
-                <th class="py-2.5 px-2.5 text-center">פורמאלדהיד CH₂O</th>
-                <th class="py-2.5 px-2.5 text-center">בנזו-א-פירן BaP</th>
                 <th class="py-2.5 px-2.5 text-center">H₂S</th>
                 <th class="py-2.5 px-2.5 text-center">NO₂ (שנתי)</th>
                 <th class="py-2.5 px-2.5 text-center">PM2.5 (יומי/חודשי)</th>
@@ -348,7 +347,7 @@
               <span>סורק היסטוריה לאחור (JSON / CSV מ-py-air-sviva-api) – איתור תאריכי שריפות פיראטיות</span>
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">
-              העלה קובץ היסטורי או הדבק מערך רשומות (<span class="mono">datetime, PM2.5, PM10, CO, CH2O, C6H6, WD, WS</span>) והמערכת תסמן אוטומטית על ציר הזמן את כל התאריכים והשעות שבהם זוהתה חתימת שריפה.
+              העלה קובץ היסטורי או הדבק מערך רשומות (<span class="mono">datetime, PM2.5, PM10, NOx, C6H6, WD, WS</span>; ההזנה החיה באתר מגיעה מ-air.sviva.gov.il) והמערכת תסמן אוטומטית על ציר הזמן את כל התאריכים והשעות שבהם זוהתה חתימת שריפה.
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-2 shrink-0">
@@ -414,7 +413,7 @@
         <!-- Intuitive 3-Tier Standard Guide -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
           <div class="bg-amber-950/30 border border-amber-700/50 rounded-xl p-3">
-            <div class="text-xs font-extrabold text-amber-300">🟡 ערך יעד (הסף הבריאותי)</div>
+            <div class="text-xs font-extrabold text-amber-300">🔴 ערך יעד (הסף הבריאותי)</div>
             <p class="text-xs text-slate-300 mt-1 leading-relaxed">
               הרף שרופאים וארגון הבריאות העולמי (WHO) ממליצים לא לעבור כדי להגן על הבריאות. מעליו קיים חשש בריאותי, גם אם החוק עדיין מתיר זאת.
             </p>
@@ -435,7 +434,8 @@
 
         <!-- Category Filter Pills -->
         <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-          <button type="button" data-param-cat="all" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-slate-950 transition">הכל (35)</button>
+          <button type="button" data-param-cat="live" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-slate-950 transition">נמדד בקריות עכשיו</button>
+          <button type="button" data-param-cat="all" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">הכל (35)</button>
           <button type="button" data-param-cat="criteria" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">מדד יומיומי AQI (7)</button>
           <button type="button" data-param-cat="voc" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">גזים רעילים, תעשייה וריח (12)</button>
           <button type="button" data-param-cat="metals" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">מתכות כבדות ואבק (10)</button>
