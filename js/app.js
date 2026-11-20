@@ -783,6 +783,7 @@
         const pv = pk ? st.metrics[pk].daily : null;
         const plim = pk === 'C6H6' ? 3.9 : (APP_STATE.benchmarkMode === 'target' ? 15 : 37.5);
         const ww = stationWorst(st);
+        const onlyBz = Object.keys(st.metrics || {}).every(k => k === 'C6H6' || k === 'Toluene') && Object.keys(st.metrics || {}).length > 0;
         const plbl = ww ? `${ww.code} (${PLAIN_NAMES[ww.key] || ''})` : 'ממתין לנתונים';
         const wl = stationLevel(st), wlv = wl == null ? null : WORD_LEVELS[wl];
         const pval = pk === 'C6H6' ? formatGasValue(pv, 'C6H6') + ' ' + getUnitLabel('C6H6') : (pv == null ? '—' : Number(pv).toFixed(1) + ' µg/m³');
@@ -799,7 +800,7 @@
                 ${wlv ? `<span class="px-1.5 py-0.5 rounded-md border text-[11px] font-extrabold ${wlv.cls}">${wlv.word}</span>` : `<span class="w-2.5 h-2.5 rounded-full ${dotCls}"></span>`}
               </div>
             </div>
-            ${st.stale ? '<div class="text-[10px] text-amber-300 mt-0.5">נתון ישן</div>' : ''}
+            ${onlyBz ? '<div class="mt-0.5"><span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300">בנזן בלבד</span></div>' : ''}${st.stale ? '<div class="text-[10px] text-amber-300 mt-0.5">נתון ישן</div>' : ''}
             <div class="mt-2 flex items-center justify-between text-[11px]">
               <span class="text-slate-400">${plbl}:</span>
               <span class="mono font-extrabold ${wlv ? wlv.txt : 'text-slate-300'}">${ww ? (ww.key === 'C6H6' ? formatGasValue(ww.value, 'C6H6') + ' ' + getUnitLabel('C6H6') : Number(ww.value).toFixed(1) + ' µg/m³') : '—'}</span>
@@ -864,6 +865,7 @@
       renderPollutantCards();
       updateCharts();
       renderDecisionCard();
+      renderAiringStrip();
     }
 
     const FIRE_MARKER_IDS = ['PM25', 'CO', 'C6H6'];
@@ -985,6 +987,46 @@
       return lvl;
     }
 
+    // quick report to the Ministry of Environmental Protection hotline *6911 (copies a summary)
+    function report6911Text() {
+      const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
+      const now = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const pm = st.metrics?.PM25 ? (st.metrics.PM25.hourly ?? st.metrics.PM25.daily) : null;
+      const w = st.last30m || {}, wsrc = w.windDir != null ? w : ((STATIONS_DATA.find(s => s.id === 'kiryat_binyamin') || {}).last30m || {});
+      const wind = wsrc.windDir != null ? `${degToCompassHe(wsrc.windDir)} (${Math.round(wsrc.windDir)}°)` : 'לא ידוע';
+      return `דיווח למוקד *6911 – ריח עשן / שריפה | ${now} | אזור: ${st.shortName} | PM2.5: ${pm == null ? 'לא נמדד בתחנה' : Number(pm).toFixed(1) + ' µg/m³'} | רוח: ${wind}`;
+    }
+    window.copy6911 = async function (btn) {
+      const txt = report6911Text();
+      try { await navigator.clipboard.writeText(txt); if (btn) btn.textContent = '✓ הועתק – חייג *6911'; }
+      catch (e) { window.prompt('העתק את התקציר וחייג *6911:', txt); }
+    };
+    function report6911Button(prominent) {
+      return `<span class="inline-flex flex-wrap items-center gap-1.5"><button type="button" onclick="copy6911(this)" class="px-2.5 py-1 rounded-full text-xs font-extrabold ${prominent ? 'bg-rose-600 text-white' : 'bg-black/25 border border-white/15'}">📞 דיווח למוקד *6911 (העתק תקציר)</button><a href="tel:%2A6911" class="text-xs underline opacity-80">חייג</a></span>`;
+    }
+
+    // 12-hour "when to air" strip: hour, wind arrow + short direction, functional status
+    function renderAiringStrip() {
+      const el = document.getElementById('airingStrip');
+      if (!el) return;
+      if (!WIND_FORECAST_CACHE || !WIND_FORECAST_CACHE.length) return;
+      const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
+      const S = {
+        low: ['פיזור טוב', 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'],
+        med: ['רוח חלשה', 'bg-orange-500/15 border-orange-500/40 text-orange-200'],
+        high: ['לכידת עשן', 'bg-rose-500/20 border-rose-500/50 text-rose-200']
+      };
+      el.innerHTML = WIND_FORECAST_CACHE.slice(0, 12).map(slot => {
+        const r = computeCombinedHourRisk(slot, st), s = S[r.level] || S.med;
+        return `<div class="snap-start shrink-0 w-[78px] rounded-xl border px-2 py-1.5 text-center ${s[1]}">
+          <div class="mono text-xs font-bold">${slot.time}</div>
+          <div class="text-lg leading-none my-0.5" style="display:inline-block;transform:rotate(${(slot.wd + 180) % 360}deg)" title="הרוח נושבת מ-${Math.round(slot.wd)}°">↑</div>
+          <div class="text-[10px] opacity-80">${degToCompassHe(slot.wd)}</div>
+          <div class="text-[11px] font-extrabold mt-0.5">${s[0]}</div>
+        </div>`;
+      }).join('');
+    }
+
     // live window advice shared by the decision card and the guidance tab (no 30-day status here)
     function computeGuidance(st) {
       const sig = detectPirateFireSignature(st);
@@ -1039,8 +1081,9 @@
         <div class="flex flex-wrap items-center gap-2 mt-2">
           <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-black/25 border border-white/15">${act}</span>
           <span class="text-[11px] opacity-75">${upd ? 'עודכן ' + upd : ''} • ${st.shortName} וכל תחנות הקריות</span>
+          ${kind === 'fire' ? report6911Button(true) : ''}
         </div>
-        ${window.__verdictHTML ? `<details class="mt-2 text-xs"><summary class="cursor-pointer opacity-80">פרטים נוספים</summary><div class="mt-2 p-2.5 rounded-xl bg-black/25 border border-white/10 flex flex-wrap items-center gap-x-3 gap-y-1.5">${window.__verdictHTML}</div></details>` : ''}`;
+        ${window.__verdictHTML ? `<details class="mt-2 text-xs"><summary class="cursor-pointer opacity-80">פרטים נוספים</summary><div class="mt-2 p-2.5 rounded-xl bg-black/25 border border-white/10 flex flex-wrap items-center gap-x-3 gap-y-1.5">${window.__verdictHTML}<span class="basis-full">${report6911Button(false)}</span></div></details>` : ''}`;
     }
 
     // WHO 2021 24-hour guidelines (legal Israeli daily limits for the red tone)
@@ -1322,6 +1365,7 @@
     }
 
     function jumpToTrend(pol, horizon) {
+      if (APP_STATE.activeTab !== 'trends') switchTab('trends');
       const selPol = document.getElementById('trendPollutantSelect');
       const selHor = document.getElementById('trendHorizonSelect');
       if (selPol && selHor) {
@@ -1351,7 +1395,7 @@
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <span class="px-2.5 py-1 rounded-full text-xs font-extrabold border ${badgeStyle}">${sig.badgeText}</span>
-              <span class="text-[11px] text-slate-400 mono">${String(sig.summary || '').replace(/^ציון \d+\/100 • /, '')}</span>
+              <span class="text-[11px] text-slate-400">${String(sig.summary || '').replace(/^ציון \d+\/100 • /, '')}</span>
               ${(() => {
                 const krayot = STATIONS_DATA.filter(s => s.group === 'krayot');
                 const kSigs = krayot.map(s => detectPirateFireSignature(s));
@@ -1366,10 +1410,10 @@
             </h2>
           </div>
           <div class="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-center">
-            <button type="button" onclick="document.getElementById('pirateFireRetroPanel')?.scrollIntoView({behavior:'smooth'})" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 text-xs font-extrabold transition">
+            <button type="button" onclick="switchTab('trends'); setTimeout(() => document.getElementById('pirateFireRetroPanel')?.scrollIntoView({behavior:'smooth'}), 150); void({behavior:'smooth'})" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 text-xs font-extrabold transition">
               קפוץ לניתוח לאחור ↓
             </button>
-            <button type="button" onclick="switchTab('api'); setTimeout(() => document.getElementById('historyFireScannerCard')?.scrollIntoView({behavior:'smooth'}), 150)" class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/50 text-sky-200 text-xs font-extrabold transition">
+            <button type="button" onclick="switchTab('trends'); setTimeout(() => document.getElementById('historyFireScannerCard')?.scrollIntoView({behavior:'smooth'}), 150)" class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/50 text-sky-200 text-xs font-extrabold transition">
               סרוק היסטוריית py-air-sviva-api
             </button>
           </div>
@@ -1611,8 +1655,19 @@
           `;
         };
 
-        return `
-          <div class="rounded-2xl border ${borderCol} p-3.5 flex flex-col justify-between space-y-3">
+        const accW = maxPct > 100 ? ['חריגה', 'text-rose-300', 'bg-rose-500'] : (maxPct >= 80 ? ['קרוב לגבול', 'text-orange-300', 'bg-orange-400'] : ['תקין', 'text-emerald-300', 'bg-emerald-400']);
+        return { pct: maxPct, html: `
+          <details class="rounded-2xl border ${borderCol} group">
+          <summary class="list-none cursor-pointer p-3 flex items-center gap-3">
+            <span class="min-w-0 flex-1">
+              <span class="text-sm font-extrabold text-white">${std.name}</span>
+              <span class="text-[11px] text-slate-500 ms-1">${std.formula}</span>
+              <span class="block h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mt-1.5"><span class="block h-full ${accW[2]} rounded-full" style="width:${Math.min(100, maxPct)}%"></span></span>
+            </span>
+            <span class="text-xs font-extrabold ${accW[1]} shrink-0">${accW[0]}</span>
+            <span class="text-slate-500 text-xs shrink-0 group-open:rotate-180 transition">▾</span>
+          </summary>
+          <div class="px-3.5 pb-3.5 flex flex-col justify-between space-y-3">
             <div class="space-y-2.5">
               <div class="flex items-start justify-between gap-2">
                 <div>
@@ -1658,8 +1713,9 @@
               </div>
             </details>
           </div>
-        `;
-      }).join('');
+          </details>
+        ` };
+      }).sort((a, b) => b.pct - a.pct).map(c => c.html).join('');
     }
 
     // "HH:00 (DD/MM)" in Israel local time (correct in summer too; archive stamps are fixed +02:00)
@@ -2071,6 +2127,7 @@
         }
         WIND_FORECAST_CACHE = slice;
         renderDecisionCard();
+        renderAiringStrip();
         statusEl.textContent = `עודכן חי (${coords.label})`;
         statusEl.className = 'text-[11px] font-bold text-emerald-300 mono';
 
@@ -2499,8 +2556,8 @@
       });
 
       if (tabId === 'matrix') renderMatrix();
-      else if (tabId === 'encyclopedia') renderEncyclopedia();
-      else if (tabId === 'calculator') renderCalculatorSliders();
+      else if (tabId === 'trends') { renderPirateFirePanel(); updateCharts(); }
+      else if (tabId === 'guide') { renderEncyclopedia(); renderCalculatorSliders(); renderDailyGuidancePanel(); }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
