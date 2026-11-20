@@ -1765,7 +1765,7 @@
               <!-- Hourly / Daily / Monthly Bars -->
               <div class="space-y-2 pt-1">
                 ${renderTimeRow('hourly', key === 'O3' && m.window === '8h' ? 'עכשיו (8 שעות)' : 'שעתי', m.hourly, hLimit, hPct, std.hLabel, std.hTarget)}
-                ${renderTimeRow('daily', 'יומי (24ש\')', m.daily, dLimit, dPct, std.dLabel, std.dTarget)}
+                ${renderTimeRow('daily', key === 'O3' && m.window === '8h' ? 'שיא יומי (8 שעות)' : 'יומי (24ש\')', m.daily, dLimit, dPct, std.dLabel, std.dTarget)}
                 ${renderTimeRow('monthly', 'מגמת 30 יום (מול תקן שנתי)', m.monthlyReal ? m.monthly : null, mLimit, mPct, std.mLabel, std.mTarget)}
               </div>
             </div>
