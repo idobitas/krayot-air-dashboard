@@ -788,7 +788,7 @@
         const wl = stationLevel(st), wlv = wl == null ? null : WORD_LEVELS[wl];
         const pval = pk === 'C6H6' ? formatGasValue(pv, 'C6H6') + ' ' + getUnitLabel('C6H6') : (pv == null ? '—' : Number(pv).toFixed(1) + ' µg/m³');
         return `
-          <button type="button" data-station-id="${st.id}" class="station-pill snap-start shrink-0 text-right rounded-2xl p-3 min-w-[175px] sm:min-w-[195px] border transition ${
+          <button type="button" data-station-id="${st.id}" class="station-pill snap-start shrink-0 lg:shrink lg:flex-1 lg:min-w-0 text-right rounded-2xl p-3 min-w-[175px] sm:min-w-[195px] border transition ${
             active
               ? 'bg-sky-950/60 border-sky-400 ring-2 ring-sky-400/40 shadow-lg'
               : 'bg-slate-900 border-slate-800 hover:border-slate-700'
@@ -803,7 +803,7 @@
             ${onlyBz ? '<div class="mt-0.5"><span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300">בנזן בלבד</span></div>' : ''}${st.stale ? '<div class="text-[10px] text-amber-300 mt-0.5">נתון ישן</div>' : ''}
             <div class="mt-2 flex items-center justify-between text-[11px]">
               <span class="text-slate-400">${plbl}:</span>
-              <span class="mono font-extrabold ${wlv ? wlv.txt : 'text-slate-300'}">${ww ? (ww.key === 'C6H6' ? formatGasValue(ww.value, 'C6H6') + ' ' + getUnitLabel('C6H6') : Number(ww.value).toFixed(1) + ' µg/m³') : '—'}</span>
+              <span class="mono font-extrabold ${wlv ? wlv.txt : 'text-slate-300'}">${ww ? formatGasValue(ww.value, ww.key, ww.key === 'C6H6' ? 2 : 1) + ' ' + getUnitLabel(ww.key) : '—'}</span>
             </div>
           </button>
         `;
@@ -985,6 +985,20 @@
       return lvl;
     }
 
+    // copy text; only report success when the clipboard accepted it, else offer a prompt to copy by hand
+    async function copyTextReliable(txt, onOk) {
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('no clipboard');
+        await navigator.clipboard.writeText(txt);
+        if (onOk) onOk();
+        return true;
+      } catch (e) {
+        window.prompt('ההעתקה האוטומטית נחסמה. העתק ידנית:', txt);
+        return false;
+      }
+    }
+    window.copyTextReliable = copyTextReliable;
+
     // quick report to the Ministry of Environmental Protection hotline *6911 (copies a summary)
     function report6911Text() {
       const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
@@ -996,11 +1010,21 @@
     }
     window.copy6911 = async function (btn) {
       const txt = report6911Text();
-      try { await navigator.clipboard.writeText(txt); if (btn) btn.textContent = '✓ הועתק – חייג *6911'; }
-      catch (e) { window.prompt('העתק את התקציר וחייג *6911:', txt); }
+      await copyTextReliable(txt, () => { if (btn) btn.textContent = '✓ הועתק – חייג *6911'; });
+    };
+    const SVIVA_FORM_URL = 'https://govforms.gov.il/mw/forms/ContactUsNew@sviva.gov.il?gbxid=0#!contactUs';
+    window.openSvivaForm = async function (btn) {
+      const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
+      const txt = 'נושא: פנייה בנושא מפגע זיהום אוויר / ריח עשן באזור ' + st.shortName + '\n' +
+        report6911Text().replace('דיווח למוקד *6911 – ', 'פרטי האירוע: ') + '\nמקור הנתונים: תחנות הניטור של המשרד להגנת הסביבה (air.sviva.gov.il).';
+      const win = window.open(SVIVA_FORM_URL, '_blank', 'noopener');
+      await copyTextReliable(txt, () => { if (btn) btn.textContent = '✓ התקציר הועתק – הדבק בטופס'; });
+      if (!win) window.location.href = SVIVA_FORM_URL;
     };
     function report6911Button(prominent) {
-      return `<span class="inline-flex flex-wrap items-center gap-1.5"><button type="button" onclick="copy6911(this)" class="px-2.5 py-1 rounded-full text-xs font-extrabold ${prominent ? 'bg-rose-600 text-white' : 'bg-black/25 border border-white/15'}">📞 דיווח למוקד *6911 (העתק תקציר)</button><a href="tel:%2A6911" class="text-xs underline opacity-80">חייג</a></span>`;
+      return `<span class="inline-flex flex-wrap items-center gap-1.5"><button type="button" onclick="copy6911(this)" class="px-2.5 py-1 rounded-full text-xs font-extrabold ${prominent ? 'bg-rose-600 text-white' : 'bg-black/25 border border-white/15'}">📞 דיווח למוקד *6911 (העתק תקציר)</button><a href="tel:%2A6911" class="text-xs underline opacity-80">חייג</a>` +
+        `<button type="button" onclick="openSvivaForm(this)" class="px-2.5 py-1 rounded-full text-xs font-extrabold bg-black/25 border border-white/15">📝 טופס מקוון להגנ"ס</button>` +
+        `<a href="https://wa.me/972549562220" target="_blank" rel="noopener" class="text-xs underline opacity-80">וואטסאפ מוקד אוויר נקי</a></span>`;
     }
 
     // 12-hour "when to air" strip: hour, wind arrow + short direction, functional status
@@ -1064,6 +1088,10 @@
       ][lvl];
       const todayDM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit' }).format(new Date());
       const dayWord = gw => !gw.date ? '' : (gw.date === todayDM ? 'היום' : 'מחר');
+      const ownLvl = stationLevel(st);
+      const others = STATIONS_DATA.filter(o => o.id !== st.id && (stationLevel(o) ?? 0) > 0).map(o => o.shortName);
+      const ownNote = lvl > 0 && ownLvl === 0 && others.length
+        ? `<div class="mt-2 text-sm font-bold bg-black/25 border border-white/15 rounded-xl px-3 py-1.5">ℹ️ ב${st.shortName} עצמה המצב כרגע טוב – ההמלצה נובעת מ${others.slice(0, 3).join(', ')}.</div>` : '';
       const when = lvl > 0 && g.goodWindow ? `<div class="text-sm mt-1">⏰ שעת אוורור מומלצת: <strong>${dayWord(g.goodWindow)} בשעה <bdi class="mono">${g.goodWindow.time}</bdi></strong></div>` : '';
       const act = lvl === 2 ? '🏃 עדיף להימנע ממאמץ בחוץ' : (lvl === 1 ? '🏃 פעילות מתונה בחוץ בסדר • רגישים בזהירות' : '🏃 מתאים לספורט ולשהייה בגינה');
       const upd = st.live && st.live.measuredAt ? new Date(st.live.measuredAt).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }) : '';
@@ -1076,6 +1104,7 @@
             ${when}
           </div>
         </div>
+        ${ownNote}
         <div class="flex flex-wrap items-center gap-2 mt-2">
           <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-black/25 border border-white/15">${act}</span>
           <span class="text-[11px] opacity-75">${upd ? 'עודכן ' + upd : ''} • ${st.shortName} וכל תחנות הקריות</span>
@@ -1524,7 +1553,7 @@
             <span class="text-slate-200 font-medium">החוק מתיר רמות גבוהות פי <span class="mono text-white font-extrabold">2.5–9</span> מיעד הבריאות</span>
             <span class="mono text-xs px-2.5 py-0.5 rounded-lg bg-slate-950 border border-slate-700">
               <span class="${envCount > 0 ? 'text-purple-300 font-extrabold' : 'text-emerald-300 font-bold'}">${envCount} חריגות בחוק</span>
-              <span class="text-slate-500 mx-1">|</span>
+              <span class="text-slate-400 mx-1">|</span>
               <span class="${targetCount > 0 ? 'text-rose-300 font-extrabold' : 'text-emerald-300 font-bold'}">${targetCount} חריגות בבריאות</span>
             </span>
           </div>
@@ -1538,10 +1567,10 @@
           </div>
         </div>
         <div id="scaleDetailsDrawer" class="hidden pt-2 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-          <div class="bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5"><span class="text-slate-400">PM2.5 יממתי:</span> <strong class="text-white mono">37.5</strong> חוק מול <strong class="text-amber-300 mono">15</strong> בריאות <span class="text-slate-500">(פי 2.5)</span></div>
-          <div class="bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5"><span class="text-slate-400">PM2.5 חודשי/שנתי:</span> <strong class="text-white mono">25</strong> חוק מול <strong class="text-amber-300 mono">5</strong> בריאות <span class="text-slate-500">(פי 5)</span></div>
-          <div class="bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5"><span class="text-slate-400">NO₂ שנתי:</span> <strong class="text-white mono">40</strong> חוק מול <strong class="text-amber-300 mono">10</strong> בריאות <span class="text-slate-500">(פי 4)</span></div>
-          <div class="bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5"><span class="text-slate-400">BaP (מסרטן):</span> <strong class="text-white mono">0.001</strong> חוק מול <strong class="text-amber-300 mono">0.00011</strong> בריאות <span class="text-slate-500">(פי 9)</span></div>
+          <div class="bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5"><span class="text-slate-400">PM2.5 יממתי:</span> <strong class="text-white mono">37.5</strong> חוק מול <strong class="text-amber-300 mono">15</strong> בריאות <span class="text-slate-400">(פי 2.5)</span></div>
+          <div class="bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5"><span class="text-slate-400">PM2.5 חודשי/שנתי:</span> <strong class="text-white mono">25</strong> חוק מול <strong class="text-amber-300 mono">5</strong> בריאות <span class="text-slate-400">(פי 5)</span></div>
+          <div class="bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5"><span class="text-slate-400">NO₂ שנתי:</span> <strong class="text-white mono">40</strong> חוק מול <strong class="text-amber-300 mono">10</strong> בריאות <span class="text-slate-400">(פי 4)</span></div>
+          <div class="bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5"><span class="text-slate-400">BaP (מסרטן):</span> <strong class="text-white mono">0.001</strong> חוק מול <strong class="text-amber-300 mono">0.00011</strong> בריאות <span class="text-slate-400">(פי 9)</span></div>
         </div>
       `;
 
@@ -1637,7 +1666,7 @@
         const renderTimeRow = (tfKey, label, val, limit, pct, subNote, targetLimit) => {
           if (tf !== 'all' && tf !== tfKey) return '';
           if (val === null || val === undefined || isNaN(val)) {
-            return `<div class="flex items-center justify-between text-xs"><span class="text-slate-400 font-semibold">${label}</span><span class="text-slate-500">${tfKey === 'monthly' ? 'עוד אין 30 יום מלאים' : 'אין נתון'}</span></div>`;
+            return `<div class="flex items-center justify-between text-xs"><span class="text-slate-400 font-semibold">${label}</span><span class="text-slate-400">${tfKey === 'monthly' ? 'עוד אין 30 יום מלאים' : 'אין נתון'}</span></div>`;
           }
           const barW = Math.min(100, pct);
           const barCol = pct > 100 ? (isTarget ? 'bg-rose-500' : 'bg-purple-500') : 'bg-emerald-400';
@@ -1647,7 +1676,7 @@
           return `
             <div class="space-y-1">
               <div class="flex flex-wrap items-center justify-between gap-1 text-xs">
-                <span class="text-slate-400 font-semibold">${label} <span class="text-[10px] text-slate-500">(${subNote})</span></span>
+                <span class="text-slate-400 font-semibold">${label} <span class="text-[10px] text-slate-400">(${subNote})</span></span>
                 <div class="flex items-center gap-1.5">
                   ${showHealthGap ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/40 text-rose-300 text-[10px] font-bold mono">⚠️ ${targetPct}% מיעד בריאותי</span>` : ''}
                   <span class="mono ${txtCol}">${std.isGas ? formatGasValue(val, key, dec) : val.toFixed(dec)} ${unitLbl} <span class="text-[11px]">(${pct}%)</span></span>
@@ -1666,11 +1695,11 @@
           <summary class="list-none cursor-pointer p-3 flex items-center gap-3">
             <span class="min-w-0 flex-1">
               <span class="text-sm font-extrabold text-white">${std.name}</span>
-              <span class="text-[11px] text-slate-500 ms-1">${std.formula}</span>
+              <span class="text-[11px] text-slate-400 ms-1">${std.formula}</span>
               <span class="block h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mt-1.5"><span class="block h-full ${accW[2]} rounded-full" style="width:${Math.min(100, maxPct)}%"></span></span>
             </span>
             <span class="text-xs font-extrabold ${accW[1]} shrink-0">${accW[0]}</span>
-            <span class="text-slate-500 text-xs shrink-0 group-open:rotate-180 transition">▾</span>
+            <span class="text-slate-400 text-xs shrink-0 group-open:rotate-180 transition">▾</span>
           </summary>
           <div class="px-3.5 pb-3.5 flex flex-col justify-between space-y-3">
             <div class="space-y-2.5">
@@ -1750,7 +1779,15 @@
       const ctxTrend = document.getElementById('chartTimeTrend');
       if (ctxTrend && typeof Chart !== 'undefined') {
         const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
-        const pol = document.getElementById('trendPollutantSelect')?.value || 'PM25';
+        // only pollutants this station actually measures (no zero line shown as "no exceedance")
+        const polSel = document.getElementById('trendPollutantSelect');
+        if (polSel) {
+          [...polSel.options].forEach(o => { const ok = !!(st.metrics && st.metrics[o.value]); o.hidden = !ok; o.disabled = !ok; });
+          if (polSel.selectedOptions[0] && polSel.selectedOptions[0].disabled) {
+            const first = [...polSel.options].find(o => !o.disabled); if (first) polSel.value = first.value;
+          }
+        }
+        const pol = polSel?.value || 'PM25';
         const hor = document.getElementById('trendHorizonSelect')?.value || 'hourly';
         const std = POLLUTANT_STANDARDS[pol] || POLLUTANT_STANDARDS.PM25;
         const base = (st.metrics && st.metrics[pol]) ? st.metrics[pol] : { hourly: 0, daily: 0, monthly: 0 };
@@ -1823,7 +1860,7 @@
           sumEl.innerHTML = `
             <div class="flex flex-wrap items-center gap-2">
               <span class="font-extrabold text-white">${st.shortName}</span>
-              <span class="text-slate-500">•</span>
+              <span class="text-slate-400">•</span>
               <span class="text-sky-300 font-bold">${std.name} (${std.formula})</span>
             </div>
             <div class="flex flex-wrap items-center gap-2 mono">
@@ -1933,7 +1970,7 @@
             </div>
           </div>
           <div class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-amber-200">
-            <strong>בקריות ובמפרץ</strong> <span class="text-[10px] text-slate-500">(מדוחות היסטוריים 2017–2023, לא מדידה חיה)</span>: ${p.haifaContext}
+            <strong>בקריות ובמפרץ</strong> <span class="text-[10px] text-slate-400">(מדוחות היסטוריים 2017–2023, לא מדידה חיה)</span>: ${p.haifaContext}
           </div>
         </article>
       `).join('');
@@ -2078,11 +2115,8 @@
       `;
 
       document.getElementById('btnCopyReportText')?.addEventListener('click', (e) => {
-        try {
-          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(reportSummary);
-          e.target.textContent = 'הועתק!';
-          setTimeout(() => { e.target.textContent = 'העתק תקציר דיווח'; }, 2000);
-        } catch (_) {}
+        const b = e.currentTarget;
+        copyTextReliable(reportSummary, () => { b.textContent = 'הועתק!'; setTimeout(() => { b.textContent = 'העתק תקציר דיווח'; }, 2000); });
       });
       if (window.lucide) window.lucide.createIcons();
     }
@@ -2439,6 +2473,7 @@
           const ctx = document.getElementById('chartHistoryFireTimeline');
           if (ctx) {
             if (chartHistoryInstance) chartHistoryInstance.destroy();
+            const oldChart = Chart.getChart(ctx); if (oldChart) oldChart.destroy();
             chartHistoryInstance = new Chart(ctx, {
               type: 'line',
               data: {
@@ -2535,12 +2570,7 @@
       document.getElementById('btnCopyPython').addEventListener('click', () => {
         const code = document.getElementById('pythonCodeBlock').textContent;
         const lbl = document.getElementById('copyPythonLabel');
-        try {
-          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code);
-          else { const t = document.createElement('textarea'); t.value = code; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
-          lbl.textContent = 'הועתק!';
-          setTimeout(() => { lbl.textContent = 'העתק קוד'; }, 2000);
-        } catch (e) {}
+        copyTextReliable(code, () => { lbl.textContent = 'הועתק!'; setTimeout(() => { lbl.textContent = 'העתק קוד'; }, 2000); });
       });
     }
 
@@ -2660,6 +2690,14 @@
       document.getElementById('trendPollutantSelect').addEventListener('change', updateCharts);
       document.getElementById('trendHorizonSelect').addEventListener('change', updateCharts);
 
+      // filter button counts from the data itself
+      const liveIds = ['PM25', 'PM10', 'NO2', 'NOX', 'O3', 'SO2', 'C6H6', 'WS', 'WD', 'AQI_INDEX'];
+      const fireIds = ['PM25', 'PM10', 'CO', 'C6H6', 'CH2O', 'WD', 'WS', 'STABILITY_ZL'];
+      document.querySelectorAll('.param-cat-btn').forEach(btn => {
+        const cat = btn.getAttribute('data-param-cat');
+        const n = PARAMETERS_DATA.filter(p => cat === 'all' || (cat === 'live' ? liveIds.includes(p.id) : cat === 'carcinogen' ? p.isCarcinogen : cat === 'fire' ? fireIds.includes(p.id) : p.category === cat)).length;
+        if (/\(\d+\)/.test(btn.textContent)) btn.textContent = btn.textContent.replace(/\(\d+\)/, '(' + n + ')');
+      });
       document.querySelectorAll('.param-cat-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           APP_STATE.paramCategory = btn.getAttribute('data-param-cat');
