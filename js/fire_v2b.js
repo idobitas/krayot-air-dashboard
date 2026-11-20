@@ -25,7 +25,9 @@
   // so the local excess (vs. the other Krayot) collapses. When all four gates hold, the Krayot-vs-
   // references excess (netmed - refmed) may stand in for it: east wind at night, positive fine-particle
   // ratio, no traffic NOx rise, quiet references.
-  var CORRIDOR = { ra: 0.08, nox: 0.5, refMax: 5 };
+  // wind gate on the network wind (97, else 92, else Open-Meteo), fixed physical scale 5->15 ug/m3
+  var CORRIDOR = { ra: 0.08, nox: 0.5, refMax: 5, lo: 5, hi: 15 };
+  var YAM_RELEASE = 55; // Yam may exceed watch only when Motzkin itself is at least at watch
   // stations without a benzene channel borrow it from these (never from 499) on an east-wind rise
   var BZ_LENDERS = ['kiryat_motzkin_z2', 'kiryat_binyamin'];
   var SINGLE_HOUR_WATCH = 65; // one hour alone >= this -> immediate watch (fire still needs 2h)
@@ -193,6 +195,15 @@
         return bzx === null ? null : clip01((bzx - 1.5) / 1.5);
       });
     });
+    // network wind for the corridor gate: 97, else 92, else Open-Meteo (no averaging of degrees)
+    var omWD = S.kiryat_bialik_z4.omWD || S.kiryat_haim_regavim.omWD;
+    var netEast = axis.map(function (_, i) {
+      var wd = S.kiryat_binyamin.WD[i];
+      if (wd === null) wd = S.kiryat_yam_z1.WD[i];
+      if (wd === null && omWD) wd = omWD[i];
+      var h = hours[i];
+      return wd !== null && wd >= 30 && wd <= 150 && (h >= 20 || h <= 6);
+    });
     IDS.forEach(function (id) {
       var ch = S[id], wsrc = S[STATIONS[id].wind || id];
       ch.pm10p90 = quantile(ch.PM10, 0.9);
@@ -216,10 +227,10 @@
         };
         // local excess, or the corridor excess when all four gates hold
         var lxv = ch.LX[i];
-        var corridor = c.east === 1 && ch.ra[i] !== null && ch.ra[i] >= CORRIDOR.ra && c.nox >= CORRIDOR.nox &&
-          refmed[i] !== null && refmed[i] < CORRIDOR.refMax && netmed[i] !== null;
-        if (corridor && lxv !== null) lxv = Math.max(lxv, netmed[i] - refmed[i]);
         c.lx = lxv === null ? null : clip01((lxv - ch.lx90) / (ch.lx99 - ch.lx90));
+        var corridor = netEast[i] && ch.ra[i] !== null && ch.ra[i] >= CORRIDOR.ra && c.nox >= CORRIDOR.nox &&
+          refmed[i] !== null && refmed[i] < CORRIDOR.refMax && netmed[i] !== null;
+        if (corridor && c.lx !== null) c.lx = Math.max(c.lx, clip01((netmed[i] - refmed[i] - CORRIDOR.lo) / (CORRIDOR.hi - CORRIDOR.lo)));
         // no benzene channel (380, 92): borrow the benzene jump from 382/97 (never 499) on an east-wind
         // rise. Rescaling the other hours to /90 was tested and rejected: +2 high, and the 24-25/10
         // inversion night crossed 70.
@@ -229,6 +240,8 @@
         }
         var tot = 0, missing = false;
         Object.keys(W).forEach(function (k) { if (c[k] === null) missing = true; else tot += c[k] * W[k]; });
+        // borrowed benzene may lift a station to watch, never to fire on its own
+        if (!ch.hasBz && c.bz > 0 && tot >= HIGH && tot - c.bz * W.bz < HIGH) tot = HIGH - 1;
         var prev = i > 0 ? ch.PM25[i - 1] : null;
         var dust = ch.ra[i] !== null && ch.ra[i] <= -0.08;
         var spike = pm !== null && prev ? (pm / prev >= 2.5 && c.bz < 0.3 && (c.ratio === null || c.ratio < 0.3)) : false;
@@ -256,7 +269,7 @@
     });
     var yam = S.kiryat_yam_z1, mot = S.kiryat_motzkin_z2;
     yam.S = yam.S.map(function (v, i) {
-      return v !== null && (mot.S[i] === null || mot.S[i] < 50) ? Math.min(v, 59) : v; // Motzkin missing -> Yam can't raise fire alone
+      return v !== null && (mot.S[i] === null || mot.S[i] < YAM_RELEASE) ? Math.min(v, 59) : v; // Motzkin missing -> Yam can't raise fire alone
     });
 
     // 6. levels + network verdict per hour
