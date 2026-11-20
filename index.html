@@ -63,24 +63,6 @@
 
         <!-- Compact Global Toggles (Benchmark & Units) -->
         <div class="flex items-center gap-1.5 shrink-0">
-          <div class="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px]">
-            <button id="btnBenchEnv" type="button" class="px-2 py-1.5 rounded-md font-bold bg-purple-600 text-white transition" title="השוואה לתקן הסביבה החוקי">
-              תקן חוקי
-            </button>
-            <button id="btnBenchTarget" type="button" class="px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition" title="השוואה לערך היעד הבריאותי המחמיר">
-              יעד בריאותי
-            </button>
-          </div>
-
-          <div class="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px] mono">
-            <button id="btnUnitUg" type="button" class="px-2 py-1.5 rounded-md font-bold bg-sky-600 text-white transition">
-              µg/m³
-            </button>
-            <button id="btnUnitPpb" type="button" class="px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition">
-              ppb
-            </button>
-          </div>
-
           <button id="btnDownloadStandaloneHtml" type="button" title="הורד קובץ HTML עצמאי לשיתוף בווטסאפ/דרייב/אתר" class="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 transition">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="share-2" class="lucide lucide-share-2 w-3.5 h-3.5"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"></line><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"></line></svg>
             <span class="hidden sm:inline">שיתוף / HTML</span>
@@ -122,6 +104,15 @@
   <!-- Main Content -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-5 py-3 sm:py-5 space-y-4">
 
+    <!-- Neighbour decision card: open or close the window -->
+    <div id="decisionCard" class="rounded-3xl border-2 border-slate-700 bg-slate-900 px-5 py-4 shadow-xl"><div class="text-sm text-slate-400">טוען נתוני אמת…</div></div>
+
+    <!-- Public bottom line (fire detector v2b) -->
+    <div id="publicVerdict" class="hidden rounded-2xl border px-4 py-3 shadow-md"></div>
+
+    <details class="bg-slate-900/60 border border-slate-800 rounded-2xl px-3.5 py-2 group">
+      <summary class="cursor-pointer text-xs font-bold text-slate-300 py-1">⚙️ פרטים מתקדמים למתעניינים (מקור הנתונים, יחידות, תקן חוקי מול יעד בריאותי)</summary>
+      <div class="space-y-3 pt-2">
     <!-- Prominent Last Updated & Data Source Status Strip -->
     <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900 border border-amber-500/40 rounded-2xl px-3.5 py-2.5 shadow-md">
       <div class="flex items-center gap-2 text-xs sm:text-sm font-extrabold text-amber-300">
@@ -133,9 +124,28 @@
         <span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 font-semibold">תקנות אוויר נקי (התשפ"ב–2022) + WHO 2021</span>
       </div>
     </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px]">
+            <button id="btnBenchEnv" type="button" class="px-2 py-1.5 rounded-md font-bold bg-purple-600 text-white transition" title="השוואה לתקן הסביבה החוקי">
+              תקן חוקי
+            </button>
+            <button id="btnBenchTarget" type="button" class="px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition" title="השוואה לערך היעד הבריאותי המחמיר">
+              יעד בריאותי
+            </button>
+          </div>
 
-    <!-- Public bottom line (fire detector v2b) -->
-    <div id="publicVerdict" class="hidden rounded-2xl border px-4 py-3 shadow-md"></div>
+          <div class="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px] mono">
+            <button id="btnUnitUg" type="button" class="px-2 py-1.5 rounded-md font-bold bg-sky-600 text-white transition">
+              µg/m³
+            </button>
+            <button id="btnUnitPpb" type="button" class="px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition">
+              ppb
+            </button>
+          </div>
+        </div>
+      </div>
+    </details>
+
 
     <!-- ================= TAB 1: KRAYOT FOCUS + HOURLY / DAILY / MONTHLY ================= -->
     <section id="tab-matrix" class="tab-panel space-y-4">
@@ -166,6 +176,9 @@
         </div>
       </div>
 
+      <details class="bg-slate-900/60 border border-slate-800 rounded-2xl px-3.5 py-2">
+        <summary class="cursor-pointer text-xs font-bold text-slate-300 py-1">ℹ️ מקרא סימונים והסבר: תקן חוקי מול יעד בריאותי</summary>
+        <div class="space-y-3 pt-2">
       <!-- Compact Dynamic Legal vs. Health Scale Gap Strip -->
       <div id="scaleGapBanner" class="bg-slate-900/95 border-2 border-rose-500/80 rounded-2xl px-4 py-3 space-y-2.5 text-center shadow-lg shadow-rose-950/30"></div>
 
@@ -182,6 +195,8 @@
           <span>⚠️ <strong>פער סקאלות</strong> (תקין בחוק, חורג בריאותית)</span>
         </div>
       </div>
+        </div>
+      </details>
 
       <!-- Horizontal Swipeable Station Selector Cards (Mobile-Friendly) -->
       <div>

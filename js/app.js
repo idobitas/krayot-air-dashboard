@@ -781,7 +781,8 @@
         const pk = st.metrics.C6H6 ? 'C6H6' : (st.metrics.PM25 ? 'PM25' : null);
         const pv = pk ? st.metrics[pk].daily : null;
         const plim = pk === 'C6H6' ? 3.9 : (APP_STATE.benchmarkMode === 'target' ? 15 : 37.5);
-        const plbl = pk === 'C6H6' ? 'בנזן 24 שעות' : (pk ? 'PM2.5 24 שעות' : 'ממתין לנתונים');
+        const plbl = pk === 'C6H6' ? 'בנזן 24 ש\'' : (pk ? 'PM2.5 24 ש\'' : 'ממתין לנתונים');
+        const wl = stationLevel(st), wlv = wl == null ? null : WORD_LEVELS[wl];
         const pval = pk === 'C6H6' ? formatGasValue(pv, 'C6H6') + ' ' + getUnitLabel('C6H6') : (pv == null ? '—' : Number(pv).toFixed(1) + ' µg/m³');
         return `
           <button type="button" data-station-id="${st.id}" class="station-pill snap-start shrink-0 text-right rounded-2xl p-3 min-w-[175px] sm:min-w-[195px] border transition ${
@@ -793,7 +794,7 @@
               <span class="text-xs sm:text-sm font-extrabold text-white truncate">${st.shortName}</span>
               <div class="flex items-center gap-1 shrink-0">
                 ${(() => { const s = detectPirateFireSignature(st); return (s.detected || s.level === 'dust') ? `<span title="${s.badgeText}" class="text-[10px] px-1.5 py-0.5 rounded ${s.level === 'high' ? 'bg-orange-500/20 text-orange-300 border-orange-500/40' : (s.level === 'dust' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40' : 'bg-amber-500/20 text-amber-300 border-amber-500/40')} border font-bold">${s.level === 'high' ? '🔥' : (s.level === 'dust' ? '🏜️' : '🌫️')}</span>` : ''; })()}
-                <span class="w-2.5 h-2.5 rounded-full ${dotCls}"></span>
+                ${wlv ? `<span class="px-1.5 py-0.5 rounded-md border text-[11px] font-extrabold ${wlv.cls}">${wlv.word}</span>` : `<span class="w-2.5 h-2.5 rounded-full ${dotCls}"></span>`}
               </div>
             </div>
             <div class="text-[10px] text-slate-400 mono mt-0.5">${st.code}${st.stale ? ' • נתון ישן' : ''}</div>
@@ -860,6 +861,7 @@
       if (typeof fetchWindForecast === "function") fetchWindForecast();
       renderPollutantCards();
       updateCharts();
+      renderDecisionCard();
     }
 
     const FIRE_MARKER_IDS = ['PM25', 'CO', 'C6H6'];
@@ -951,6 +953,82 @@
       return v2bSignature(st) || detectPirateFireSignatureLegacy(st, allStations, opts);
     }
 
+    // plain-language names shown next to the professional ones (never instead of them)
+    const PLAIN_NAMES = { PM25: 'חלקיקים עדינים/עשן', PM10: 'אבק וחלקיקים', NO2: 'גזי פליטה', C6H6: 'חומר מסרטן', SO2: 'גז תעשייתי', O3: 'אוזון קרקעי' };
+    const plainLabel = (k, code) => `${code} (${PLAIN_NAMES[k] || ''})`;
+
+    // one word per station from live values vs. WHO 2021 24 h guidelines (benzene vs. its daily limit)
+    const WORD_LEVELS = [
+      { word: 'טוב', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40' },
+      { word: 'בינוני', cls: 'bg-orange-500/15 text-orange-300 border-orange-500/40' },
+      { word: 'גרוע', cls: 'bg-rose-500/20 text-rose-300 border-rose-500/50' }
+    ];
+    function stationLevel(st) {
+      const lim = { PM25: 15, PM10: 45, NO2: 25, C6H6: 3.9 };
+      let r = 0;
+      Object.entries(lim).forEach(([k, L]) => {
+        const m = (st.metrics || {})[k];
+        if (!m) return;
+        const v = Math.max(m.hourly ?? -1, m.daily ?? -1);
+        if (v >= 0) r = Math.max(r, v / L);
+      });
+      let lvl = r > 2 ? 2 : (r > 1 ? 1 : 0);
+      const R = window.FIRE_V2B, sc = R && R.S[st.id] ? R.level(R.stationScore(st.id)) : 'none';
+      if (sc === 'high') lvl = 2; else if (sc === 'watch') lvl = Math.max(lvl, 1);
+      return Object.keys(st.metrics || {}).length ? lvl : null;
+    }
+
+    // live window advice shared by the decision card and the guidance tab (no 30-day status here)
+    function computeGuidance(st) {
+      const sig = detectPirateFireSignature(st);
+      const pm25 = st.metrics?.PM25 ? (st.metrics.PM25.hourly ?? st.metrics.PM25.daily ?? null) : null;
+      const c6 = st.metrics?.C6H6 ? (st.metrics.C6H6.hourly ?? st.metrics.C6H6.daily ?? null) : null;
+      const isDust = !!(sig.isMineralDust || sig.level === 'dust');
+      const highRisk = sig.level === 'high' || (pm25 != null && pm25 >= 30);
+      const modRisk = !highRisk && (sig.level === 'watch' || isDust || (pm25 != null && pm25 >= 18) || (c6 != null && c6 >= 2.0));
+      let goodWindow = null;
+      if (WIND_FORECAST_CACHE && WIND_FORECAST_CACHE.length) {
+        goodWindow = WIND_FORECAST_CACHE.map(s => ({ ...s, risk: computeCombinedHourRisk(s, st) })).find(e => e.risk.level === 'low') || null;
+      }
+      return { sig, pm25, c6, isDust, highRisk, modRisk, goodWindow };
+    }
+
+    // the one answer a neighbour needs: open or close the window
+    function renderDecisionCard() {
+      const el = document.getElementById('decisionCard');
+      if (!el) return;
+      const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
+      if (!st || !Object.keys(st.metrics || {}).length) { el.innerHTML = '<div class="text-sm text-slate-400">טוען נתוני אמת…</div>'; return; }
+      const g = computeGuidance(st);
+      const R = window.FIRE_V2B, kind = R && R.latest ? R.latest.kind : 'clear';
+      const who = whoExceedances();
+      let lvl = Math.max(stationLevel(st) ?? 0, g.highRisk ? 2 : (g.modRisk ? 1 : 0));
+      if (kind === 'fire') lvl = 2; else if (['smoke', 'dust', 'regional'].includes(kind) || who.length) lvl = Math.max(lvl, 1);
+      const reason = kind === 'fire' ? 'זוהה חשד לעשן שריפות ממזרח.'
+        : kind === 'smoke' ? 'ייתכן עשן שריפות באוויר.'
+        : (kind === 'dust' || g.isDust) ? 'יש אבק / אובך באוויר (לא עשן שריפה).'
+        : kind === 'regional' ? 'אוויר עומד הלילה: הזיהום לא מתפזר.'
+        : (who.length || lvl > 0) ? 'רמת המזהמים כרגע מעל היעד הבריאותי.'
+        : 'האוויר תקין כרגע.';
+      const L = [
+        { icon: '✅', title: 'אפשר לפתוח חלון', cls: 'bg-emerald-950/50 border-emerald-500/60 text-emerald-50' },
+        { icon: '🟠', title: 'לא מומלץ לאוורר ממושך', cls: 'bg-orange-950/55 border-orange-500/60 text-orange-50' },
+        { icon: '🪟', title: 'כדאי לסגור חלונות עכשיו', cls: 'bg-rose-950/60 border-rose-500/70 text-rose-50' }
+      ][lvl];
+      const when = lvl > 0 && g.goodWindow ? `<div class="text-sm mt-1">⏰ שעת אוורור מומלצת: <strong class="mono">${g.goodWindow.time}</strong></div>` : '';
+      const upd = st.live && st.live.measuredAt ? new Date(st.live.measuredAt).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }) : '';
+      el.className = 'rounded-3xl border-2 px-5 py-4 shadow-xl ' + L.cls;
+      el.innerHTML = `<div class="flex items-center gap-3">
+          <span class="text-4xl leading-none">${L.icon}</span>
+          <div class="min-w-0">
+            <div class="text-xl sm:text-2xl font-extrabold leading-tight">${L.title}</div>
+            <div class="text-sm sm:text-base opacity-95 mt-0.5">${reason}</div>
+            ${when}
+          </div>
+        </div>
+        <div class="text-[11px] opacity-70 mt-2">לפי ${st.shortName} וכל תחנות הקריות${upd ? ' • עודכן ' + upd : ''} • אפשר לבחור תחנה אחרת למטה</div>`;
+    }
+
     // WHO 2021 24-hour guidelines (legal Israeli daily limits for the red tone)
     function whoExceedances() {
       const LIM = { PM25: { label: 'PM2.5', who: 15, legal: 37.5 }, PM10: { label: 'PM10', who: 45, legal: 130 }, NO2: { label: 'NO₂', who: 25, legal: 80 } };
@@ -989,8 +1067,10 @@
         if (w.length) {
           const legal = w.some(x => x.legal);
           V[0] = legal ? '🔴' : '🟠';
-          V[1] = 'אין סימני שריפה — אך יש חריגת WHO ב-' + [...new Set(w.map(x => x.label))].join(', ');
-          V[2] = w.map(x => `${x.label} ${x.value} µg/m³ ב${x.station} (${x.basis}; יעד WHO ליממה ${x.limit})`).slice(0, 2).join(' • ');
+          V[1] = 'אין סימני שריפה — אך רמת המזהמים מעל היעד הבריאותי (WHO)';
+          const keyOf = { 'PM2.5': 'PM25', 'PM10': 'PM10', 'NO₂': 'NO2' };
+          V[2] = '<span class="flex flex-wrap gap-1.5">' + w.slice(0, 2).map(x =>
+            `<span dir="rtl" class="px-2 py-0.5 rounded-lg bg-black/20 border border-white/10"><bdi dir="rtl">${plainLabel(keyOf[x.label], x.label)}</bdi>: <bdi dir="ltr">${x.value} µg/m³</bdi> ב${x.station} <span class="opacity-70">(יעד ${x.limit})</span></span>`).join('') + '</span>';
           V[3] = legal ? 'bg-rose-950/50 border-rose-500/60 text-rose-100' : 'bg-orange-950/45 border-orange-500/55 text-orange-100';
         }
       }
@@ -1002,6 +1082,7 @@
         <span class="text-base sm:text-lg font-extrabold"${v.regional ? ` title="${invHelp}"` : ''}>${V[1]}</span>
         <span class="text-xs sm:text-sm opacity-90">${V[2]}</span>${extra}
         <span class="text-[11px] opacity-70 mono ms-auto">נכון ל-${at}</span>${help}`;
+      renderDecisionCard();
     }
 
     function detectPirateFireSignatureLegacy(st, allStations = null, opts = {}) {
@@ -1254,7 +1335,7 @@
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <span class="px-2.5 py-1 rounded-full text-xs font-extrabold border ${badgeStyle}">${sig.badgeText}</span>
-              <span class="text-[11px] text-slate-400 mono">${sig.summary}</span>
+              <span class="text-[11px] text-slate-400 mono">${String(sig.summary || '').replace(/^ציון \d+\/100 • /, '')}</span>
               ${(() => {
                 const krayot = STATIONS_DATA.filter(s => s.group === 'krayot');
                 const kSigs = krayot.map(s => detectPirateFireSignature(s));
@@ -1278,7 +1359,9 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+        <details class="text-xs">
+          <summary class="cursor-pointer font-bold text-slate-300 py-1">איך מזהים עשן? (הסבר מדעי למתעניינים${typeof sig.score === 'number' ? ' • ציון נוכחי ' + sig.score + '/100' : ''})</summary>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs mt-2">
           <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1">
             <div class="font-extrabold text-orange-300">1. עשן אמיתי, לא שגרה</div>
             <p class="text-slate-300 leading-relaxed">PM2.5 מעל 20, חריג לשעה זו ביממה, ועולה מול 3–6 השעות הקודמות. נדרשות שתי שעות רצופות.</p>
@@ -1296,6 +1379,7 @@
             <p class="text-slate-300 leading-relaxed">בנזן שקופץ יחד, NOx שלא עולה (לא תחבורה), ורוח ממזרח בלילה (30°–150°) מחזקים. סף חשד 55, סף גבוה 70.</p>
           </div>
         </div>
+        </details>
       `;
 
       if (retroPanel) {
@@ -1867,11 +1951,8 @@
       const container = document.getElementById('dailyGuidanceCard');
       if (!container) return;
       const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
-      const sig = detectPirateFireSignature(st);
-      // only measured values; stations without a sensor (e.g. 517 has no PM) get null, never a default
-      const pm25_30m = st.metrics?.PM25 ? (st.metrics.PM25.hourly ?? st.metrics.PM25.daily ?? null) : null;
-      const c6_30m = st.metrics?.C6H6 ? (st.metrics.C6H6.hourly ?? st.metrics.C6H6.daily ?? null) : null;
-      const isDust = !!(sig.isMineralDust || sig.level === 'dust');
+      // live values only (shared with the decision card); no invented defaults, no 30-day status
+      const G = computeGuidance(st), sig = G.sig, pm25_30m = G.pm25, c6_30m = G.c6, isDust = G.isDust;
 
       // Incorporate next-3-hour Open-Meteo wind forecast if available
       let forecastNote = 'טוען שקלול תחזית רוח לשעות הקרובות...';
@@ -1886,8 +1967,7 @@
           (nextGoodWindow ? ` • חלון אוורור טוב צפוי ב-<strong class="mono text-emerald-300">${nextGoodWindow.time}</strong> (${nextGoodWindow.ws} m/s ${degToCompassHe(nextGoodWindow.wd)})` : ' • אין חלון פיזור מלא ב-12 השעות הקרובות');
       }
 
-      const highRisk = sig.level === 'high' || st.status === 'exceed_env' || (pm25_30m != null && pm25_30m >= 30);
-      const modRisk = !highRisk && (sig.level === 'watch' || isDust || (pm25_30m != null && pm25_30m >= 18) || (c6_30m != null && c6_30m >= 2.0));
+      const highRisk = G.highRisk, modRisk = G.modRisk;
 
       const windowAdvice = highRisk
         ? { badge: '🔴 מומלץ לסגור חלונות כעת', col: 'border-rose-600/60 bg-rose-950/25 text-rose-200', text: 'נמדדת עלייה משמעותית בחלקיקי עשן או בחריגת תקן. השאר חלונות סגורים והפעל מזגן במצב סירקולציה פנימית / מסנן HEPA.' }
@@ -1994,6 +2074,7 @@
           });
         }
         WIND_FORECAST_CACHE = slice;
+        renderDecisionCard();
         statusEl.textContent = `עודכן חי (${coords.label})`;
         statusEl.className = 'text-[11px] font-bold text-emerald-300 mono';
 
