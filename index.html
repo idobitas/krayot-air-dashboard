@@ -125,6 +125,9 @@
       </div>
     </div>
         <div class="flex flex-wrap items-center gap-2">
+          <button type="button" data-matrix-filter="exceed_env" class="matrix-filter-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-rose-300 border border-rose-800/50 hover:bg-rose-950/60 transition">
+            רק עם חריגות מתקן סביבה
+          </button>
           <div class="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px]">
             <button id="btnBenchEnv" type="button" class="px-2 py-1.5 rounded-md font-bold bg-purple-600 text-white transition" title="השוואה לתקן הסביבה החוקי">
               תקן חוקי
@@ -155,9 +158,6 @@
         <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
           <button type="button" data-matrix-filter="krayot" class="matrix-filter-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-sky-500 text-slate-950 transition">
             תחנות הקריות ועוטף בז"ן (6)
-          </button>
-          <button type="button" data-matrix-filter="exceed_env" class="matrix-filter-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-rose-300 border border-rose-800/50 hover:bg-rose-950/60 transition">
-            רק עם חריגות מתקן סביבה
           </button>
           <button type="button" data-matrix-filter="all" class="matrix-filter-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
             כל מפרץ חיפה והכרמל (<span id="kpiTotalStations">6</span>)
@@ -214,7 +214,7 @@
       <div id="stationInspectorCard" class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4"></div>
 
       <!-- Pirate Yard-Waste & Garbage Burning Explanation + Auto-Detection + Retrospective Analysis -->
-      <section id="pirateFireIntelPanel" class="bg-gradient-to-br from-orange-950/35 via-slate-900 to-slate-900 border border-orange-500/40 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4"></section>
+      <section id="pirateFireIntelPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4"></section>
 
       <!-- Timeframe Switcher + All Parameters Grid (Hourly / Daily / Monthly) -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 space-y-4">

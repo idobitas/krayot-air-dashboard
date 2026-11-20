@@ -8,7 +8,7 @@
       unitMode: 'ug',       // 'ug' or 'ppb'
       matrixFilter: 'krayot', // Default focus on Krayot!
       matrixSearch: '',
-      selectedStationId: 'kiryat_motzkin_z2', // Default Krayot station
+      selectedStationId: (() => { try { return localStorage.getItem('krayot.station') || 'kiryat_motzkin_z2'; } catch (e) { return 'kiryat_motzkin_z2'; } })(),
       timeframeView: 'all', // 'all', 'hourly', 'daily', 'monthly'
       paramCategory: 'all',
       paramSearch: '',
@@ -762,6 +762,7 @@
       if (filtered.length > 0 && !filtered.some(s => s.id === APP_STATE.selectedStationId)) {
         APP_STATE.selectedStationId = filtered[0].id;
       }
+      try { localStorage.setItem('krayot.station', APP_STATE.selectedStationId); } catch (e) {}
 
       const banner = document.getElementById('matrixBenchmarkBanner');
       if (banner) {
@@ -781,7 +782,8 @@
         const pk = st.metrics.C6H6 ? 'C6H6' : (st.metrics.PM25 ? 'PM25' : null);
         const pv = pk ? st.metrics[pk].daily : null;
         const plim = pk === 'C6H6' ? 3.9 : (APP_STATE.benchmarkMode === 'target' ? 15 : 37.5);
-        const plbl = pk === 'C6H6' ? 'בנזן 24 ש\'' : (pk ? 'PM2.5 24 ש\'' : 'ממתין לנתונים');
+        const ww = stationWorst(st);
+        const plbl = ww ? `${ww.code} (${PLAIN_NAMES[ww.key] || ''})` : 'ממתין לנתונים';
         const wl = stationLevel(st), wlv = wl == null ? null : WORD_LEVELS[wl];
         const pval = pk === 'C6H6' ? formatGasValue(pv, 'C6H6') + ' ' + getUnitLabel('C6H6') : (pv == null ? '—' : Number(pv).toFixed(1) + ' µg/m³');
         return `
@@ -797,10 +799,10 @@
                 ${wlv ? `<span class="px-1.5 py-0.5 rounded-md border text-[11px] font-extrabold ${wlv.cls}">${wlv.word}</span>` : `<span class="w-2.5 h-2.5 rounded-full ${dotCls}"></span>`}
               </div>
             </div>
-            <div class="text-[10px] text-slate-400 mono mt-0.5">${st.code}${st.stale ? ' • נתון ישן' : ''}</div>
+            ${st.stale ? '<div class="text-[10px] text-amber-300 mt-0.5">נתון ישן</div>' : ''}
             <div class="mt-2 flex items-center justify-between text-[11px]">
               <span class="text-slate-400">${plbl}:</span>
-              <span class="mono font-extrabold ${pv != null && pv > plim ? 'text-rose-400' : 'text-emerald-300'}">${pval}</span>
+              <span class="mono font-extrabold ${wlv ? wlv.txt : 'text-slate-300'}">${ww ? (ww.key === 'C6H6' ? formatGasValue(ww.value, 'C6H6') + ' ' + getUnitLabel('C6H6') : Number(ww.value).toFixed(1) + ' µg/m³') : '—'}</span>
             </div>
           </button>
         `;
@@ -959,23 +961,28 @@
 
     // one word per station from live values vs. WHO 2021 24 h guidelines (benzene vs. its daily limit)
     const WORD_LEVELS = [
-      { word: 'טוב', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40' },
-      { word: 'בינוני', cls: 'bg-orange-500/15 text-orange-300 border-orange-500/40' },
-      { word: 'גרוע', cls: 'bg-rose-500/20 text-rose-300 border-rose-500/50' }
+      { word: 'טוב', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40', txt: 'text-emerald-300' },
+      { word: 'בינוני', cls: 'bg-orange-500/15 text-orange-300 border-orange-500/40', txt: 'text-orange-300' },
+      { word: 'גרוע', cls: 'bg-rose-500/20 text-rose-300 border-rose-500/50', txt: 'text-rose-300' }
     ];
-    function stationLevel(st) {
-      const lim = { PM25: 15, PM10: 45, NO2: 25, C6H6: 3.9 };
-      let r = 0;
-      Object.entries(lim).forEach(([k, L]) => {
+    function stationWorst(st) {
+      const lim = { PM25: ['PM2.5', 15], PM10: ['PM10', 45], NO2: ['NO₂', 25], C6H6: ['בנזן', 3.9] };
+      let best = null;
+      Object.entries(lim).forEach(([k, [code, L]]) => {
         const m = (st.metrics || {})[k];
         if (!m) return;
         const v = Math.max(m.hourly ?? -1, m.daily ?? -1);
-        if (v >= 0) r = Math.max(r, v / L);
+        if (v >= 0 && (!best || v / L > best.r)) best = { key: k, code, value: v, r: v / L };
       });
-      let lvl = r > 2 ? 2 : (r > 1 ? 1 : 0);
+      return best;
+    }
+    function stationLevel(st) {
+      const w = stationWorst(st);
+      if (!w) return null;
+      let lvl = w.r > 2 ? 2 : (w.r > 1 ? 1 : 0);
       const R = window.FIRE_V2B, sc = R && R.S[st.id] ? R.level(R.stationScore(st.id)) : 'none';
       if (sc === 'high') lvl = 2; else if (sc === 'watch') lvl = Math.max(lvl, 1);
-      return Object.keys(st.metrics || {}).length ? lvl : null;
+      return lvl;
     }
 
     // live window advice shared by the decision card and the guidance tab (no 30-day status here)
@@ -1012,10 +1019,13 @@
         : 'האוויר תקין כרגע.';
       const L = [
         { icon: '✅', title: 'אפשר לפתוח חלון', cls: 'bg-emerald-950/50 border-emerald-500/60 text-emerald-50' },
-        { icon: '🟠', title: 'לא מומלץ לאוורר ממושך', cls: 'bg-orange-950/55 border-orange-500/60 text-orange-50' },
+        { icon: '🟠', title: 'עדיף לא לפתוח חלון לאורך זמן', cls: 'bg-orange-950/55 border-orange-500/60 text-orange-50' },
         { icon: '🪟', title: 'כדאי לסגור חלונות עכשיו', cls: 'bg-rose-950/60 border-rose-500/70 text-rose-50' }
       ][lvl];
-      const when = lvl > 0 && g.goodWindow ? `<div class="text-sm mt-1">⏰ שעת אוורור מומלצת: <strong class="mono">${g.goodWindow.time}</strong></div>` : '';
+      const todayDM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit' }).format(new Date());
+      const dayWord = gw => !gw.date ? '' : (gw.date === todayDM ? 'היום' : 'מחר');
+      const when = lvl > 0 && g.goodWindow ? `<div class="text-sm mt-1">⏰ שעת אוורור מומלצת: <strong>${dayWord(g.goodWindow)} בשעה <bdi class="mono">${g.goodWindow.time}</bdi></strong></div>` : '';
+      const act = lvl === 2 ? '🏃 עדיף להימנע ממאמץ בחוץ' : (lvl === 1 ? '🏃 פעילות מתונה בחוץ בסדר • רגישים בזהירות' : '🏃 מתאים לספורט ולשהייה בגינה');
       const upd = st.live && st.live.measuredAt ? new Date(st.live.measuredAt).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }) : '';
       el.className = 'rounded-3xl border-2 px-5 py-4 shadow-xl ' + L.cls;
       el.innerHTML = `<div class="flex items-center gap-3">
@@ -1026,7 +1036,11 @@
             ${when}
           </div>
         </div>
-        <div class="text-[11px] opacity-70 mt-2">לפי ${st.shortName} וכל תחנות הקריות${upd ? ' • עודכן ' + upd : ''} • אפשר לבחור תחנה אחרת למטה</div>`;
+        <div class="flex flex-wrap items-center gap-2 mt-2">
+          <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-black/25 border border-white/15">${act}</span>
+          <span class="text-[11px] opacity-75">${upd ? 'עודכן ' + upd : ''} • ${st.shortName} וכל תחנות הקריות</span>
+        </div>
+        ${window.__verdictHTML ? `<details class="mt-2 text-xs"><summary class="cursor-pointer opacity-80">פרטים נוספים</summary><div class="mt-2 p-2.5 rounded-xl bg-black/25 border border-white/10 flex flex-wrap items-center gap-x-3 gap-y-1.5">${window.__verdictHTML}</div></details>` : ''}`;
     }
 
     // WHO 2021 24-hour guidelines (legal Israeli daily limits for the red tone)
@@ -1081,7 +1095,9 @@
       el.innerHTML = `<span class="text-2xl leading-none">${V[0]}</span>
         <span class="text-base sm:text-lg font-extrabold"${v.regional ? ` title="${invHelp}"` : ''}>${V[1]}</span>
         <span class="text-xs sm:text-sm opacity-90">${V[2]}</span>${extra}
-        <span class="text-[11px] opacity-70 mono ms-auto">נכון ל-${at}</span>${help}`;
+        <span class="text-[11px] opacity-70 basis-full">חישוב גלאי העשן לשעה השלמה האחרונה: <span class="mono">${at}</span></span>${help}`;
+      window.__verdictHTML = el.innerHTML;
+      el.className = 'hidden'; el.innerHTML = '';
       renderDecisionCard();
     }
 
@@ -1514,47 +1530,26 @@
       container.innerHTML = `
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div>
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-sky-500/20 text-sky-300 mono">${st.code}</span>
-              <span class="text-xs text-slate-400">${st.owner}</span>
-            </div>
-            <h2 class="text-lg sm:text-xl font-extrabold text-white mt-1">${st.name}</h2>
-            <p class="text-xs text-slate-400">${st.location}</p>
+            <h2 class="text-lg sm:text-xl font-extrabold text-white flex items-center gap-2">${st.shortName}${(() => { const wl = stationLevel(st); return wl == null ? '' : `<span class="px-2 py-0.5 rounded-md border text-xs font-extrabold ${WORD_LEVELS[wl].cls}">${WORD_LEVELS[wl].word}</span>`; })()}</h2>
           </div>
           <div class="flex items-center gap-2.5 self-start sm:self-center">
-            <div class="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-center">
-              <div class="text-[10px] text-slate-400">נמדד</div>
-              <div class="text-sm font-extrabold mono text-sky-300">${Object.keys(st.metrics || {}).filter(k => POLLUTANT_STANDARDS[k]).length} מזהמים</div>
-            </div>
-            <div class="px-3 py-2 rounded-xl text-xs font-extrabold ${st.status === 'exceed_env' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : (st.status === 'ok' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/40' : (st.status === 'unknown' ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'))}">
-              ${st.statusText}
-            </div>
             ${(() => { const s = detectPirateFireSignature(st); return (s.detected || s.level === 'dust') ? `<div class="px-2.5 py-2 rounded-xl text-xs font-extrabold ${s.level === 'high' ? 'bg-orange-500/20 text-orange-200 border-orange-500/50' : (s.level === 'dust' ? 'bg-yellow-500/20 text-yellow-200 border-yellow-500/50' : 'bg-amber-500/20 text-amber-200 border-amber-500/50')} border">${s.shortBadge}</div>` : ''; })()}
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <div class="space-y-1.5">
-            <div class="text-xs font-extrabold text-slate-300 flex items-center gap-1.5">
-              <i data-lucide="alert-circle" class="w-4 h-4 text-rose-400"></i>
-              <span>איפה התחנה עוברת את הסטנדרט?</span>
-            </div>
+        <div class="text-xs text-sky-300 font-bold flex items-center gap-1.5"><i data-lucide="compass" class="w-3.5 h-3.5"></i><span>רוח: ${st.wind}</span></div>
+        <details class="bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2 text-xs">
+          <summary class="cursor-pointer font-bold text-slate-300">⚙️ פרטים מתקדמים למתעניינים</summary>
+          <div class="space-y-2 pt-2 text-slate-300">
+            <div class="flex flex-wrap items-center gap-2"><span class="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-sky-500/20 text-sky-300 mono">${st.code}</span><span class="text-slate-400">${st.owner}</span></div>
+            <div class="text-slate-400">${st.name} • ${st.location}</div>
+            <div class="font-bold">${st.statusText} <span class="font-normal text-slate-400">(${Object.keys(st.metrics || {}).filter(k => POLLUTANT_STANDARDS[k]).length} מזהמים נמדדים)</span></div>
             <div class="flex flex-wrap gap-1.5">
-              ${exceedances.map(ex => `
-                <span class="px-2.5 py-1 rounded-lg text-xs font-semibold border ${ex.color === 'purple' ? 'bg-purple-950/50 border-purple-700/70 text-purple-200' : (ex.color === 'green' ? 'bg-emerald-950/40 border-emerald-700/60 text-emerald-200' : 'bg-rose-950/50 border-rose-700/70 text-rose-200')}">
-                  ${ex.color === 'purple' ? '🟣' : (ex.color === 'green' ? '🟢' : '🔴')} ${ex.text}
-                </span>
-              `).join('')}
-            </div>
-          </div>
-          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 space-y-1">
-            <div class="font-bold text-sky-300 flex items-center gap-1.5">
-              <i data-lucide="compass" class="w-3.5 h-3.5"></i>
-              <span>רוח ומשטר פיזור: ${st.wind}</span>
+              ${exceedances.map(ex => `<span class="px-2.5 py-1 rounded-lg font-semibold border ${ex.color === 'purple' ? 'bg-purple-950/50 border-purple-700/70 text-purple-200' : (ex.color === 'green' ? 'bg-emerald-950/40 border-emerald-700/60 text-emerald-200' : 'bg-rose-950/50 border-rose-700/70 text-rose-200')}">${ex.color === 'purple' ? '🟣' : (ex.color === 'green' ? '🟢' : '🔴')} ${ex.text}</span>`).join('')}
             </div>
             <p class="leading-relaxed text-slate-400">${st.notes}</p>
           </div>
-        </div>
+        </details>
       `;
       if (window.lucide) window.lucide.createIcons();
     }
@@ -1963,7 +1958,8 @@
         nextHighRiskHours = evaluated.filter(e => e.risk.level === 'high').map(e => e.time);
         nextGoodWindow = evaluated.find(e => e.risk.level === 'low');
         const next3Max = Math.max(...evaluated.slice(0, 3).map(e => e.risk.score));
-        forecastNote = `שקלול משולב (תחנה + תחזית 3 שעות קרובות): סיכון מרבי <strong class="mono text-white">${next3Max}%</strong>` +
+        const windPhrase = next3Max >= 70 ? 'רוח חלשה / לכידת אוויר צפויה בשעות הקרובות' : (next3Max >= 40 ? 'פיזור חלקי של האוויר בשעות הקרובות' : 'רוח טובה לפיזור בשעות הקרובות');
+        forecastNote = `<strong class="text-white">${windPhrase}</strong> <details class="inline-block align-middle text-[10px] opacity-70"><summary class="cursor-pointer">פרטים</summary>מדד סיכון משוקלל (תחנה + 3 שעות): ${next3Max}%</details>` +
           (nextGoodWindow ? ` • חלון אוורור טוב צפוי ב-<strong class="mono text-emerald-300">${nextGoodWindow.time}</strong> (${nextGoodWindow.ws} m/s ${degToCompassHe(nextGoodWindow.wd)})` : ' • אין חלון פיזור מלא ב-12 השעות הקרובות');
       }
 
