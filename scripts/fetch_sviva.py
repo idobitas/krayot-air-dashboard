@@ -342,6 +342,28 @@ def monthly_means(rows, latest_t):
 
 # ---------------------------------------------------------------- fetch
 
+def ozone_8h(points, latest_t):
+    """8-h running mean of O3 (latest window) and the day's highest 8-h mean (windows ending in the
+    last 24 h, hourly steps). A window needs readings covering at least 75% of it."""
+    o3 = [(t, v["O3"]) for t, v in points if v.get("O3") is not None]
+    if not o3:
+        return None
+    gaps = sorted((o3[i + 1][0] - o3[i][0]).total_seconds() / 60 for i in range(len(o3) - 1))
+    step = max(1.0, gaps[len(gaps) // 2]) if gaps else 5.0
+    need = math.ceil(0.75 * 8 * 60 / step)
+
+    def win_mean(end):
+        xs = [v for t, v in o3 if end - timedelta(hours=8) < t <= end]
+        return round(sum(xs) / len(xs), 2) if len(xs) >= need else None
+
+    now = win_mean(latest_t)
+    ends = [latest_t - timedelta(hours=h) for h in range(24)]
+    vals = [x for x in (win_mean(e) for e in ends) if x is not None]
+    if now is None and not vals:
+        return None
+    return {"hourly": now, "daily": max(vals) if vals else None, "window": "8h"}
+
+
 async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
     if backfill:
         avg = await client.get_station_average(
@@ -370,6 +392,11 @@ async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
                 m["monthly"] = monthly[k]
                 m["monthlyReal"] = True
             metrics[k] = m
+    # ozone is assessed on 8-hour running means (Israeli limit 140, WHO 100): "hourly" = mean of the
+    # last 8 h, "daily" = highest 8-h mean among windows ending in the last 24 h
+    o3 = ozone_8h(all_pts, latest_t)
+    if o3 and "O3" in metrics:
+        metrics["O3"].update(o3)
     return rows, {
         "id": dash_id,
         "apiStationId": api_id,

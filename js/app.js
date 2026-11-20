@@ -539,11 +539,11 @@
     }
 
     const POLLUTANT_STANDARDS = {
-      C6H6: { name: 'בנזן', formula: 'C₆H₆', isGas: true, hEnv: 12.0, hTarget: 3.9, dEnv: 3.9, dTarget: 3.9, mEnv: 1.3, mTarget: 1.3, hLabel: 'הערכה שעתית', dLabel: 'תקן יממתי: 3.9', mLabel: 'תקן שנתי/חודשי: 1.3' },
-      PM25: { name: 'חלקיקים עדינים', formula: 'PM2.5', isGas: false, hEnv: 37.5, hTarget: 15.0, dEnv: 37.5, dTarget: 15.0, mEnv: 25.0, mTarget: 5.0, hLabel: 'רציף שעתי', dLabel: 'תקן יממתי: 37.5 (יעד WHO: 15)', mLabel: 'תקן שנתי: 25 (יעד WHO: 5)' },
-      PM10: { name: 'חלקיקים נשימים', formula: 'PM10', isGas: false, hEnv: 130.0, hTarget: 45.0, dEnv: 130.0, dTarget: 45.0, mEnv: 50.0, mTarget: 15.0, hLabel: 'רציף שעתי', dLabel: 'תקן יממתי: 130 (יעד WHO: 45)', mLabel: 'תקן שנתי: 50 (יעד WHO: 15)' },
+      C6H6: { name: 'בנזן', formula: 'C₆H₆', isGas: true, hEnv: 12.0, hTarget: 3.9, dEnv: 3.9, dTarget: 3.9, mEnv: 1.3, mTarget: 1.3, noHourlyStd: true, hLabel: 'אינדיקטיבי – אין תקן שעתי', dLabel: 'תקן יממתי: 3.9', mLabel: 'תקן שנתי/חודשי: 1.3' },
+      PM25: { name: 'חלקיקים עדינים', formula: 'PM2.5', isGas: false, hEnv: 37.5, hTarget: 15.0, dEnv: 37.5, dTarget: 15.0, mEnv: 25.0, mTarget: 5.0, noHourlyStd: true, hLabel: 'אינדיקטיבי – אין תקן שעתי', dLabel: 'תקן יממתי: 37.5 (יעד WHO: 15)', mLabel: 'תקן שנתי: 25 (יעד WHO: 5)' },
+      PM10: { name: 'חלקיקים נשימים', formula: 'PM10', isGas: false, hEnv: 130.0, hTarget: 45.0, dEnv: 130.0, dTarget: 45.0, mEnv: 50.0, mTarget: 15.0, noHourlyStd: true, hLabel: 'אינדיקטיבי – אין תקן שעתי', dLabel: 'תקן יממתי: 130 (יעד WHO: 45)', mLabel: 'תקן שנתי: 50 (יעד WHO: 15)' },
       NO2:  { name: 'חנקן דו-חמצני', formula: 'NO₂', isGas: true, hEnv: 200.0, hTarget: 200.0, dEnv: 80.0, dTarget: 25.0, mEnv: 40.0, mTarget: 10.0, hLabel: 'תקן שעתי: 200', dLabel: 'יעד יממתי WHO: 25', mLabel: 'תקן שנתי: 40 (יעד WHO: 10)' },
-      O3:   { name: 'אוזון', formula: 'O₃', isGas: true, hEnv: 140.0, hTarget: 100.0, dEnv: 140.0, dTarget: 100.0, mEnv: 100.0, mTarget: 60.0, hLabel: 'תקן 8-שעתי: 140 (יעד 100)', dLabel: 'שיא 8-שעתי יומי', mLabel: 'ממוצע (יעד עונת שיא: 60)' },
+      O3:   { name: 'אוזון', formula: 'O₃', isGas: true, hEnv: 140.0, hTarget: 100.0, dEnv: 140.0, dTarget: 100.0, mEnv: 100.0, mTarget: 60.0, hLabel: 'ממוצע 8 שעות אחרונות • תקן 140 (יעד WHO 100)', dLabel: 'שיא ממוצע 8 שעות ביממה', mLabel: 'ממוצע (יעד עונת שיא: 60)' },
       SO2:  { name: 'גופרית דו-חמצנית', formula: 'SO₂', isGas: true, hEnv: 350.0, hTarget: 125.0, dEnv: 50.0, dTarget: 40.0, mEnv: 20.0, mTarget: 20.0, hLabel: 'תקן שעתי: 350', dLabel: 'תקן יממתי: 50 (יעד: 40)', mLabel: 'תקן שנתי: 20' },
       CH2O: { name: 'פורמאלדהיד', formula: 'CH₂O', isGas: true, hEnv: 15.0, hTarget: 10.0, dEnv: 3.3, dTarget: 0.8, mEnv: 3.3, mTarget: 0.8, hLabel: 'תקן שעתי: 15', dLabel: 'יעד יממתי: 0.8', mLabel: 'תקן שנתי: 3.3 (יעד 0.8)' },
       H2S:  { name: 'מימן גופרי (ריח)', formula: 'H₂S', isGas: true, hEnv: 45.0, hTarget: 7.0, dEnv: 15.0, dTarget: 7.0, mEnv: 1.0, mTarget: 1.0, hLabel: 'סביבה ח"ש: 45 (יעד 7)', dLabel: 'תקן יממתי: 15', mLabel: 'יעד שנתי: 1.0' },
@@ -969,7 +969,10 @@
     // [moderate, high] in µg/m³: NO₂ / SO₂ use the hourly limits, O₃ the EU hourly information
     // threshold, PM and benzene keep the site's existing short-term thresholds.
     const NOW_BANDS = {
-      PM25: [18, 30], PM10: [50, 100], NO2: [100, 200], O3: [120, 180], SO2: [200, 350], C6H6: [2, 5]
+      // PM2.5: <=25 fine (15-25 = slightly above WHO, note only), 25-37.5 moderate (WHO IT-3 up to the
+      // Israeli daily limit), >37.5 poor. PM10 analogous (45 / 75 / 130). O3 on the 8-h mean: WHO 100,
+      // Israeli 140. NO2 / SO2: hourly limits 200 / 350.
+      PM25: [25, 37.5], PM10: [75, 130], NO2: [100, 200], O3: [100, 140], SO2: [200, 350], C6H6: [2, 5]
     };
     function stationWorst(st) { // worst pollutant in the LAST HOUR relative to its "now" band
       let best = null;
@@ -1095,7 +1098,13 @@
       if (lvl > 0 && WIND_FORECAST_CACHE && WIND_FORECAST_CACHE.length) {
         goodWindow = WIND_FORECAST_CACHE.map(x => ({ ...x, risk: computeCombinedHourRisk(x, st) })).find(e => e.risk.level === 'low') || null;
       }
-      return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, because, reason, avg24, goodWindow,
+      // gentle note: particles a little above the WHO daily guideline but still in the "fine" band
+      const soft = [['PM25', 15, 'PM2.5'], ['PM10', 45, 'PM10']].map(([k, who, code]) => {
+        const hv = st.metrics?.[k]?.hourly;
+        return hv != null && hv > who && hv < NOW_BANDS[k][0] ? `${code} ${Number(hv).toFixed(1)} µg/m³` : null;
+      }).filter(Boolean);
+      const softNote = lvl === 0 && soft.length ? 'מעט מעל יעד WHO בשעה האחרונה: ' + soft.join(', ') + ' (לא מונע פתיחת חלונות)' : '';
+      return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, because, reason, avg24, softNote, goodWindow,
         highRisk: lvl === 2, modRisk: lvl === 1 };
     }
 
@@ -1115,7 +1124,8 @@
       const todayDM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit' }).format(new Date());
       const dayWord = gw => !gw.date ? '' : (gw.date === todayDM ? 'היום' : 'מחר');
       const because = g.because ? `<div class="mt-2 text-sm font-bold bg-black/25 border border-white/15 rounded-xl px-3 py-1.5">${g.because}</div>` : '';
-      const avg = g.avg24 ? `<div class="mt-2 text-xs sm:text-sm opacity-90">ℹ️ ${g.avg24}</div>` : '';
+      const avg = (g.softNote ? `<div class="mt-2 text-xs sm:text-sm opacity-90">🌤️ ${g.softNote}</div>` : '') +
+        (g.avg24 ? `<div class="mt-1.5 text-xs sm:text-sm opacity-90">ℹ️ ${g.avg24}</div>` : '');
       const when = lvl > 0 && g.goodWindow ? `<div class="text-sm mt-1">⏰ שעת אוורור מומלצת: <strong>${dayWord(g.goodWindow)} בשעה <bdi class="mono">${g.goodWindow.time}</bdi></strong></div>` : '';
       const act = lvl === 2 ? '🏃 עדיף להימנע ממאמץ בחוץ' : (lvl === 1 ? '🏃 פעילות מתונה בחוץ בסדר • רגישים בזהירות' : '🏃 מתאים לספורט ולשהייה בגינה');
       const upd = st.live && st.live.measuredAt ? new Date(st.live.measuredAt).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }) : '';
@@ -1671,7 +1681,7 @@
         const dLimit = isTarget ? std.dTarget : std.dEnv;
         const mLimit = isTarget ? std.mTarget : std.mEnv;
 
-        const hPct = m.hourly == null ? 0 : Math.round((m.hourly / hLimit) * 100);
+        const hPct = (m.hourly == null || std.noHourlyStd) ? 0 : Math.round((m.hourly / hLimit) * 100);
         const dPct = m.daily == null ? 0 : Math.round((m.daily / dLimit) * 100);
         const mPct = (m.monthly == null || !m.monthlyReal) ? 0 : Math.round((m.monthly / mLimit) * 100);
 
@@ -1689,6 +1699,9 @@
           if (tf !== 'all' && tf !== tfKey) return '';
           if (val === null || val === undefined || isNaN(val)) {
             return `<div class="flex items-center justify-between text-xs"><span class="text-slate-400 font-semibold">${label}</span><span class="text-slate-400">${tfKey === 'monthly' ? 'עוד אין 30 יום מלאים' : 'אין נתון'}</span></div>`;
+          }
+          if (tfKey === 'hourly' && std.noHourlyStd) {
+            return `<div class="flex flex-wrap items-center justify-between gap-1 text-xs"><span class="text-slate-400 font-semibold">${label} <span class="text-[10px] text-slate-400">(${subNote})</span></span><span class="mono text-slate-200 font-bold">${std.isGas ? formatGasValue(val, key, dec) : Number(val).toFixed(dec)} ${unitLbl}</span></div>`;
           }
           const barW = Math.min(100, pct);
           const barCol = pct > 100 ? (isTarget ? 'bg-rose-500' : 'bg-purple-500') : 'bg-emerald-400';
@@ -1751,9 +1764,9 @@
 
               <!-- Hourly / Daily / Monthly Bars -->
               <div class="space-y-2 pt-1">
-                ${renderTimeRow('hourly', 'שעתי', m.hourly, hLimit, hPct, std.hLabel, std.hTarget)}
+                ${renderTimeRow('hourly', key === 'O3' && m.window === '8h' ? 'עכשיו (8 שעות)' : 'שעתי', m.hourly, hLimit, hPct, std.hLabel, std.hTarget)}
                 ${renderTimeRow('daily', 'יומי (24ש\')', m.daily, dLimit, dPct, std.dLabel, std.dTarget)}
-                ${renderTimeRow('monthly', 'חודשי', m.monthlyReal ? m.monthly : null, mLimit, mPct, std.mLabel + ' • ממוצע אמיתי 30 יום', std.mTarget)}
+                ${renderTimeRow('monthly', 'מגמת 30 יום (מול תקן שנתי)', m.monthlyReal ? m.monthly : null, mLimit, mPct, std.mLabel, std.mTarget)}
               </div>
             </div>
 
