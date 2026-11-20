@@ -137,6 +137,37 @@ def points_of(avg_resp):
     return out
 
 
+ROLL_KEYS = ("PM25", "PM10", "NOX", "C6H6", "windDir", "windSpeed")
+
+
+def rolling_hours(points):
+    """Live rolling windows for the fire detector's "now" view (the archive stays on whole hours):
+    hourly = (latest-60 min, latest], prevHourly = (latest-120, latest-60]. Each window needs readings
+    covering at least half of it; PM zeros are sensor gaps; wind direction is a circular mean."""
+    if not points:
+        return None
+    latest = points[-1][0]
+    gaps = sorted((points[i + 1][0] - points[i][0]).total_seconds() / 60 for i in range(len(points) - 1))
+    step = max(1.0, gaps[len(gaps) // 2]) if gaps else 5.0
+    need = max(1, math.ceil(30 / step))
+    out = {"latest": latest.isoformat()}
+    for name, (a, b) in (("hourly", (60, 0)), ("prevHourly", (120, 60))):
+        start, end = latest - timedelta(minutes=a), latest - timedelta(minutes=b)
+        sel = [(t, v) for t, v in points if start < t <= end]
+        if len({t for t, _ in sel}) < need:
+            out[name] = None
+            continue
+        acc = defaultdict(list)
+        for _, v in sel:
+            for k in ROLL_KEYS:
+                x = v.get(k)
+                if x is None or (k in ("PM25", "PM10") and x <= 0):
+                    continue
+                acc[k].append(x)
+        out[name] = {"from": start.isoformat(), "to": end.isoformat(), **{k: agg(k, xs) for k, xs in acc.items()}}
+    return out
+
+
 def window_mean(points, since):
     acc = defaultdict(list)
     for t, vals in points:
@@ -349,6 +380,7 @@ async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
         "last30m": {**{k: last30.get(k) for k in VALUE_KEYS}, "history24h": history_30min(pts)},
         "daily30d": daily_series(rows),
         "historyDays": coverage_days(rows),
+        "rolling": rolling_hours(all_pts),
     }
 
 
@@ -359,9 +391,10 @@ async def fetch_reference(client, api_id, hist_rows, backfill):
     else:
         avg = await client.get_station_average(
             api_id, from_date=today_il() - timedelta(days=1), to_date=today_il(), timebase=5)
+    pts = points_of(avg)
     new = {t: {k: v[k] for k in REF_KEYS if v.get(k) is not None}
-           for t, v in hourly_rows(points_of(avg)).items()}
-    return merge_rows(hist_rows, {t: v for t, v in new.items() if v})
+           for t, v in hourly_rows(pts).items()}
+    return merge_rows(hist_rows, {t: v for t, v in new.items() if v}), rolling_hours(pts)
 
 
 async def fetch_open_meteo(session, lat, lon, hist_rows, backfill):
@@ -411,12 +444,14 @@ async def main(force_backfill=False):
             except Exception as exc:  # keep going; one station must not kill the run
                 print(f"FAIL {name} ({api_id}): {exc!r}", file=sys.stderr)
         # auxiliary series for the fire detector; failures never affect the Krayot output
+        references = []
         for ref_id, (api_id, name) in REF_STATIONS.items():
             existing = hist_stations.get(ref_id, {}).get("rows", [])
             need_backfill = force_backfill or coverage_days(existing) < WINDOW_DAYS - 5
             try:
-                rows = await fetch_reference(client, api_id, existing, need_backfill)
+                rows, roll = await fetch_reference(client, api_id, existing, need_backfill)
                 hist_stations[ref_id] = {"apiStationId": api_id, "rows": rows}
+                references.append({"id": ref_id, "apiStationId": api_id, "name": name, "rolling": roll})
                 print(f"OK   {name} ({api_id}) rows={len(rows)}{' [backfill]' if need_backfill else ''}")
             except Exception as exc:
                 print(f"FAIL {name} ({api_id}): {exc!r}", file=sys.stderr)
@@ -455,7 +490,7 @@ async def main(force_backfill=False):
     order = list(STATIONS)
     stations.sort(key=lambda st: order.index(st["id"]) if st["id"] in order else len(order))
     doc = {"timestamp": ts, "source": "air.sviva.gov.il", "units": "ug/m3 (CO ppm), wind m/s & deg",
-           "stations": stations}
+           "stations": stations, "references": references}
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(f"Wrote {OUT.name} and {HISTORY.relative_to(ROOT)} ({len(stations)} stations)")
     return 0

@@ -934,7 +934,7 @@
       return new Date(ms).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
     function v2bSignature(st) {
-      const R = window.FIRE_V2B;
+      const R = (window.FIRE_LIVE || window.FIRE_V2B);
       if (!R || !st || !st.id || !window.FireV2B || !FireV2B.STATIONS[st.id]) return null;
       const i = R.latestIndex, ch = R.S[st.id];
       const score = ch.S[i], lvl = R.level(score), f = ch.flags[i], parts = ch.parts[i] || {};
@@ -980,7 +980,7 @@
       const w = stationWorst(st);
       if (!w) return null;
       let lvl = w.r > 2 ? 2 : (w.r > 1 ? 1 : 0);
-      const R = window.FIRE_V2B, sc = R && R.S[st.id] ? R.level(R.stationScore(st.id)) : 'none';
+      const R = (window.FIRE_LIVE || window.FIRE_V2B), sc = R && R.S[st.id] ? R.level(R.stationScore(st.id)) : 'none';
       if (sc === 'high') lvl = 2; else if (sc === 'watch') lvl = Math.max(lvl, 1);
       return lvl;
     }
@@ -1007,7 +1007,7 @@
       const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
       if (!st || !Object.keys(st.metrics || {}).length) { el.innerHTML = '<div class="text-sm text-slate-400">טוען נתוני אמת…</div>'; return; }
       const g = computeGuidance(st);
-      const R = window.FIRE_V2B, kind = R && R.latest ? R.latest.kind : 'clear';
+      const R = (window.FIRE_LIVE || window.FIRE_V2B), kind = R && R.latest ? R.latest.kind : 'clear';
       const who = whoExceedances();
       let lvl = Math.max(stationLevel(st) ?? 0, g.highRisk ? 2 : (g.modRisk ? 1 : 0));
       if (kind === 'fire') lvl = 2; else if (['smoke', 'dust', 'regional'].includes(kind) || who.length) lvl = Math.max(lvl, 1);
@@ -1062,7 +1062,7 @@
 
     function renderPublicVerdict() {
       const el = document.getElementById('publicVerdict');
-      const R = window.FIRE_V2B;
+      const R = (window.FIRE_LIVE || window.FIRE_V2B);
       if (!el) return;
       if (!R) { el.classList.add('hidden'); return; }
       const v = R.latest, at = v2bHourLabel(v.t);
@@ -1095,7 +1095,7 @@
       el.innerHTML = `<span class="text-2xl leading-none">${V[0]}</span>
         <span class="text-base sm:text-lg font-extrabold"${v.regional ? ` title="${invHelp}"` : ''}>${V[1]}</span>
         <span class="text-xs sm:text-sm opacity-90">${V[2]}</span>${extra}
-        <span class="text-[11px] opacity-70 basis-full">חישוב גלאי העשן לשעה השלמה האחרונה: <span class="mono">${at}</span></span>${help}`;
+        <span class="text-[11px] opacity-70 basis-full">${R.live ? 'חישוב גלאי העשן לשעה המתגלגלת האחרונה (60 דקות) נכון ל-' : 'חישוב גלאי העשן לשעה השלמה האחרונה: '}<span class="mono">${at}</span></span>${help}`;
       window.__verdictHTML = el.innerHTML;
       el.className = 'hidden'; el.innerHTML = '';
       renderDecisionCard();
@@ -2649,6 +2649,7 @@
       async function loadLiveData() {
         try {
           const data = await fetchJson('./live_krayot.json');
+          window.LIVE_DOC = data;
           if (!data || !Array.isArray(data.stations)) return;
           data.stations.forEach(live => {
             const st = STATIONS_DATA.find(s => s.id === live.id);
@@ -2674,6 +2675,8 @@
           const hist = await fetchJson('./data/history_90d.json');
           window.HISTORY_90D = (hist && hist.stations) || {};
           try { window.FIRE_V2B = window.FireV2B ? FireV2B.compute(window.HISTORY_90D) : null; } catch (e) { console.warn('fire v2b failed', e); window.FIRE_V2B = null; }
+          // live 'rolling hour' evaluation (same C-A formula on the last 60/120 min of live_krayot.json)
+          try { window.FIRE_LIVE = window.FIRE_V2B && FireV2B.evaluateLive ? FireV2B.evaluateLive(window.FIRE_V2B, window.LIVE_DOC) : null; } catch (e) { console.warn('fire live failed', e); window.FIRE_LIVE = null; }
           renderPublicVerdict();
         } catch (e) {
           console.warn('history_90d.json not loaded', e);

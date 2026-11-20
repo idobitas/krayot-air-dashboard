@@ -73,8 +73,9 @@
     return v.filter(function (x) { return x !== null; }).length >= minN ? median(v) : null;
   }
 
-  function compute(histStations) {
+  function compute(histStations, opts) {
     if (!histStations) return null;
+    opts = opts || {};
     // 1. hourly time axis
     var tset = {};
     IDS.forEach(function (id) {
@@ -88,6 +89,11 @@
     var N = axis.length, pos = {};
     axis.forEach(function (t, i) { pos[t] = i; });
     var hours = axis.map(localHour);
+    // live mode: two virtual hours (previous and current rolling hour) appended after the archive.
+    // Baselines (hour-of-day medians, ratio median, P90/P99 scales) use the archive only (NB).
+    var NB = N, LV = opts.live || null;
+    if (LV) { axis.push(LV.tPrev, LV.tCur); hours.push(LV.hPrev, LV.hCur); N = axis.length; }
+    function liveVal(src, key) { var v = num((src || {})[key]); return v; }
     function aligned(hid, key) { // one channel of an auxiliary history series on the Krayot axis
       var a = [];
       for (var i = 0; i < N; i++) a.push(null);
@@ -95,6 +101,13 @@
         var i = pos[Date.parse(r.t)];
         if (i !== undefined) a[i] = num(r[key]);
       });
+      if (LV) {
+        if (REF_IDS.indexOf(hid) >= 0) { var lr = (LV.ref || {})[hid]; a[NB] = lr ? liveVal(lr.prev, key) : null; a[NB + 1] = lr ? liveVal(lr.cur, key) : null; }
+        else { // auxiliary model series (Open-Meteo): carry the latest archived value into the live hours
+          var last = null; for (var j = NB - 1; j >= 0 && last === null; j--) last = a[j];
+          a[NB] = last; a[NB + 1] = last;
+        }
+      }
       return a;
     }
 
@@ -112,6 +125,17 @@
         ch.NOX[i] = num(r.NOX); ch.C6H6[i] = num(r.C6H6);
         ch.WD[i] = num(r.windDir); ch.WS[i] = num(r.windSpeed);
       });
+      if (LV && LV.st && LV.st[id]) {
+        [['prev', NB], ['cur', NB + 1]].forEach(function (pv) {
+          var src = LV.st[id][pv[0]];
+          if (!src) return;
+          var i = pv[1], pm = liveVal(src, 'PM25'), p10 = liveVal(src, 'PM10');
+          ch.PM25[i] = pm !== null && pm > 0 ? pm : null;
+          ch.PM10[i] = p10 !== null && p10 > 0 ? p10 : null;
+          ch.NOX[i] = liveVal(src, 'NOX'); ch.C6H6[i] = liveVal(src, 'C6H6');
+          ch.WD[i] = liveVal(src, 'windDir'); ch.WS[i] = liveVal(src, 'windSpeed');
+        });
+      }
       // windSpeed == 0 for >= 3 h: with Open-Meteo >= 2.5 m/s it is a stuck sensor (direction taken
       // from 97, else Open-Meteo); below that it is real calm (speed 0, direction undefined).
       // Without Open-Meteo data both are unknown (previous behaviour).
@@ -142,11 +166,11 @@
     IDS.forEach(function (id) {
       var ch = S[id], byHour = [];
       for (var h = 0; h < 24; h++) byHour.push([]);
-      for (var i = 0; i < N; i++) if (ch.PM25[i] !== null) byHour[hours[i]].push(ch.PM25[i]);
+      for (var i = 0; i < NB; i++) if (ch.PM25[i] !== null) byHour[hours[i]].push(ch.PM25[i]);
       var hourMed = byHour.map(median);
       ch.A = ch.PM25.map(function (v, i) { return v === null || hourMed[hours[i]] === null ? null : v - hourMed[hours[i]]; });
       var ratio = ch.PM25.map(function (v, i) { return v !== null && ch.PM10[i] !== null ? v / ch.PM10[i] : null; });
-      var rmed = median(ratio);
+      var rmed = median(ratio.slice(0, NB));
       ch.ra = ratio.map(function (v) { return v === null || rmed === null ? null : v - rmed; });
     });
     IDS.forEach(function (id) {
@@ -158,7 +182,7 @@
     var refA = REF_IDS.map(function (rid) {
       var pm = aligned(rid, 'PM25').map(function (v) { return v !== null && v > 0 ? v : null; }), byHour = [];
       for (var h = 0; h < 24; h++) byHour.push([]);
-      for (var i = 0; i < N; i++) if (pm[i] !== null) byHour[hours[i]].push(pm[i]);
+      for (var i = 0; i < NB; i++) if (pm[i] !== null) byHour[hours[i]].push(pm[i]);
       var hm = byHour.map(median);
       return pm.map(function (v, i) { return v === null || hm[hours[i]] === null ? null : v - hm[hours[i]]; });
     });
@@ -179,8 +203,8 @@
       });
       // P90/P99 scales clamped to physical bounds (µg/m³) so a fire-heavy month can't blind the
       // detector and a very clean month can't amplify noise. Current 90-day values sit inside these.
-      var a = clampScale(quantile(ch.A, 0.90), quantile(ch.A, 0.99), BOUNDS.anom);
-      var l = clampScale(quantile(ch.LX, 0.90), quantile(ch.LX, 0.99), BOUNDS.lx);
+      var a = clampScale(quantile(ch.A.slice(0, NB), 0.90), quantile(ch.A.slice(0, NB), 0.99), BOUNDS.anom);
+      var l = clampScale(quantile(ch.LX.slice(0, NB), 0.90), quantile(ch.LX.slice(0, NB), 0.99), BOUNDS.lx);
       ch.a90 = a[0]; ch.a99 = a[1]; ch.lx90 = l[0]; ch.lx99 = l[1];
     });
 
@@ -206,7 +230,7 @@
     });
     IDS.forEach(function (id) {
       var ch = S[id], wsrc = S[STATIONS[id].wind || id];
-      ch.pm10p90 = quantile(ch.PM10, 0.9);
+      ch.pm10p90 = quantile(ch.PM10.slice(0, NB), 0.9);
       ch.T = []; ch.parts = []; ch.flags = [];
       for (var i = 0; i < N; i++) {
         var pm = ch.PM25[i];
@@ -292,9 +316,33 @@
     while (li > 0 && IDS.filter(function (id) { return S[id].PM25[li] !== null; }).length < 3) li--;
 
     return {
+      live: !!LV, liveAt: LV ? LV.tCur : null, _hist: histStations,
       axis: axis, hours: hours, S: S, netmed: netmed, refmed: refmed, verdicts: verdicts, latestIndex: li, latest: verdicts[li],
       level: level, stationScore: function (id, i) { return S[id] ? S[id].S[i === undefined ? li : i] : null; }
     };
+  }
+
+  // Live "rolling hour" evaluation: the exact C-A formula on the two latest rolling hours from
+  // live_krayot.json (prevHourly, hourly), with rise / NOx / benzene baselines taken from the archive
+  // hours before them and all hour-of-day / percentile baselines frozen on the archive.
+  function evaluateLive(res, liveDoc) {
+    if (!res || !res._hist || !liveDoc) return null;
+    var st = {}, ref = {}, latest = null;
+    (liveDoc.stations || []).forEach(function (s) {
+      if (!STATIONS[s.id] || s.stale || !s.rolling || !s.rolling.hourly) return;
+      st[s.id] = { prev: s.rolling.prevHourly, cur: s.rolling.hourly };
+      var t = Date.parse(s.rolling.latest);
+      if (!isNaN(t) && (latest === null || t > latest)) latest = t;
+    });
+    (liveDoc.references || []).forEach(function (r) {
+      if (REF_IDS.indexOf(r.id) >= 0 && r.rolling && r.rolling.hourly) ref[r.id] = { prev: r.rolling.prevHourly, cur: r.rolling.hourly };
+    });
+    if (latest === null || latest <= res.axis[res.live ? res.axis.length - 3 : res.axis.length - 1]) return null;
+    return compute(res._hist, { live: {
+      tPrev: latest - 3600000, tCur: latest,
+      hPrev: localHour(latest - 90 * 60000), hCur: localHour(latest - 30 * 60000),
+      st: st, ref: ref
+    } });
   }
 
   // merge consecutive flagged hours (gap <= 1h) into episodes for one station or the network
@@ -313,6 +361,6 @@
     return out;
   }
 
-  root.FireV2B = { compute: compute, episodes: episodes, HIGH: HIGH, WATCH: WATCH, REGIONAL: REGIONAL, STATIONS: STATIONS, IDS: IDS };
+  root.FireV2B = { compute: compute, evaluateLive: evaluateLive, episodes: episodes, HIGH: HIGH, WATCH: WATCH, REGIONAL: REGIONAL, STATIONS: STATIONS, IDS: IDS };
   if (typeof module !== 'undefined') module.exports = root.FireV2B;
 })(typeof window !== 'undefined' ? window : globalThis);
