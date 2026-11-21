@@ -2362,30 +2362,6 @@
         renderMatrix();
       });
 
-      document.querySelectorAll('.matrix-filter-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          // real toggle: clicking the active filter again returns to the default view (Krayot)
-          const val = btn.getAttribute('data-matrix-filter');
-          APP_STATE.matrixFilter = (APP_STATE.matrixFilter === val && val !== 'krayot') ? 'krayot' : val;
-          document.querySelectorAll('.matrix-filter-btn').forEach(b => {
-            const on = b.getAttribute('data-matrix-filter') === APP_STATE.matrixFilter;
-            b.setAttribute('aria-pressed', on ? 'true' : 'false');
-            b.className = 'matrix-filter-btn shrink-0 px-3 py-1.5 rounded-xl text-xs transition ' + (on
-              ? 'font-extrabold bg-sky-500 text-slate-950 ring-2 ring-sky-300/60'
-              : 'font-bold bg-slate-800 hover:bg-slate-700 ' + (b.getAttribute('data-matrix-filter') === 'industrial' ? 'text-amber-300' : 'text-slate-300'));
-            if (!b.dataset.label) b.dataset.label = b.innerHTML.trim();
-            const toggleable = !['krayot', 'all'].includes(b.getAttribute('data-matrix-filter'));
-            b.innerHTML = (on && toggleable ? '✓ ' : '') + b.dataset.label + (on && toggleable ? ' <span class="opacity-70 font-normal">✕ ביטול</span>' : '');
-          });
-          renderMatrix();
-        });
-      });
-
-      document.getElementById('matrixSearchInput').addEventListener('input', e => {
-        APP_STATE.matrixSearch = e.target.value;
-        renderMatrix();
-      });
-
       document.getElementById('trendPollutantSelect').addEventListener('change', updateCharts);
       document.getElementById('trendHorizonSelect').addEventListener('change', updateCharts);
 
