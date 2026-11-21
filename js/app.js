@@ -1685,7 +1685,8 @@
       const isTarget = APP_STATE.benchmarkMode === 'target';
       const tf = APP_STATE.timeframeView;
 
-      const keys = Object.keys(POLLUTANT_STANDARDS).filter(k => st.metrics && st.metrics[k]);
+      // fixed display order: particles, gases, benzene (indicative) last
+      const keys = Object.keys(POLLUTANT_STANDARDS).filter(k => st.metrics && st.metrics[k]).sort((a, b) => (a === 'C6H6') - (b === 'C6H6'));
       if (!keys.length) { grid.innerHTML = '<div class="p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-xs">ממתין לנתוני אמת מהתחנה…</div>'; return; }
       grid.innerHTML = keys.map(key => {
         const std = POLLUTANT_STANDARDS[key];
