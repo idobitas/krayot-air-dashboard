@@ -839,7 +839,6 @@
       renderScaleGapBanner();
       renderStationInspector();
       renderPirateFirePanel();
-      renderDailyGuidancePanel();
       if (typeof fetchWindForecast === "function") fetchWindForecast();
       renderPollutantCards();
       updateCharts();
@@ -1964,87 +1963,6 @@
       return { score, level };
     }
 
-    function renderDailyGuidancePanel() {
-      const container = document.getElementById('dailyGuidanceCard');
-      if (!container) return;
-      const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
-      // live values only (shared with the decision card); no invented defaults, no 30-day status
-      const G = computeGuidance(st) || { sig: detectPirateFireSignature(st), pm25: null, c6: null, isDust: false, highRisk: false, modRisk: false };
-      const sig = G.sig, pm25_30m = G.pm25, c6_30m = G.c6, isDust = G.isDust;
-
-      // Incorporate next-3-hour Open-Meteo wind forecast if available
-      let forecastNote = 'טוען שקלול תחזית רוח לשעות הקרובות...';
-      let nextGoodWindow = null;
-      let nextHighRiskHours = [];
-      if (WIND_FORECAST_CACHE && WIND_FORECAST_CACHE.length) {
-        const evaluated = WIND_FORECAST_CACHE.map(s => ({ ...s, risk: computeCombinedHourRisk(s, st) }));
-        nextHighRiskHours = evaluated.filter(e => e.risk.level === 'high').map(e => e.time);
-        nextGoodWindow = evaluated.find(e => e.risk.level === 'low');
-        const next3Max = Math.max(...evaluated.slice(0, 3).map(e => e.risk.score));
-        const windPhrase = next3Max >= 70 ? 'רוח חלשה / לכידת אוויר צפויה בשעות הקרובות' : (next3Max >= 40 ? 'פיזור חלקי של האוויר בשעות הקרובות' : 'רוח טובה לפיזור בשעות הקרובות');
-        forecastNote = `<strong class="text-white">${windPhrase}</strong>` +
-          (nextGoodWindow ? ` • חלון אוורור טוב צפוי ב-<strong class="mono text-emerald-300">${nextGoodWindow.time}</strong> (${nextGoodWindow.ws} m/s ${degToCompassHe(nextGoodWindow.wd)})` : ' • אין חלון פיזור מלא ב-12 השעות הקרובות');
-      }
-
-      const highRisk = G.highRisk, modRisk = G.modRisk;
-
-      const windowAdvice = highRisk
-        ? { badge: '🔴 מומלץ לסגור חלונות כעת', col: 'border-rose-600/60 bg-rose-950/25 text-rose-200', text: 'נמדדת עלייה משמעותית בחלקיקי עשן או בחריגת תקן. השאר חלונות סגורים והפעל מזגן במצב סירקולציה פנימית / מסנן HEPA.' }
-        : (modRisk && isDust
-          ? { badge: '🏜️ אובך / אבק – אוורור מוגבל', col: 'border-yellow-600/60 bg-yellow-950/20 text-yellow-200', text: 'אבק או אובך באוויר (לא עשן שריפה). מומלץ להפחית מאמץ בחוץ ולאוורר לזמן קצר.' }
-          : modRisk
-          ? { badge: '🟡 אוורור מוגבל / זהירות בלילה', col: 'border-amber-600/60 bg-amber-950/20 text-amber-200', text: 'רמות גבוהות מהיעד הבריאותי. העדף לאוורר בחלון הפיזור המומלץ מטה, וסגור חלונות אם מורגש ריח עשן מזרחי.' }
-          : { badge: '🟢 אפשר לפתוח חלונות ולאוורר', col: 'border-emerald-600/60 bg-emerald-950/20 text-emerald-200', text: 'המדדים הקצרי-טווח תקינים ללא חתימת שריפה פעילה. תנאים נוחים לאוורור הבית.' });
-
-      const sportAdvice = highRisk
-        ? { badge: '🔴 הימנע ממאמץ עצים בחוץ', text: 'מומלץ להעביר ריצה/אימון לחלל סגור; ילדים, קשישים וחולי אסטמה מתבקשים לצמצם שהייה בחוץ.' }
-        : (modRisk
-          ? { badge: '🟡 מותר למרבית האוכלוסייה • זהירות לרגישים', text: 'פעילות מתונה תקינה; קבוצות רגישות (אסטמה/לב) יעדיפו שעות יום מאווררות.' }
-          : { badge: '🟢 תנאים טובים לספורט וילדים בגינה', text: 'אין מגבלה לפעילות גופנית בחוץ או לשהייה בגינות ציבוריות.' });
-
-      const reportSummary = `דיווח מפגע אוויר – ${st.name} (${st.code}) | ${new Date().toLocaleString('he-IL')} | PM2.5 (30 דק'): ${pm25_30m == null ? 'לא נמדד בתחנה' : pm25_30m + ' µg/m³'} | סטטוס: ${sig.badgeText}`;
-
-      container.innerHTML = `
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-          <div>
-            <h2 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
-              <i data-lucide="shield-check" class="w-5 h-5 text-emerald-400"></i>
-              <span>המלצות פעולה משוקללות – ${st.shortName}</span>
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">${forecastNote}</p>
-          </div>
-          <span class="px-2.5 py-1 rounded-full text-xs font-extrabold border ${sig.level === 'high' ? 'bg-orange-500/20 text-orange-200 border-orange-500/50' : (sig.level === 'watch' ? 'bg-amber-500/20 text-amber-200 border-amber-500/50' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40')}">
-            ${sig.badgeText}
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-          <div class="rounded-xl border p-3.5 space-y-1.5 ${windowAdvice.col}">
-            <div class="font-extrabold text-sm">${windowAdvice.badge}</div>
-            <p class="text-slate-200 leading-relaxed">${windowAdvice.text}</p>
-          </div>
-          <div class="rounded-xl border border-slate-800 bg-slate-950/75 p-3.5 space-y-1.5">
-            <div class="font-extrabold text-sm text-white">${sportAdvice.badge}</div>
-            <p class="text-slate-300 leading-relaxed">${sportAdvice.text}</p>
-          </div>
-          <div class="rounded-xl border border-slate-800 bg-slate-950/75 p-3.5 space-y-2">
-            <div class="font-extrabold text-sm text-sky-300">📢 דיווח מהיר על עשן / ריח</div>
-            <p class="text-slate-400 leading-relaxed">מוקד המשרד להגנ"ס: <strong class="text-white mono">*6911</strong> | איגוד ערים מפרץ חיפה.</p>
-            <div class="flex flex-wrap gap-1.5">
-              <button type="button" id="btnCopyReportText" class="px-2.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-200 font-bold transition">העתק תקציר דיווח</button>
-              <a href="https://www.clean-air.org.il/" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition">מוקד אוויר נקי</a>
-            </div>
-          </div>
-        </div>
-      `;
-
-      document.getElementById('btnCopyReportText')?.addEventListener('click', (e) => {
-        const b = e.currentTarget;
-        copyTextReliable(reportSummary, () => { b.textContent = 'הועתק!'; setTimeout(() => { b.textContent = 'העתק תקציר דיווח'; }, 2000); });
-      });
-      if (window.lucide) window.lucide.createIcons();
-    }
-
     async function fetchWindForecast() {
       const grid = document.getElementById('windForecastGrid');
       const statusEl = document.getElementById('windForecastStatus');
@@ -2131,7 +2049,6 @@
           `;
         }).join('');
 
-        renderDailyGuidancePanel();
       } catch (err) {
         statusEl.textContent = 'מצב לא מקוון (אין חיבור ל-Open-Meteo)';
         statusEl.className = 'text-[11px] font-bold text-amber-300';
@@ -2464,7 +2381,7 @@
 
       if (tabId === 'matrix') renderMatrix();
       else if (tabId === 'trends') { renderPirateFirePanel(); updateCharts(); }
-      else if (tabId === 'guide') { renderEncyclopedia(); renderCalculatorSliders(); renderDailyGuidancePanel(); }
+      else if (tabId === 'guide') { renderEncyclopedia(); renderCalculatorSliders(); }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -2597,7 +2514,6 @@
         });
       });
 
-      renderDailyGuidancePanel();
       fetchWindForecast();
       document.getElementById('btnRefreshWindForecast')?.addEventListener('click', () => { window.__windFcCache = {}; fetchWindForecast(); });
       document.getElementById('btnToggleAqiCalculator')?.addEventListener('click', (e) => {
