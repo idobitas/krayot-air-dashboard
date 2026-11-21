@@ -737,7 +737,6 @@
     // =========================================================================
     // 3. RENDER STATION PILLS, INSPECTOR, POLLUTANT CARDS (HOURLY/DAILY/MONTHLY) & CHARTS
     // =========================================================================
-    let chartTimeTrendInstance = null;
 
     function renderMatrix() {
       const filtered = getFilteredStations();
@@ -1735,7 +1734,7 @@
     function updateCharts() {
       // 1. Time Trend Chart (Hourly 24h / Daily 30d / Monthly 12m)
       const ctxTrend = document.getElementById('chartTimeTrend');
-      if (ctxTrend && typeof Chart !== 'undefined') {
+      if (ctxTrend) {
         const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
         // only pollutants this station actually measures (no zero line shown as "no exceedance")
         const polSel = document.getElementById('trendPollutantSelect');
@@ -1831,44 +1830,10 @@
           `;
         }
 
-        if (chartTimeTrendInstance) chartTimeTrendInstance.destroy();
-        chartTimeTrendInstance = new Chart(ctxTrend, {
-          type: 'line',
-          data: {
-            labels,
-            datasets: [
-              {
-                label: `${std.name} (${unitLabel})`,
-                data: series,
-                borderColor: '#38bdf8',
-                backgroundColor: 'rgba(56, 189, 248, 0.16)',
-                fill: true,
-                tension: 0.35,
-                pointRadius: series.map(v => v > threshold ? 5 : 3.5),
-                pointBackgroundColor: series.map(v => v > threshold ? '#ef4444' : (v >= threshold * 0.8 ? '#f59e0b' : '#38bdf8')),
-                pointBorderColor: '#0f172a'
-              },
-              {
-                label: `סף ${APP_STATE.benchmarkMode === 'target' ? 'יעד בריאותי (WHO)' : 'תקן סביבה חוקי'} (${threshold} ${unitLabel})`,
-                data: labels.map(() => threshold),
-                borderColor: APP_STATE.benchmarkMode === 'target' ? '#ef4444' : '#a855f7',
-                borderWidth: 2,
-                borderDash: APP_STATE.benchmarkMode === 'target' ? [] : [6, 4],
-                pointRadius: 0,
-                fill: false
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'Assistant', size: 11 } } } },
-            scales: {
-              x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(51,65,85,0.3)' } },
-              y: { beginAtZero: true, ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(51,65,85,0.3)' } }
-            }
-          }
+        AQCharts.renderTrend(ctxTrend, {
+          labels, series, threshold, mode: APP_STATE.benchmarkMode,
+          seriesLabel: `${std.name} (${unitLabel})`,
+          thresholdLabel: `סף ${APP_STATE.benchmarkMode === 'target' ? 'יעד בריאותי (WHO)' : 'תקן סביבה חוקי'} (${threshold} ${unitLabel})`
         });
       }
 
@@ -2361,8 +2326,6 @@
         { datetime: "2026-11-18 13:00", PM25: 12.6, PM10: 30.0, CO: 0.4, CH2O: 3.3, C6H6: 0.9, WD: 290, WS: 4.7 }
       ];
 
-      let chartHistoryInstance = null;
-
       function parseHistoryText(raw) {
         const trimmed = raw.trim();
         if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
@@ -2430,56 +2393,7 @@
 
           // Render Chart.js timeline
           const ctx = document.getElementById('chartHistoryFireTimeline');
-          if (ctx) {
-            if (chartHistoryInstance) chartHistoryInstance.destroy();
-            const oldChart = Chart.getChart(ctx); if (oldChart) oldChart.destroy();
-            chartHistoryInstance = new Chart(ctx, {
-              type: 'line',
-              data: {
-                labels: evaluated.map(r => r.dt),
-                datasets: [
-                  {
-                    label: 'PM2.5 (µg/m³)',
-                    data: evaluated.map(r => r.pm25),
-                    borderColor: '#38bdf8',
-                    backgroundColor: 'rgba(56,189,248,0.12)',
-                    fill: true,
-                    tension: 0.25,
-                    pointRadius: evaluated.map(r => r.level === 'high' ? 6 : (r.level === 'watch' ? 5 : 2.5)),
-                    pointBackgroundColor: evaluated.map(r => r.level === 'high' ? '#ef4444' : (r.level === 'watch' ? '#f59e0b' : '#38bdf8')),
-                    pointBorderColor: '#0f172a'
-                  },
-                  {
-                    label: 'יעד בריאותי WHO (15 µg/m³)',
-                    data: evaluated.map(() => 15),
-                    borderColor: '#ef4444',
-                    borderDash: [],
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    fill: false
-                  },
-                  {
-                    label: 'ערך סביבה חוקי (37.5 µg/m³)',
-                    data: evaluated.map(() => 37.5),
-                    borderColor: '#a855f7',
-                    borderDash: [6, 4],
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    fill: false
-                  }
-                ]
-              },
-              options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'Assistant', size: 11 } } } },
-                scales: {
-                  x: { ticks: { color: '#94a3b8', maxRotation: 35, font: { size: 10 } }, grid: { color: '#1e293b' } },
-                  y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
-                }
-              }
-            });
-          }
+          AQCharts.renderHistoryTimeline(ctx, evaluated);
 
           if (!flagged.length) {
             listEl.innerHTML = '<div class="p-3 rounded-xl bg-emerald-950/30 border border-emerald-700/40 text-emerald-300">לא זוהו חריגות התואמות שריפה פיראטית בקובץ שנטען.</div>';
@@ -2783,28 +2697,11 @@
         const highN = eps.filter(e => e.peak >= FireV2B.HIGH).length;
         status.textContent = `v2b • ${st.shortName} • ${periodLabel || days + ' יום'}: 🚨 ${highN} סבירות גבוהה מאוד לריח חריף / עשן, 💨 ${eps.length - highN} ייתכן ריח חריף / עשן`;
         status.className = eps.length ? 'text-xs font-extrabold text-orange-300' : 'text-xs font-bold text-emerald-300';
-        if (canvas && window.Chart) {
-          const old = Chart.getChart(canvas); if (old) old.destroy();
-          const lv = idx.map(i => R.level(ch.S[i]));
-          new Chart(canvas, {
-            type: 'line',
-            data: {
-              labels: idx.map(i => v2bHourLabel(R.axis[i])),
-              datasets: [
-                { label: 'PM2.5 (µg/m³)', data: idx.map(i => ch.PM25[i]), borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.12)', fill: true, tension: 0.25, spanGaps: true,
-                  pointRadius: lv.map(l => l === 'high' ? 5 : (l === 'watch' ? 4 : 0)), pointBackgroundColor: lv.map(l => l === 'high' ? '#ef4444' : '#f59e0b') }
-              ]
-            },
-            options: {
-              responsive: true, maintainAspectRatio: false,
-              plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'Assistant', size: 11 } } } },
-              scales: {
-                x: { ticks: { color: '#94a3b8', maxRotation: 35, font: { size: 10 }, maxTicksLimit: 15 }, grid: { color: '#1e293b' } },
-                y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
-              }
-            }
-          });
-        }
+        AQCharts.renderV2BScan(canvas, {
+          labels: idx.map(i => v2bHourLabel(R.axis[i])),
+          pm25: idx.map(i => ch.PM25[i]),
+          levels: idx.map(i => R.level(ch.S[i]))
+        });
         if (!eps.length) {
           listEl.innerHTML = '<div class="p-3 rounded-xl bg-emerald-950/30 border border-emerald-700/40 text-emerald-300">לא זוהו אירועי עשן או שריפה בתקופה.</div>';
           return;

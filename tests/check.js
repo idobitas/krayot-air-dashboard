@@ -82,5 +82,31 @@ ok(G.computeGuidance(station('a', 'א', hourly({ PM25: 5 })), fireCtx).lvl === 2
 ok(G.computeGuidance(station('a', 'א', hourly({ PM25: 5 })), fireCtx).stationLvl === 0, 'network fire leaves the station button on its own bands');
 ok(G.computeGuidance({ metrics: {} }, clearCtx('env')) === null, 'no metrics -> null');
 
+// 7. fire_v2b.js invariants (engine frozen: these lock its safety rules on a synthetic fixture)
+const FireV2B = require('../js/fire_v2b.js');
+const FX = require('./fire_fixture.js');
+const R = FireV2B.compute(FX.build());
+ok(R && R.S, 'fire_v2b computes on the fixture');
+if (R && R.S) {
+  const bia = R.S.kiryat_bialik_z4, haim = R.S.kiryat_haim_regavim, yam = R.S.kiryat_yam_z1, mot = R.S.kiryat_motzkin_z2;
+  const E = FX.EV;
+  ok(bia.S[E.smoke + 1] >= FireV2B.HIGH, `sanity: 2 strong hours reach HIGH (${bia.S[E.smoke + 1]})`);
+  // (a) dust kill-switch: a low PM2.5/PM10 ratio zeroes the hour, whatever the other signals
+  ok(haim.flags[E.dust].dust && haim.T[E.dust] === 0 && haim.S[E.dust + 1] === 0, 'dust kill-switch: dust hour score = 0');
+  FireV2B.IDS.forEach(id => R.S[id].T.forEach((t, i) => {
+    if (R.S[id].flags[i].dust && t !== null) ok(t === 0, `dust kill-switch ${id} hour ${i}: ${t}`);
+  }));
+  // (b) a single strong hour after a missing hour never exceeds 69 (fire needs 2 real hours)
+  ok(bia.T[E.afterNull - 1] === null && bia.T[E.afterNull] >= FireV2B.HIGH, 'fixture: strong hour right after a missing hour');
+  ok(bia.S[E.afterNull] <= 69, `single hour after null <= 69 (${bia.S[E.afterNull]})`);
+  FireV2B.IDS.forEach(id => R.S[id].S.forEach((s, i) => {
+    if (i > 0 && R.S[id].T[i - 1] === null && s !== null) ok(s <= 69, `after-null cap ${id} hour ${i}: ${s}`);
+  }));
+  // (c) Yam (92) can't raise fire on its own: capped at 59 while Motzkin (382) is missing
+  ok(mot.S[E.yam + 1] === null && yam.T[E.yam + 1] > 59, 'fixture: Yam strong while Motzkin missing');
+  ok(yam.S[E.yam + 1] !== null && yam.S[E.yam + 1] <= 59, `station 92 blocked when 382 missing (${yam.S[E.yam + 1]})`);
+  yam.S.forEach((s, i) => { if (mot.S[i] === null && s !== null) ok(s <= 59, `Yam cap hour ${i}: ${s}`); });
+}
+
 console.log(`${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);
