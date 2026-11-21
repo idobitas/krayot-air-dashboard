@@ -942,10 +942,10 @@
       const matched = (lvl === 'high' || lvl === 'watch') ? Object.keys(V2B_REASONS).filter(k => parts[k] !== null && parts[k] >= 0.5).map(k => V2B_REASONS[k]) : [];
       const sc = score === null ? 0 : Math.round(score);
       const base = { score: sc, sensorCount: matched.length, lowConfidence: false, windowLabel: 'שעה אחרונה (' + at + ')', matched, engine: 'v2b', regional: R.latest.regional };
-      if (lvl === 'high') return { ...base, detected: true, level: 'high', isMineralDust: false, badgeText: '🚨 סבירות גבוהה מאוד לריח חריף / עשן (' + at + ')', shortBadge: '🚨 ריח חריף / עשן', summary: 'ציון ' + sc + '/100 • נכון ל-' + at };
-      if (lvl === 'watch') return { ...base, detected: true, level: 'watch', isMineralDust: false, badgeText: '💨 ייתכן ריח חריף / עשן (' + at + ')', shortBadge: '💨 ייתכן ריח / עשן', summary: 'ציון ' + sc + '/100 • נכון ל-' + at };
+      if (lvl === 'high') return { ...base, detected: true, level: 'high', isMineralDust: false, badgeText: '🚨 סבירות גבוהה מאוד לריח חריף / עשן (' + at + ')', shortBadge: '🚨 ריח חריף / עשן', summary: 'נכון ל-' + at };
+      if (lvl === 'watch') return { ...base, detected: true, level: 'watch', isMineralDust: false, badgeText: '💨 ייתכן ריח חריף / עשן (' + at + ')', shortBadge: '💨 ייתכן ריח / עשן', summary: 'נכון ל-' + at };
       if (f && f.dustEvent) return { ...base, detected: false, level: 'dust', isMineralDust: true, badgeText: '🏜️ אובך / אבק (לא שריפה)', shortBadge: '🏜️ אובך', summary: 'יחס PM2.5/PM10 נמוך • נכון ל-' + at };
-      return { ...base, detected: false, level: 'none', isMineralDust: false, badgeText: R.latest.regional ? '🌁 אוויר עומד (משוער) – לא שריפה מקומית' : '🟢 ללא חתימת שריפה', shortBadge: '', summary: 'ציון ' + sc + '/100 • נכון ל-' + at };
+      return { ...base, detected: false, level: 'none', isMineralDust: false, badgeText: R.latest.regional ? '🌁 אוויר עומד (משוער) – לא שריפה מקומית' : '🟢 ללא חתימת שריפה', shortBadge: '', summary: 'נכון ל-' + at };
     }
     function detectPirateFireSignature(st, allStations = null, opts = {}) {
       if (st && LIVE_STATION_IDS.includes(st.id) && !(st.metrics && st.metrics.PM25)) {
@@ -1427,7 +1427,7 @@
       const eps = FireV2B.episodes(R, st.id);
       const lastT = R.axis[R.axis.length - 1];
       const hrs = n => n === 1 ? 'שעה אחת' : n + ' שעות';
-      const fmt = e => (e.peak >= FireV2B.HIGH ? '🚨 ' : '💨 ') + v2bHourLabel(R.axis[e.start]) + ' (' + hrs(v2bEpisodeHours(R, st.id, e)) + ' • ציון ' + Math.round(e.peak) + ')';
+      const fmt = e => (e.peak >= FireV2B.HIGH ? '🚨 ' : '💨 ') + v2bHourLabel(R.axis[e.start]) + ' (' + hrs(v2bEpisodeHours(R, st.id, e)) + ')';
       const peakHours = eps.filter(e => lastT - R.axis[e.end] <= 86400000).map(fmt);
       if (!peakHours.length) { // no smoke score >= 55 in the last 24 h: show WHO 2021 hours and the PM2.5 peak instead
         const ch = R.S[st.id], from = Math.max(0, R.axis.length - 24);
@@ -1501,11 +1501,11 @@
         </div>
 
         <details class="text-xs">
-          <summary class="cursor-pointer font-bold text-slate-300 py-1">איך מזהים עשן? (הסבר מדעי למתעניינים${typeof sig.score === 'number' ? ' • ציון נוכחי ' + sig.score + '/100' : ''})</summary>
+          <summary class="cursor-pointer font-bold text-slate-300 py-1">איך מזהים עשן? (הסבר מדעי למתעניינים)</summary>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs mt-2">
           <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1">
             <div class="font-extrabold text-orange-300">1. עשן אמיתי, לא שגרה</div>
-            <p class="text-slate-300 leading-relaxed">PM2.5 מעל 20, חריג לשעה זו ביממה, ועולה מול 3–6 השעות הקודמות. מחושב על השעה המתגלגלת: שעה אחת בציון ≥ 65 מדליקה חשד לעשן, ושעתיים ברצף ≥ 70 חשד גבוה.</p>
+            <p class="text-slate-300 leading-relaxed">PM2.5 מעל 20, חריג לשעה זו ביממה, ועולה מול 3–6 השעות הקודמות. מחושב על השעה המתגלגלת: סימנים בשעה אחת מדליקים "ייתכן ריח חריף / עשן", וסימנים חזקים שנמשכים שעתיים מדליקים "סבירות גבוהה מאוד".</p>
           </div>
           <div class="bg-slate-950/75 border border-slate-800 rounded-xl p-3 space-y-1">
             <div class="font-extrabold text-rose-300">2. עשן או אבק?</div>
@@ -1784,7 +1784,7 @@
               <!-- Hourly / Daily / Monthly Bars -->
               <div class="space-y-2 pt-1">
                 ${renderTimeRow('hourly', key === 'O3' && m.window === '8h' ? 'עכשיו (8 שעות)' : 'שעתי', m.hourly, hLimit, hPct, std.hLabel, std.hTarget)}
-                ${renderTimeRow('daily', key === 'O3' && m.window === '8h' ? 'שיא יומי (8 שעות)' : 'יומי (24ש\')', m.daily, dLimit, dPct, std.dLabel, std.dTarget)}
+                ${renderTimeRow('daily', key === 'O3' && m.window === '8h' ? 'שיא יומי (8 שעות)' : 'יומי (24ש\')', m.daily, dLimit, dPct, key === 'NO2' && !isTarget ? 'תקן יממתי: 80 (יעד WHO: 25)' : std.dLabel, std.dTarget)}
                 ${renderTimeRow('monthly', 'מגמת 30 יום (מול תקן שנתי)', m.monthlyReal ? m.monthly : null, mLimit, mPct, std.mLabel, std.mTarget)}
               </div>
             </div>
@@ -2238,7 +2238,7 @@
                 ${highHours.length ? `<span class="text-orange-300 font-bold"> שעות סיכון גבוה ללכידת עשן: <span class="mono">${highHours.join(', ')}</span></span>` : '<span class="text-emerald-300 font-bold"> לא צפויות שעות לכידה חמורה ב-12 השעות הקרובות</span>'}
               </div>
               <div class="text-[11px] mono text-sky-300 font-bold">
-                שעת הפיזור הטובה ביותר: ${bestHour.time} (סיכון ${bestHour.risk.score}% • ${bestHour.ws} m/s ${degToCompassHe(bestHour.wd)})
+                שעת הפיזור הטובה ביותר: ${bestHour.time} (${bestHour.ws} m/s ${degToCompassHe(bestHour.wd)})
               </div>
             </div>
           `;
@@ -2247,7 +2247,7 @@
         grid.innerHTML = evaluated.map(slot => {
           const r = slot.risk;
           const cardCls = r.level === 'high' ? 'border-orange-500/60 bg-orange-950/25' : (r.level === 'med' ? 'border-amber-500/40 bg-amber-950/15' : 'border-slate-800 bg-slate-950/75');
-          const riskTxt = r.level === 'high' ? `🌫️ סיכון גבוה (${r.score}%)` : (r.level === 'med' ? `🟡 זהירות (${r.score}%)` : `🟢 פיזור טוב (${r.score}%)`);
+          const riskTxt = r.level === 'high' ? '💨 סיכון גבוה' : (r.level === 'med' ? '🟡 זהירות' : '🟢 פיזור טוב');
           return `
             <div class="rounded-xl border ${cardCls} p-2.5 space-y-1">
               <div class="flex items-center justify-between">
@@ -2715,7 +2715,7 @@
             b.setAttribute('aria-pressed', on ? 'true' : 'false');
             b.className = 'matrix-filter-btn shrink-0 px-3 py-1.5 rounded-xl text-xs transition ' + (on
               ? 'font-extrabold bg-sky-500 text-slate-950 ring-2 ring-sky-300/60'
-              : 'font-bold bg-slate-800 text-slate-300 hover:bg-slate-700');
+              : 'font-bold bg-slate-800 hover:bg-slate-700 ' + (b.getAttribute('data-matrix-filter') === 'industrial' ? 'text-amber-300' : 'text-slate-300'));
             if (!b.dataset.label) b.dataset.label = b.innerHTML.trim();
             const toggleable = !['krayot', 'all'].includes(b.getAttribute('data-matrix-filter'));
             b.innerHTML = (on && toggleable ? '✓ ' : '') + b.dataset.label + (on && toggleable ? ' <span class="opacity-70 font-normal">✕ ביטול</span>' : '');
@@ -2888,8 +2888,7 @@
               labels: idx.map(i => v2bHourLabel(R.axis[i])),
               datasets: [
                 { label: 'PM2.5 (µg/m³)', data: idx.map(i => ch.PM25[i]), borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.12)', fill: true, tension: 0.25, spanGaps: true,
-                  pointRadius: lv.map(l => l === 'high' ? 5 : (l === 'watch' ? 4 : 0)), pointBackgroundColor: lv.map(l => l === 'high' ? '#ef4444' : '#f59e0b') },
-                { label: 'ציון שריפה v2b', data: idx.map(i => ch.S[i]), borderColor: '#f97316', borderWidth: 1, pointRadius: 0, fill: false, yAxisID: 'y1' }
+                  pointRadius: lv.map(l => l === 'high' ? 5 : (l === 'watch' ? 4 : 0)), pointBackgroundColor: lv.map(l => l === 'high' ? '#ef4444' : '#f59e0b') }
               ]
             },
             options: {
@@ -2897,8 +2896,7 @@
               plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'Assistant', size: 11 } } } },
               scales: {
                 x: { ticks: { color: '#94a3b8', maxRotation: 35, font: { size: 10 }, maxTicksLimit: 15 }, grid: { color: '#1e293b' } },
-                y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
-                y1: { position: 'left', min: 0, max: 100, ticks: { color: '#fdba74' }, grid: { display: false } }
+                y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
               }
             }
           });
@@ -2918,7 +2916,7 @@
             <div class="flex items-center gap-2">
               <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${hi ? 'bg-rose-500/20 text-rose-200' : 'bg-amber-500/20 text-amber-200'}">${hi ? '🚨 סבירות גבוהה מאוד' : '💨 ייתכן ריח / עשן'}</span>
               <span class="mono font-extrabold text-white">${v2bHourLabel(R.axis[e.start])}</span>
-              <span class="text-slate-400">${v2bEpisodeHours(R, st.id, e) === 1 ? 'שעה אחת' : v2bEpisodeHours(R, st.id, e) + ' שעות'} • ציון ${Math.round(e.peak)} • PM2.5 עד ${Math.round(Math.max(...idx.filter(i => i >= e.start - 1 && i <= e.end).map(i => ch.PM25[i] ?? 0)))}</span>
+              <span class="text-slate-400">${v2bEpisodeHours(R, st.id, e) === 1 ? 'שעה אחת' : v2bEpisodeHours(R, st.id, e) + ' שעות'} • PM2.5 עד ${Math.round(Math.max(...idx.filter(i => i >= e.start - 1 && i <= e.end).map(i => ch.PM25[i] ?? 0)))}</span>
             </div>
             <div class="text-[11px] text-slate-300">${why.join(' • ')}${wd !== null && wd !== undefined ? ' • רוח ' + Math.round(wd) + '°' : ''}${reg}</div>
           </div>`;
