@@ -63,7 +63,7 @@
 
         <!-- Compact Global Toggles (Benchmark & Units) -->
         <div class="flex items-center gap-1.5 shrink-0">
-          <details class="relative">
+          <details class="relative" data-gear>
             <summary class="list-none cursor-pointer px-2.5 py-1.5 rounded-lg text-sm bg-slate-800 border border-slate-700 text-slate-200" title="הגדרות: יחידות והורדה">⚙️</summary>
             <div class="absolute left-0 mt-1.5 z-50 w-56 bg-slate-900 border border-slate-700 rounded-xl p-2.5 space-y-2 shadow-2xl">
               <div class="text-[11px] text-slate-400">יחידות גזים</div>
@@ -173,8 +173,8 @@
       <div class="bg-slate-900/70 border border-slate-800 rounded-2xl px-3.5 py-2 flex flex-wrap items-center justify-center sm:justify-between gap-2 text-[11px] text-slate-300">
         <span class="font-extrabold text-slate-200">מקרא סימונים:</span>
         <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-          <span>🔥 <strong>חשד גבוה לשריפה</strong> (שעתיים ברצף בציון ≥ 70)</span>
-          <span>🌫️ <strong>חשד לעשן</strong> (שעה אחת ≥ 65, או שעתיים ≥ 55)</span>
+          <span>🚨 <strong>סבירות גבוהה מאוד לריח חריף / עשן</strong> (שעתיים ברצף בציון ≥ 70)</span>
+          <span>💨 <strong>ייתכן ריח חריף / עשן</strong> (שעה אחת ≥ 65, או שעתיים ≥ 55)</span>
           <span class="basis-full text-slate-400">הציון (גלאי C-A) מחושב על השעה המתגלגלת האחרונה, וגל עשן רחב נבדק מול תחנות הייחוס נווה שאנן, טבעון ונשר.</span>
           <span>🏜️ <strong>אובך מינרלי</strong> (יחס PM2.5/PM10 נמוך)</span>
           <span>🔴 <strong>חריגה מיעד בריאותי</strong></span>
@@ -358,7 +358,7 @@
               <option value="">חודש מהארכיון…</option>
             </select>
             <button id="btnLoadHistorySample" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 border border-orange-500/40 transition">
-              טען דוגמה היסטורית (14 רשומות)
+              טען דוגמה סינתטית לבדיקה
             </button>
           </div>
         </div>
@@ -376,7 +376,7 @@
 
           <div class="lg:col-span-7 space-y-3">
             <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
-              <div class="text-xs font-bold text-slate-300 mb-2">ציר זמן PM2.5 היסטורי (נקודות כתומות/אדומות = חתימת שריפה פיראטית)</div>
+              <div class="text-xs font-bold text-slate-300 mb-2">ציר זמן PM2.5 היסטורי (נקודות כתומות/אדומות = ייתכן ריח חריף / עשן)</div>
               <div class="relative h-52 w-full">
                 <canvas id="chartHistoryFireTimeline" height="0" style="display: block; box-sizing: border-box; height: 0px; width: 0px;" width="0"></canvas>
               </div>
