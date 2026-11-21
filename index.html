@@ -170,16 +170,18 @@
       <div id="scaleGapBanner" class="bg-slate-900/95 border-2 border-rose-500/80 rounded-2xl px-4 py-3 space-y-2.5 text-center shadow-lg shadow-rose-950/30"></div>
 
       <!-- Clear Icon & Status Legend -->
-      <div class="bg-slate-900/70 border border-slate-800 rounded-2xl px-3.5 py-2 flex flex-wrap items-center justify-center sm:justify-between gap-2 text-[11px] text-slate-300">
-        <span class="font-extrabold text-slate-200">מקרא סימונים:</span>
-        <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-          <span>🚨 <strong>סבירות גבוהה מאוד לריח חריף / עשן</strong> (סימני עשן חזקים שנמשכים לפחות שעתיים)</span>
-          <span>💨 <strong>ייתכן ריח חריף / עשן</strong> (סימני עשן בשעה האחרונה, עדיין לא מובהקים)</span>
-          <span>🏜️ <strong>אובך מינרלי</strong> (יחס PM2.5/PM10 נמוך)</span>
-          <span>🔴 <strong>חריגה מיעד בריאותי</strong></span>
-          <span>🟣 <strong>חריגה מתקן חוקי</strong></span>
-          <span>🟢 <strong>תקין</strong></span>
-          <span>⚠️ <strong>פער סקאלות</strong> (תקין בחוק, חורג בריאותית)</span>
+      <div class="bg-slate-900/70 border border-slate-800 rounded-2xl px-4 py-3 text-[12px] text-slate-300 space-y-2.5">
+        <div class="font-extrabold text-slate-200 text-[13px]">מקרא סימונים:</div>
+        <ul class="space-y-1.5">
+          <li class="flex items-start gap-2"><span class="shrink-0 w-5 text-center">🚨</span><span><strong class="text-slate-100">סבירות גבוהה מאוד לריח חריף / עשן</strong> <span class="text-slate-400">– סימני עשן חזקים שנמשכים לפחות שעתיים</span></span></li>
+          <li class="flex items-start gap-2"><span class="shrink-0 w-5 text-center">💨</span><span><strong class="text-slate-100">ייתכן ריח חריף / עשן</strong> <span class="text-slate-400">– סימני עשן בשעה האחרונה, עדיין לא מובהקים</span></span></li>
+          <li class="flex items-start gap-2"><span class="shrink-0 w-5 text-center">🏜️</span><span><strong class="text-slate-100">אובך מינרלי</strong> <span class="text-slate-400">– יחס PM2.5/PM10 נמוך</span></span></li>
+        </ul>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5 pt-2.5 border-t border-slate-800">
+          <span class="flex items-center gap-2"><span class="w-5 text-center">🟢</span><strong>תקין</strong></span>
+          <span class="flex items-center gap-2"><span class="w-5 text-center">🔴</span><strong>חריגה מיעד בריאותי</strong></span>
+          <span class="flex items-center gap-2"><span class="w-5 text-center">🟣</span><strong>חריגה מתקן חוקי</strong></span>
+          <span class="flex items-start gap-2"><span class="w-5 text-center shrink-0">⚠️</span><span><strong>פער סקאלות</strong> <span class="text-slate-400">(תקין בחוק, חורג בריאותית)</span></span></span>
         </div>
       </div>
         </div>
