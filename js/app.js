@@ -1147,6 +1147,7 @@
         ${because}${avg}
         <div class="flex flex-wrap items-center gap-2 mt-2">
           <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-black/25 border border-white/15">${act}</span>
+          <a href="https://forms.gle/LiJ5h1AczSw23LDr7" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-full text-xs font-bold bg-black/25 border border-white/15 hover:bg-black/40 transition">👃 דיווח ריח בשכונה (נאות אפק)</a>
           <span class="text-[11px] opacity-75">${upd ? 'עודכן ' + upd : ''} • לפי ${st.shortName} (שעה אחרונה) וגלאי העשן של כל הקריות</span>
           ${kind === 'fire' ? report6911Button(true) : ''}
         </div>
