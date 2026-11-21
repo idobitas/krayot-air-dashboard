@@ -15,9 +15,9 @@
       aqiInputs: { PM25: 24.4, PM10: 34.5, O3: 36.1, SO2: 0.8, NO2: 2.4, NOX: 38.0, CO: 0.3 }
     };
 
-    const GAS_CONVERSION = {
-      C6H6: 3.195, CH2O: 1.228, H2S: 1.394, NO2: 1.882, NOX: 1.882, O3: 1.963, SO2: 2.620
-    };
+
+    // standards + "now" logic live in js/standards.js and js/guidance.js (pure, unit-tested in tests/check.js)
+    const { GAS_CONVERSION, POLLUTANT_STANDARDS, PLAIN_NAMES } = window.AQStd;
 
     // Intuitive explanations shown directly inside each pollutant card on mobile & desktop
     const INTUITIVE_GUIDE = {
@@ -538,17 +538,6 @@
       st.notes = 'כל הערכים מ-air.sviva.gov.il. נמדד בתחנה: ' + (measured.join(', ') || '—') + '. "30 יום" = ממוצע אמיתי של 30 הימים האחרונים.';
     }
 
-    const POLLUTANT_STANDARDS = {
-      C6H6: { name: 'בנזן', formula: 'C₆H₆', isGas: true, hEnv: 12.0, hTarget: 3.9, dEnv: 3.9, dTarget: 3.9, mEnv: 1.3, mTarget: 1.3, noHourlyStd: true, hLabel: 'אינדיקטיבי – אין תקן שעתי', dLabel: 'תקן יממתי: 3.9', mLabel: 'תקן שנתי/חודשי: 1.3' },
-      PM25: { name: 'חלקיקים עדינים', formula: 'PM2.5', isGas: false, hEnv: 37.5, hTarget: 15.0, dEnv: 37.5, dTarget: 15.0, mEnv: 25.0, mTarget: 5.0, noHourlyStd: true, hLabel: 'אינדיקטיבי – אין תקן שעתי', dLabel: 'תקן יממתי: 37.5 (יעד WHO: 15)', mLabel: 'תקן שנתי: 25 (יעד WHO: 5)' },
-      PM10: { name: 'חלקיקים נשימים', formula: 'PM10', isGas: false, hEnv: 130.0, hTarget: 45.0, dEnv: 130.0, dTarget: 45.0, mEnv: 50.0, mTarget: 15.0, noHourlyStd: true, hLabel: 'אינדיקטיבי – אין תקן שעתי', dLabel: 'תקן יממתי: 130 (יעד WHO: 45)', mLabel: 'תקן שנתי: 50 (יעד WHO: 15)' },
-      NO2:  { name: 'חנקן דו-חמצני', formula: 'NO₂', isGas: true, hEnv: 200.0, hTarget: 200.0, dEnv: 80.0, dTarget: 25.0, mEnv: 40.0, mTarget: 10.0, hLabel: 'תקן שעתי: 200', dLabel: 'יעד יממתי WHO: 25', mLabel: 'תקן שנתי: 40 (יעד WHO: 10)' },
-      O3:   { name: 'אוזון', formula: 'O₃', isGas: true, hEnv: 140.0, hTarget: 100.0, dEnv: 140.0, dTarget: 100.0, mEnv: 100.0, mTarget: 60.0, hLabel: 'ממוצע 8 שעות אחרונות • תקן 140 (יעד WHO 100)', dLabel: 'שיא ממוצע 8 שעות ביממה', mLabel: 'ממוצע (יעד עונת שיא: 60)' },
-      SO2:  { name: 'גופרית דו-חמצנית', formula: 'SO₂', isGas: true, hEnv: 350.0, hTarget: 125.0, dEnv: 50.0, dTarget: 40.0, mEnv: 20.0, mTarget: 20.0, hLabel: 'תקן שעתי: 350', dLabel: 'תקן יממתי: 50 (יעד: 40)', mLabel: 'תקן שנתי: 20' },
-      CH2O: { name: 'פורמאלדהיד', formula: 'CH₂O', isGas: true, hEnv: 15.0, hTarget: 10.0, dEnv: 3.3, dTarget: 0.8, mEnv: 3.3, mTarget: 0.8, hLabel: 'תקן שעתי: 15', dLabel: 'יעד יממתי: 0.8', mLabel: 'תקן שנתי: 3.3 (יעד 0.8)' },
-      H2S:  { name: 'מימן גופרי (ריח)', formula: 'H₂S', isGas: true, hEnv: 45.0, hTarget: 7.0, dEnv: 15.0, dTarget: 7.0, mEnv: 1.0, mTarget: 1.0, hLabel: 'סביבה ח"ש: 45 (יעד 7)', dLabel: 'תקן יממתי: 15', mLabel: 'יעד שנתי: 1.0' },
-      BaP:  { name: 'בנזו-א-פירן', formula: 'BaP', isGas: false, hEnv: 0.001, hTarget: 0.00011, dEnv: 0.001, dTarget: 0.00011, mEnv: 0.001, mTarget: 0.00011, hLabel: 'הערכה שעתית', dLabel: 'יעד יממתי: 0.00011', mLabel: 'סביבה שנתי: 0.001' }
-    };
 
     // Complete 35 Parameters Encyclopedia (Retained & Enhanced with Intuitive Summary)
     const PARAMETERS_DATA = [
@@ -721,15 +710,8 @@
     // =========================================================================
     // 2. HELPERS
     // =========================================================================
-    function formatGasValue(ugVal, gasKey, decimals = 2) {
-      if (ugVal === null || ugVal === undefined || isNaN(ugVal)) return '—';
-      if (APP_STATE.unitMode === 'ug' || !GAS_CONVERSION[gasKey]) return Number(ugVal).toFixed(decimals);
-      return (Number(ugVal) / GAS_CONVERSION[gasKey]).toFixed(decimals);
-    }
-
-    function getUnitLabel(gasKey) {
-      return (APP_STATE.unitMode === 'ppb' && GAS_CONVERSION[gasKey]) ? 'ppb' : 'µg/m³';
-    }
+    function formatGasValue(ugVal, gasKey, decimals = 2) { return AQStd.formatGas(ugVal, gasKey, APP_STATE.unitMode, decimals); }
+    function getUnitLabel(gasKey) { return AQStd.unitLabel(gasKey, APP_STATE.unitMode); }
 
     function getCellBadgeClass(pct, isViolation = false) {
       if (isViolation || pct > 100) return 'bg-rose-950/90 text-rose-200 border border-rose-600/80 font-extrabold';
@@ -956,7 +938,6 @@
     }
 
     // plain-language names shown next to the professional ones (never instead of them)
-    const PLAIN_NAMES = { PM25: 'חלקיקים עדינים/עשן', PM10: 'אבק וחלקיקים', NO2: 'גזי פליטה', C6H6: 'חומר מסרטן', SO2: 'גז תעשייתי', O3: 'אוזון קרקעי' };
     const plainLabel = (k, code) => `${code} (${PLAIN_NAMES[k] || ''})`;
 
     // one word per station from live values vs. WHO 2021 24 h guidelines (benzene vs. its daily limit)
@@ -965,33 +946,9 @@
       { word: 'בינוני', cls: 'bg-orange-500/15 text-orange-300 border-orange-500/40', txt: 'text-orange-300' },
       { word: 'גרוע', cls: 'bg-rose-500/20 text-rose-300 border-rose-500/50', txt: 'text-rose-300' }
     ];
-    // "Now" bands for the last-hour mean (never compared with a 24 h target).
-    // [moderate, high] in µg/m³: NO₂ / SO₂ use the hourly limits, O₃ the EU hourly information
-    // threshold, PM and benzene keep the site's existing short-term thresholds.
-    // [moderate-from (exclusive), high-from (inclusive)] in µg/m³ for the last hour (O3: 8-h mean).
-    // Legal mode follows the MoEP index: moderate above 50% of the legal limit (PM2.5 18.6–37.4,
-    // PM10 66–129), high at the legal limit. Health mode starts "moderate" at the WHO 2021 guideline
-    // where it is stricter (PM2.5 > 15, PM10 > 45); high stays at the legal limit.
-    const NOW_BANDS_BY_MODE = {
-      env:    { PM25: [18.5, 37.5], PM10: [65, 130], NO2: [100, 200], O3: [70, 140], SO2: [175, 350], C6H6: [2, 5] },
-      target: { PM25: [15, 37.5],   PM10: [45, 130], NO2: [100, 200], O3: [70, 140], SO2: [175, 350], C6H6: [2, 5] }
-    };
-    function nowBands() { return NOW_BANDS_BY_MODE[APP_STATE.benchmarkMode === 'target' ? 'target' : 'env']; }
-    function nowLevel(key, v) { // 0 fine, 1 moderate, 2 high (null when no band / no value)
-      const b = nowBands()[key];
-      if (!b || v == null || isNaN(v)) return null;
-      return v >= b[1] ? 2 : (v > b[0] ? 1 : 0);
-    }
-    function stationWorst(st) { // worst pollutant in the LAST HOUR relative to its "now" band
-      let best = null;
-      Object.entries(nowBands()).forEach(([k, b]) => {
-        const v = (st.metrics || {})[k] ? st.metrics[k].hourly : null;
-        if (v == null || isNaN(v)) return;
-        const r = v / b[0];
-        if (!best || r > best.r) best = { key: k, code: k === 'C6H6' ? 'בנזן' : (POLLUTANT_STANDARDS[k] || {}).formula || k, value: v, r, lvl: nowLevel(k, v) };
-      });
-      return best;
-    }
+    function nowBands() { return AQStd.nowBands(APP_STATE.benchmarkMode); }
+    function nowLevel(key, v) { return AQStd.nowLevel(APP_STATE.benchmarkMode, key, v); }
+    function stationWorst(st) { return AQGuidance.stationWorst(st, APP_STATE.benchmarkMode); }
     function stationLevel(st) { // = computeGuidance(st).stationLvl (single source of truth)
       const g = computeGuidance(st);
       return g ? g.stationLvl : null;
@@ -1063,66 +1020,20 @@
       }).join('');
     }
 
-    // SINGLE SOURCE OF TRUTH for "now": the decision card, the station pills, the guidance tab and the
-    // airing hint all use this. "Now" = last-hour values + the live smoke/dust detector; 24 h means
-    // never change the window advice, they only add a sub-line.
+    // SINGLE SOURCE OF TRUTH for "now" (js/guidance.js): the decision card, the station pills, the collapsed
+    // pollutant bars, the guidance tab and the airing hint all read it. Here we only gather the live inputs.
     function computeGuidance(st) {
       if (!st || !Object.keys(st.metrics || {}).length) return null;
-      const sig = detectPirateFireSignature(st);
       const R = (window.FIRE_LIVE || window.FIRE_V2B);
-      const v = R && R.latest ? R.latest : null, kind = v ? v.kind : 'clear';
-      const nameOf = id => (STATIONS_DATA.find(s => s.id === id) || {}).shortName || id;
-      const pm25 = st.metrics?.PM25 ? (st.metrics.PM25.hourly ?? null) : null;
-      const c6 = st.metrics?.C6H6 ? (st.metrics.C6H6.hourly ?? null) : null;
-      const isDust = !!(sig.isMineralDust || sig.level === 'dust');
-      // station level: last-hour bands + this station's live detector score
-      const worst = stationWorst(st);
-      let stationLvl = worst ? worst.lvl : 0;
-      if (sig.level === 'high') stationLvl = 2;
-      else if (sig.level === 'watch' || isDust) stationLvl = Math.max(stationLvl, 1);
-      // card level: station level + network-wide live events
-      let lvl = stationLvl, because = '';
-      const hot = v ? v.stations.filter(x => x.level === 'high' || x.level === 'watch').map(x => nameOf(x.id)) : [];
-      if (kind === 'fire') { lvl = 2; because = 'בגלל: 🚨 סבירות גבוהה מאוד לריח חריף / עשן (גלאי השעה המתגלגלת) ב' + hot.join(', '); }
-      else if (kind === 'smoke') { lvl = Math.max(lvl, 1); because = 'בגלל: 💨 ייתכן ריח חריף / עשן (גלאי השעה המתגלגלת) ב' + hot.join(', '); }
-      else if (kind === 'dust') { lvl = Math.max(lvl, 1); because = 'בגלל: אבק / אובך בכמה תחנות בקריות'; }
-      else if (kind === 'regional') { lvl = Math.max(lvl, 1); because = 'בגלל: אוויר עומד (משוער) – החלקיקים עולים יחד בכל הקריות'; }
-      if (!because && stationLvl > 0) {
-        because = sig.level === 'high' || sig.level === 'watch' ? 'בגלל: 💨 ייתכן ריח חריף / עשן ב' + st.shortName
-          : isDust ? 'בגלל: אבק / אובך ב' + st.shortName
-          : worst.key === 'O3' ? `בגלל: אוזון (ממוצע 8 שעות) ב${st.shortName}`
-          : `בגלל: ${PLAIN_NAMES[worst.key] || worst.code} (${worst.code}) בשעה האחרונה ב${st.shortName}`;
-      }
-      const reason = kind === 'fire' ? 'סבירות גבוהה מאוד לריח חריף / עשן באוויר.'
-        : kind === 'smoke' ? 'ייתכן ריח חריף / עשן באוויר.'
-        : (kind === 'dust' || isDust) ? 'יש אבק / אובך באוויר (לא עשן שריפה).'
-        : kind === 'regional' ? 'אוויר עומד (משוער): הזיהום לא מתפזר.'
-        : lvl > 0 ? 'רמת המזהמים בשעה האחרונה גבוהה.'
-        : 'האוויר בשעה האחרונה תקין.';
-      // 24 h means above WHO at this station: information only, never changes the advice
-      const w24 = whoExceedances().filter(x => x.stationId === st.id);
-      const avg24 = w24.length ? 'הממוצע של 24 השעות האחרונות עדיין גבוה: ' +
-        w24.slice(0, 2).map(x => `${x.label} ${x.value} µg/m³ (יעד WHO ליממה ${x.limit})`).join(', ') + ' ב' + st.shortName : '';
-      let goodWindow = null;
-      if (lvl > 0 && WIND_FORECAST_CACHE && WIND_FORECAST_CACHE.length) {
-        // the forecast starts at the hour already running (e.g. 15:00 at 15:40): only recommend future hours
-        const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', hourCycle: 'h23' })
-          .formatToParts(new Date()).map(x => [x.type, x.value]));
-        const nowKey = `${p.month}${p.day}${p.hour}`;
-        const keyOf = x => (x.date || '').slice(3, 5) + (x.date || '').slice(0, 2) + (x.time || '').slice(0, 2);
-        goodWindow = WIND_FORECAST_CACHE.filter(x => keyOf(x) > nowKey || (p.month === '12' && keyOf(x).startsWith('01')))
-          .map(x => ({ ...x, risk: computeCombinedHourRisk(x, st) })).find(e => e.risk.level === 'low') || null;
-      }
-      const trapped = !!(WIND_FORECAST_CACHE && WIND_FORECAST_CACHE.length &&
-        Math.max(...WIND_FORECAST_CACHE.slice(0, 3).map(x => computeCombinedHourRisk(x, st).score)) >= 70);
-      // gentle note: particles a little above the WHO daily guideline but still in the "fine" band
-      const soft = [['PM25', 15, 'PM2.5'], ['PM10', 45, 'PM10']].map(([k, who, code]) => {
-        const hv = st.metrics?.[k]?.hourly;
-        return hv != null && hv > who && nowLevel(k, hv) === 0 ? `${code} ${Number(hv).toFixed(1)} µg/m³` : null;
-      }).filter(Boolean);
-      const softNote = lvl === 0 && soft.length ? 'מעט מעל יעד WHO בשעה האחרונה: ' + soft.join(', ') + ' (לא מונע פתיחת חלונות)' : '';
-      return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, because, reason, avg24, softNote, goodWindow, trapped,
-        highRisk: lvl === 2, modRisk: lvl === 1 };
+      return AQGuidance.computeGuidance(st, {
+        mode: APP_STATE.benchmarkMode,
+        sig: detectPirateFireSignature(st),
+        live: R && R.latest ? R.latest : null,
+        nameOf: id => (STATIONS_DATA.find(s => s.id === id) || {}).shortName || id,
+        who24: whoExceedances().filter(x => x.stationId === st.id),
+        forecast: WIND_FORECAST_CACHE,
+        riskOf: x => computeCombinedHourRisk(x, st)
+      });
     }
 
     // the one answer a neighbour needs: open or close the window
@@ -1174,19 +1085,7 @@
     }
 
     // WHO 2021 24-hour guidelines vs. 24-hour means only (the legal daily limit marks the red tone)
-    function whoExceedances() {
-      const LIM = { PM25: { label: 'PM2.5', who: 15, legal: 37.5 }, PM10: { label: 'PM10', who: 45, legal: 130 }, NO2: { label: 'NO₂', who: 25, legal: 80 } };
-      const out = [];
-      STATIONS_DATA.filter(st => st.group === 'krayot').forEach(st => {
-        Object.entries(LIM).forEach(([k, L]) => {
-          const m = (st.metrics || {})[k];
-          const daily = m ? (m.daily ?? null) : null;
-          if (daily != null && daily > L.who) out.push({ label: L.label, station: st.shortName, stationId: st.id, value: +daily.toFixed(1), limit: L.who,
-            basis: 'ממוצע 24 שעות', legal: daily > L.legal });
-        });
-      });
-      return out.sort((a, b) => b.value / b.limit - a.value / a.limit);
-    }
+    function whoExceedances() { return AQGuidance.whoExceedances(STATIONS_DATA); }
 
     function renderPublicVerdict() {
       const el = document.getElementById('publicVerdict');
@@ -1720,10 +1619,8 @@
 
         // collapsed row = last hour only (8-h mean for O3): hourly limit, or the active 24-h limit for PM;
         // benzene has no short-term limit -> neutral indicative label. 24 h / 30 days stay in the expanded rows.
-        const nowLvl = nowLevel(key, m.hourly);
-        const nowIndicative = key === 'C6H6' && !nowLvl;
-        const nowBand = nowBands()[key];
-        const nowPct = (m.hourly == null || !nowBand) ? 0 : Math.round((m.hourly / nowBand[1]) * 100);
+        const bar = AQGuidance.barStatus(key, m.hourly, APP_STATE.benchmarkMode);
+        const nowLvl = bar.lvl, nowIndicative = bar.indicative;
         const borderCol = nowLvl === 2 ? (isTarget ? 'border-rose-600/80 bg-rose-950/15' : 'border-purple-600/80 bg-purple-950/15') : 'border-slate-800 bg-slate-950/70';
         const unitLbl = std.isGas ? getUnitLabel(key) : 'µg/m³';
         const dec = key === 'BaP' ? 5 : (key === 'C6H6' || key === 'H2S' ? 2 : 1);
@@ -1731,9 +1628,7 @@
         const renderTimeRow = (tfKey, label, val, limit, pct, subNote, targetLimit) => {
           if (tf !== 'all' && tf !== tfKey) return '';
           // in ppb mode the limits written in the label are converted too, so value, limit and % share one unit
-          if (std.isGas && APP_STATE.unitMode === 'ppb' && subNote) {
-            subNote = subNote.replace(/((?:תקן|יעד)[^\d()•]*?)(\d+(?:\.\d+)?)/g, (_, pre, num) => pre + formatGasValue(parseFloat(num), key, 1) + ' ppb');
-          }
+          subNote = AQStd.convertLabel(subNote, key, APP_STATE.unitMode);
           if (val === null || val === undefined || isNaN(val)) {
             return `<div class="flex items-center justify-between text-xs"><span class="text-slate-400 font-semibold">${label}</span><span class="text-slate-400">${tfKey === 'monthly' ? 'עוד אין 30 יום מלאים' : 'אין נתון'}</span></div>`;
           }
@@ -1763,10 +1658,8 @@
           `;
         };
 
-        const accW = m.hourly == null || nowLvl == null ? ['אין נתון', 'text-slate-400', 'bg-slate-600']
-          : nowIndicative ? ['אינדיקטיבי', 'text-slate-300', 'bg-slate-500']
-          : nowLvl === 2 ? ['חריגה', 'text-rose-300', 'bg-rose-500'] : (nowLvl === 1 ? ['בינוני', 'text-orange-300', 'bg-orange-400'] : ['תקין', 'text-emerald-300', 'bg-emerald-400']);
-        const nowBarW = nowIndicative ? 0 : Math.min(100, nowPct);
+        const accW = [bar.word, bar.txtCls, bar.barCls];
+        const nowBarW = bar.width;
         return { pct: maxPct, html: `
           <details class="rounded-2xl border ${borderCol} group">
           <summary class="list-none cursor-pointer p-3 flex items-center gap-3">
