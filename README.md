@@ -21,9 +21,11 @@ index.html  (GitHub Pages)  טוען את שני הקבצים בעליית הד�
 |---|---|
 | `index.html` | מבנה ועיצוב בלבד (המכלים ריקים, הסקריפט ממלא אותם בטעינה) |
 | `js/standards.js` | נתונים ועזרים בלבד, בלי DOM: תקנים חוקיים ויעדי WHO, ספי "עכשיו" לכל מצב (`NOW_BANDS_BY_MODE`), שמות פשוטים, המרת µg↔ppb (לגזים בלבד). חושף `window.AQStd` |
+| `js/charts.js` | ציור הגרפים בלבד (Chart.js): `renderTrend`, `renderHistoryTimeline`, `renderV2BScan`. לא קורא מצב אפליקציה; `app.js` מכין את הנתונים. חושף `window.AQCharts` |
 | `js/guidance.js` | לוגיקת "עכשיו" נקייה: `computeGuidance` (הנתונים החיים נכנסים כ-ctx), `stationWorst`, `barStatus` לפסים המקופלים ולתגית "עכשיו:", `whoExceedances`. חושף `window.AQGuidance` |
-| `tests/check.js` | בדיקות בלי תלויות: התאמת כרטיס / כפתור / פס בשני המצבים, מוצקין 22.6 לא ירוק ב-WHO, קריית חיים 26.6 עקבית בחוקי, ppb לגזים בלבד, תחנה 517 בלי NaN |
-| `js/app.js` | הסקריפט הראשי של הדאשבורד: ממזג את `live_krayot.json` לתחנות לפי `id`, טוען את ההיסטוריה, מרנדר הכל (נטען אחרי `js/fire_v2b.js`, `js/standards.js` ו-`js/guidance.js`, ומשתמש בהם דרך עטיפות דקות) |
+| `tests/check.js` | בדיקות בלי תלויות: התאמת כרטיס / כפתור / פס בשני המצבים, מוצקין 22.6 לא ירוק ב-WHO, קריית חיים 26.6 עקבית בחוקי, ppb לגזים בלבד, תחנה 517 בלי NaN. בנוסף 3 כללים קבועים של `fire_v2b.js`: שעת אבק = 0, שעה בודדת אחרי שעה חסרה ≤ 69, קריית ים (92) ≤ 59 כשמוצקין (382) חסרה |
+| `tests/fire_fixture.js` | היסטוריה סינתטית של 6 ימים שמפעילה באמת כל אחד משלושת הכללים של הגלאי |
+| `js/app.js` | הסקריפט הראשי של הדאשבורד: ממזג את `live_krayot.json` לתחנות לפי `id`, טוען את ההיסטוריה, מרנדר הכל (סדר טעינה: `fire_v2b` ← `standards` ← `charts` ← `guidance` ← `app`; אין בו קריאות ישירות ל-Chart.js) |
 | `js/fire_v2b.js` | גלאי שריפות/עשן v2b לקריות (ציון 0–100, high ≥ 70, watch ≥ 55, אינוורסיה אזורית בנפרד). ניתוח: [`docs/fire-detector-analysis.md`](docs/fire-detector-analysis.md) |
 | `scripts/fetch_sviva.py` | משיכה, המרת יחידות, צבירת היסטוריה. `--backfill` מושך מחדש 90 יום מלאים |
 | `.github/workflows/update_air.yml` | מופעל כל 10 דקות מבחוץ (cron-job.org → `workflow_dispatch`); cron פנימי כגיבוי; הספרייה נעולה ל-commit `6e8bd65`; `timeout-minutes: 10` |
