@@ -968,19 +968,27 @@
     // "Now" bands for the last-hour mean (never compared with a 24 h target).
     // [moderate, high] in µg/m³: NO₂ / SO₂ use the hourly limits, O₃ the EU hourly information
     // threshold, PM and benzene keep the site's existing short-term thresholds.
-    const NOW_BANDS = {
-      // PM2.5: <=25 fine (15-25 = slightly above WHO, note only), 25-37.5 moderate (WHO IT-3 up to the
-      // Israeli daily limit), >37.5 poor. PM10 analogous (45 / 75 / 130). O3 on the 8-h mean: WHO 100,
-      // Israeli 140. NO2 / SO2: hourly limits 200 / 350.
-      PM25: [25, 37.5], PM10: [75, 130], NO2: [100, 200], O3: [100, 140], SO2: [200, 350], C6H6: [2, 5]
+    // [moderate-from (exclusive), high-from (inclusive)] in µg/m³ for the last hour (O3: 8-h mean).
+    // Legal mode follows the MoEP index: moderate above 50% of the legal limit (PM2.5 18.6–37.4,
+    // PM10 66–129), high at the legal limit. Health mode starts "moderate" at the WHO 2021 guideline
+    // where it is stricter (PM2.5 > 15, PM10 > 45); high stays at the legal limit.
+    const NOW_BANDS_BY_MODE = {
+      env:    { PM25: [18.5, 37.5], PM10: [65, 130], NO2: [100, 200], O3: [70, 140], SO2: [175, 350], C6H6: [2, 5] },
+      target: { PM25: [15, 37.5],   PM10: [45, 130], NO2: [100, 200], O3: [70, 140], SO2: [175, 350], C6H6: [2, 5] }
     };
+    function nowBands() { return NOW_BANDS_BY_MODE[APP_STATE.benchmarkMode === 'target' ? 'target' : 'env']; }
+    function nowLevel(key, v) { // 0 fine, 1 moderate, 2 high (null when no band / no value)
+      const b = nowBands()[key];
+      if (!b || v == null || isNaN(v)) return null;
+      return v >= b[1] ? 2 : (v > b[0] ? 1 : 0);
+    }
     function stationWorst(st) { // worst pollutant in the LAST HOUR relative to its "now" band
       let best = null;
-      Object.entries(NOW_BANDS).forEach(([k, b]) => {
+      Object.entries(nowBands()).forEach(([k, b]) => {
         const v = (st.metrics || {})[k] ? st.metrics[k].hourly : null;
         if (v == null || isNaN(v)) return;
         const r = v / b[0];
-        if (!best || r > best.r) best = { key: k, code: k === 'C6H6' ? 'בנזן' : (POLLUTANT_STANDARDS[k] || {}).formula || k, value: v, r, lvl: v >= b[1] ? 2 : (v >= b[0] ? 1 : 0) };
+        if (!best || r > best.r) best = { key: k, code: k === 'C6H6' ? 'בנזן' : (POLLUTANT_STANDARDS[k] || {}).formula || k, value: v, r, lvl: nowLevel(k, v) };
       });
       return best;
     }
@@ -1105,13 +1113,15 @@
         goodWindow = WIND_FORECAST_CACHE.filter(x => keyOf(x) > nowKey || (p.month === '12' && keyOf(x).startsWith('01')))
           .map(x => ({ ...x, risk: computeCombinedHourRisk(x, st) })).find(e => e.risk.level === 'low') || null;
       }
+      const trapped = !!(WIND_FORECAST_CACHE && WIND_FORECAST_CACHE.length &&
+        Math.max(...WIND_FORECAST_CACHE.slice(0, 3).map(x => computeCombinedHourRisk(x, st).score)) >= 70);
       // gentle note: particles a little above the WHO daily guideline but still in the "fine" band
       const soft = [['PM25', 15, 'PM2.5'], ['PM10', 45, 'PM10']].map(([k, who, code]) => {
         const hv = st.metrics?.[k]?.hourly;
-        return hv != null && hv > who && hv < NOW_BANDS[k][0] ? `${code} ${Number(hv).toFixed(1)} µg/m³` : null;
+        return hv != null && hv > who && nowLevel(k, hv) === 0 ? `${code} ${Number(hv).toFixed(1)} µg/m³` : null;
       }).filter(Boolean);
       const softNote = lvl === 0 && soft.length ? 'מעט מעל יעד WHO בשעה האחרונה: ' + soft.join(', ') + ' (לא מונע פתיחת חלונות)' : '';
-      return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, because, reason, avg24, softNote, goodWindow,
+      return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, because, reason, avg24, softNote, goodWindow, trapped,
         highRisk: lvl === 2, modRisk: lvl === 1 };
     }
 
@@ -1131,7 +1141,8 @@
       const todayDM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit' }).format(new Date());
       const dayWord = gw => !gw.date ? '' : (gw.date === todayDM ? 'היום' : 'מחר');
       const because = g.because ? `<div class="mt-2 text-sm font-bold bg-black/25 border border-white/15 rounded-xl px-3 py-1.5">${g.because}</div>` : '';
-      const avg = (g.softNote ? `<div class="mt-2 text-xs sm:text-sm opacity-90">🌤️ ${g.softNote}</div>` : '') +
+      const trapNote = lvl === 0 && g.trapped ? `<div class="mt-2 text-sm font-bold bg-black/25 border border-white/15 rounded-xl px-3 py-1.5">🌬️ אפשר לפתוח – רוח חלשה, עדיף אוורור קצר</div>` : '';
+      const avg = trapNote + (g.softNote ? `<div class="mt-2 text-xs sm:text-sm opacity-90">🌤️ ${g.softNote}</div>` : '') +
         (g.avg24 ? `<div class="mt-1.5 text-xs sm:text-sm opacity-90">ℹ️ ${g.avg24}</div>` : '');
       const when = lvl > 0 && g.goodWindow ? `<div class="text-sm mt-1">⏰ שעת אוורור מומלצת: <strong>${dayWord(g.goodWindow)} בשעה <bdi class="mono">${g.goodWindow.time}</bdi></strong></div>` : '';
       // current wind: own anemometer, else Kiryat Ata (97, as the detector does for Motzkin), else the forecast
@@ -1709,10 +1720,11 @@
 
         // collapsed row = last hour only (8-h mean for O3): hourly limit, or the active 24-h limit for PM;
         // benzene has no short-term limit -> neutral indicative label. 24 h / 30 days stay in the expanded rows.
-        const nowIndicative = key === 'C6H6';
-        const nowLimit = (key === 'PM25' || key === 'PM10') ? dLimit : hLimit;
-        const nowPct = (m.hourly == null || nowIndicative || !nowLimit) ? 0 : Math.round((m.hourly / nowLimit) * 100);
-        const borderCol = nowPct > 100 ? (isTarget ? 'border-rose-600/80 bg-rose-950/15' : 'border-purple-600/80 bg-purple-950/15') : 'border-slate-800 bg-slate-950/70';
+        const nowLvl = nowLevel(key, m.hourly);
+        const nowIndicative = key === 'C6H6' && !nowLvl;
+        const nowBand = nowBands()[key];
+        const nowPct = (m.hourly == null || !nowBand) ? 0 : Math.round((m.hourly / nowBand[1]) * 100);
+        const borderCol = nowLvl === 2 ? (isTarget ? 'border-rose-600/80 bg-rose-950/15' : 'border-purple-600/80 bg-purple-950/15') : 'border-slate-800 bg-slate-950/70';
         const unitLbl = std.isGas ? getUnitLabel(key) : 'µg/m³';
         const dec = key === 'BaP' ? 5 : (key === 'C6H6' || key === 'H2S' ? 2 : 1);
 
@@ -1733,12 +1745,14 @@
           const txtCol = pct > 100 ? (isTarget ? 'text-rose-300 font-extrabold' : 'text-purple-300 font-extrabold') : 'text-emerald-300 font-bold';
           const targetPct = targetLimit ? Math.round((val / targetLimit) * 100) : 0;
           const showHealthGap = !isTarget && pct <= 100 && targetPct > 100;
+          const overLbl = pct > 100 && tfKey !== 'hourly'
+            ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/40 text-rose-300 text-[10px] font-bold">${tfKey === 'daily' ? (key === 'O3' ? 'שיא יומי מעל ' : 'ממוצע יומי מעל ') : 'ממוצע 30 יום מעל '}${isTarget ? 'יעד' : 'תקן'}</span>` : '';
           return `
             <div class="space-y-1">
               <div class="flex flex-wrap items-center justify-between gap-1 text-xs">
                 <span class="text-slate-400 font-semibold">${label} <span class="text-[10px] text-slate-400">(${subNote})</span></span>
                 <div class="flex items-center gap-1.5">
-                  ${showHealthGap ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/40 text-rose-300 text-[10px] font-bold mono">⚠️ ${targetPct}% מיעד בריאותי</span>` : ''}
+                  ${overLbl}${showHealthGap ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/40 text-rose-300 text-[10px] font-bold mono">⚠️ ${targetPct}% מיעד בריאותי</span>` : ''}
                   <span class="mono ${txtCol}">${std.isGas ? formatGasValue(val, key, dec) : val.toFixed(dec)} ${unitLbl} <span class="text-[11px]">(${pct}%)</span></span>
                 </div>
               </div>
@@ -1749,8 +1763,9 @@
           `;
         };
 
-        const accW = nowIndicative ? ['אינדיקטיבי', 'text-slate-300', 'bg-slate-500'] : m.hourly == null ? ['אין נתון', 'text-slate-400', 'bg-slate-600']
-          : nowPct > 100 ? ['חריגה', 'text-rose-300', 'bg-rose-500'] : (nowPct >= 80 ? ['קרוב לגבול', 'text-orange-300', 'bg-orange-400'] : ['תקין', 'text-emerald-300', 'bg-emerald-400']);
+        const accW = m.hourly == null || nowLvl == null ? ['אין נתון', 'text-slate-400', 'bg-slate-600']
+          : nowIndicative ? ['אינדיקטיבי', 'text-slate-300', 'bg-slate-500']
+          : nowLvl === 2 ? ['חריגה', 'text-rose-300', 'bg-rose-500'] : (nowLvl === 1 ? ['בינוני', 'text-orange-300', 'bg-orange-400'] : ['תקין', 'text-emerald-300', 'bg-emerald-400']);
         const nowBarW = nowIndicative ? 0 : Math.min(100, nowPct);
         return { pct: maxPct, html: `
           <details class="rounded-2xl border ${borderCol} group">
@@ -1770,23 +1785,11 @@
                   <div class="flex flex-wrap items-center gap-1.5">
                     <span class="text-sm font-extrabold text-white">${std.name}</span>
                     <span class="px-1.5 py-0.5 rounded bg-slate-800 text-sky-300 mono text-[11px] font-bold">${std.formula}</span>
-                    ${(() => {
-                      const sig = detectPirateFireSignature(st);
-                      if (sig.isMineralDust && key === 'PM25') return '<span class="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 text-[10px] font-bold">🏜️ אובך מינרלי</span>';
-                      const val30m = (st.last30m && st.last30m[key] !== undefined) ? Number(st.last30m[key]) : (m.halfHour !== undefined ? Number(m.halfHour) : Number(m.hourly || 0));
-                      const fireThresholds = { PM25: 20, C6H6: 3.0 };
-                      const thr = fireThresholds[key];
-                      if (!thr || val30m < thr) return '';
-                      if (key === 'C6H6' && !sig.matched.some(x => x.includes('C₆H₆'))) return '';
-                      const isStrong = (key === 'PM25' && val30m >= 30 && sig.level === 'high') || (key !== 'PM25' && val30m >= thr * 1.2 && sig.level === 'high');
-                      return `<span class="px-1.5 py-0.5 rounded ${isStrong ? 'bg-orange-500/20 text-orange-300 border-orange-500/40' : 'bg-amber-500/20 text-amber-300 border-amber-500/40'} border text-[10px] font-bold">${isStrong ? '🚨' : '💨'} פעיל ב-30 דק'</span>`;
-                    })()}
+                    ${detectPirateFireSignature(st).isMineralDust && key === 'PM25' ? '<span class="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 text-[10px] font-bold">🏜️ אובך מינרלי</span>' : ''}
                   </div>
                   <div class="text-[11px] text-slate-400 mt-0.5">${guide.short}</div>
                 </div>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${maxPct > 100 ? (isTarget ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50' : 'bg-purple-500/20 text-purple-300 border border-purple-500/50') : 'bg-emerald-500/20 text-emerald-300'}">
-                  ${maxPct > 100 ? 'חריגה (' + maxPct + '%)' : 'תקין (' + maxPct + '%)'}
-                </span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 bg-black/30 border border-white/10 ${accW[1]}">עכשיו: ${accW[0]}</span>
               </div>
 
               <!-- Hourly / Daily / Monthly Bars -->
@@ -2121,7 +2124,7 @@
         nextGoodWindow = evaluated.find(e => e.risk.level === 'low');
         const next3Max = Math.max(...evaluated.slice(0, 3).map(e => e.risk.score));
         const windPhrase = next3Max >= 70 ? 'רוח חלשה / לכידת אוויר צפויה בשעות הקרובות' : (next3Max >= 40 ? 'פיזור חלקי של האוויר בשעות הקרובות' : 'רוח טובה לפיזור בשעות הקרובות');
-        forecastNote = `<strong class="text-white">${windPhrase}</strong> <details class="inline-block align-middle text-[10px] opacity-70"><summary class="cursor-pointer">פרטים</summary>מדד סיכון משוקלל (תחנה + 3 שעות): ${next3Max}%</details>` +
+        forecastNote = `<strong class="text-white">${windPhrase}</strong>` +
           (nextGoodWindow ? ` • חלון אוורור טוב צפוי ב-<strong class="mono text-emerald-300">${nextGoodWindow.time}</strong> (${nextGoodWindow.ws} m/s ${degToCompassHe(nextGoodWindow.wd)})` : ' • אין חלון פיזור מלא ב-12 השעות הקרובות');
       }
 
