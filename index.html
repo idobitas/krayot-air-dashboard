@@ -8,6 +8,8 @@
   <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+    .dev-only { display: none !important; }
+    html.dev .dev-only { display: revert !important; }
     body {
       font-family: 'Assistant', system-ui, -apple-system, sans-serif;
       background-color: #0b1120;
@@ -176,12 +178,10 @@
         </div>
       </div>
 
+      <p class="text-[12px] text-slate-300 px-1 leading-relaxed">⚖️ <strong class="text-slate-100">תקן חוקי ≠ יעד בריאותי:</strong> מה שהחוק מתיר עדיין יכול להיות מעל יעד הבריאות של ארגון הבריאות העולמי (WHO).</p>
       <details class="bg-slate-900/60 border border-slate-800 rounded-2xl px-3.5 py-2">
-        <summary class="cursor-pointer text-xs font-bold text-slate-300 py-1">ℹ️ מקרא סימונים והסבר: תקן חוקי מול יעד בריאותי</summary>
+        <summary class="cursor-pointer text-xs font-bold text-slate-300 py-1">ℹ️ מקרא סימונים</summary>
         <div class="space-y-3 pt-2">
-      <!-- Compact Dynamic Legal vs. Health Scale Gap Strip -->
-      <div id="scaleGapBanner" class="bg-slate-900/95 border-2 border-rose-500/80 rounded-2xl px-4 py-3 space-y-2.5 text-center shadow-lg shadow-rose-950/30"></div>
-
       <!-- Clear Icon & Status Legend -->
       <div class="bg-slate-900/70 border border-slate-800 rounded-2xl px-4 py-3 text-[12px] text-slate-300 space-y-2.5">
         <div class="font-extrabold text-slate-200 text-[13px]">מקרא סימונים:</div>
@@ -205,7 +205,7 @@
         <div class="flex items-center justify-between mb-2 px-1">
           <h2 class="text-xs sm:text-sm font-extrabold text-slate-300 flex items-center gap-1.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="navigation" class="lucide lucide-navigation w-4 h-4 text-sky-400"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>
-            <span>בחר תחנה בקריות לצפייה במדדים שעתיים, יומיים וחודשיים:</span>
+            <span>בחר תחנה:</span>
           </h2>
         </div>
         <div id="stationPillsStrip" class="flex gap-2.5 overflow-x-auto lg:overflow-x-visible no-scrollbar pb-1.5 snap-x"></div>
@@ -229,19 +229,8 @@
           <div>
             <h2 class="text-sm sm:text-base font-extrabold text-white flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="clock" class="lucide lucide-clock w-4 h-4 text-sky-400"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-              <span>כל הפרמטרים בתחנה – במבט אחד (שעתי • יומי • חודשי)</span>
+              <span>המזהמים בתחנה</span>
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">
-              כל כרטיס מציג את המדד השעתי, היומי והחודשי, פס התקדמות צבעוני מול התקן, והסבר אינטואיטיבי בלחיצה.
-            </p>
-          </div>
-
-          <!-- Timeframe Filter Tabs -->
-          <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs shrink-0 self-start sm:self-auto">
-            <button type="button" data-tf="all" class="tf-btn px-3 py-1.5 rounded-lg font-extrabold bg-sky-500 text-slate-950 transition">הכל יחד</button>
-            <button type="button" data-tf="hourly" class="tf-btn px-3 py-1.5 rounded-lg font-bold text-slate-300 hover:text-white transition">שעתי</button>
-            <button type="button" data-tf="daily" class="tf-btn px-3 py-1.5 rounded-lg font-bold text-slate-300 hover:text-white transition">יומי (24ש')</button>
-            <button type="button" data-tf="monthly" class="tf-btn px-3 py-1.5 rounded-lg font-bold text-slate-300 hover:text-white transition">חודשי</button>
           </div>
         </div>
 
@@ -267,7 +256,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="trending-up" class="lucide lucide-trending-up w-4 h-4 text-sky-400"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
                 <span>מגמה לפי טווח זמן: שעתי / יומי / חודשי</span>
               </h3>
-              <p class="text-[11px] text-slate-400">פרופיל מייצג של התחנה הנבחרת מול קו התקן האדום</p>
+              <p class="text-[11px] text-slate-400">התחנה הנבחרת מול הסף הפעיל (תצוגת 12 חודשים: הערכה, עד שיצטבר ארכיון)</p>
             </div>
             <div class="flex items-center gap-1.5">
               <select id="trendPollutantSelect" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-bold">
@@ -321,14 +310,12 @@
             <thead>
               <tr class="bg-slate-950 text-slate-300 border-b border-slate-800 text-[11px]">
                 <th class="py-2.5 px-3 sticky right-0 z-10 bg-slate-950 border-l border-slate-800">תחנה</th>
-                <th class="py-2.5 px-2.5 text-center">חתימת שריפה (שעה מתגלגלת)</th>
-                <th class="py-2.5 px-2.5 text-center">בנזן C₆H₆ (יממתי)</th>
-                <th class="py-2.5 px-2.5 text-center">בנזן (שנתי)</th>
-                <th class="py-2.5 px-2.5 text-center">H₂S</th>
-                <th class="py-2.5 px-2.5 text-center">NO₂ (שנתי)</th>
-                <th class="py-2.5 px-2.5 text-center">PM2.5 (יומי/חודשי)</th>
-                <th class="py-2.5 px-2.5 text-center">PM10 (יומי/חודשי)</th>
-                <th class="py-2.5 px-2.5 text-center">אוזון O₃</th>
+                <th class="py-2.5 px-2.5 text-center">עשן עכשיו</th>
+                <th class="py-2.5 px-2.5 text-center">בנזן (שיא יממתי)</th>
+                <th class="py-2.5 px-2.5 text-center">NO₂ (ממוצע 30 יום)</th>
+                <th class="py-2.5 px-2.5 text-center">PM2.5 (שיא יממתי / 30 יום)</th>
+                <th class="py-2.5 px-2.5 text-center">PM10 (שיא יממתי / 30 יום)</th>
+                <th class="py-2.5 px-2.5 text-center">אוזון</th>
                 <th class="py-2.5 px-2.5 text-center">SO₂</th>
               </tr>
             </thead>
@@ -341,7 +328,7 @@
       <section id="pirateFireRetroPanel" class="bg-slate-900 border border-amber-500/40 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3"></section>
 
       <!-- Historical Time-Series Fire Scanner (JSON / CSV from py-air-sviva-api) -->
-      <div id="historyFireScannerCard" class="bg-slate-900 border border-orange-500/40 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl">
+      <div id="historyFireScannerCard" class="dev-only bg-slate-900 border border-orange-500/40 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
             <h2 class="text-sm sm:text-base font-extrabold text-white flex items-center gap-2">
@@ -400,7 +387,7 @@
           <div>
             <h2 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="sparkles" class="lucide lucide-sparkles w-5 h-5 text-sky-400"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg>
-              <span>הסבר אינטואיטיבי על כל פרמטר ופרמטר (35 פרמטרים)</span>
+              <span>הסבר פשוט על כל הפרמטרים</span>
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">
               בלי ז'רגון מסובך: מה כל חומר עושה, מאיפה הוא מגיע לקריות, מה התקן המותר, ומתי זה מסוכן.
@@ -435,15 +422,20 @@
         </div>
 
         <!-- Category Filter Pills -->
-        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+        <div class="flex flex-wrap items-start gap-1.5 pb-1">
           <button type="button" data-param-cat="live" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-slate-950 transition">נמדד בקריות עכשיו</button>
           <button type="button" data-param-cat="all" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">הכל (35)</button>
+          <details class="basis-full">
+            <summary class="cursor-pointer text-xs font-bold text-slate-400 py-1">קטגוריות נוספות ▾</summary>
+            <div class="flex flex-wrap gap-1.5 pt-1">
           <button type="button" data-param-cat="criteria" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">מדד יומיומי AQI (7)</button>
           <button type="button" data-param-cat="voc" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">גזים רעילים, תעשייה וריח (12)</button>
           <button type="button" data-param-cat="metals" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">מתכות כבדות ואבק (10)</button>
           <button type="button" data-param-cat="meteo" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">רוח, יציבות ומטאורולוגיה (6)</button>
           <button type="button" data-param-cat="carcinogen" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-950/80 text-purple-300 border border-purple-700/60 transition">מסרטנים ודאיים (8)</button>
           <button type="button" data-param-cat="fire" class="param-cat-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-950/80 text-orange-300 border border-orange-700/60 transition">🔥 סמני שריפה ואובך (8)</button>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -480,7 +472,7 @@
         <div id="windForecastGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 text-xs"></div>
       </div>
 
-      <details class="bg-slate-900/70 border border-slate-800 rounded-2xl px-3.5 py-2">
+      <details class="dev-only bg-slate-900/70 border border-slate-800 rounded-2xl px-3.5 py-2">
         <summary class="cursor-pointer text-sm font-extrabold text-slate-200 py-1">🧰 כלים מתקדמים (מחשבון 100-AQI, ייבוא / ייצוא JSON, קוד Python)</summary>
         <div class="space-y-4 pt-3">
       <!-- Toggle Button for Standalone 100-AQI Calculator -->
