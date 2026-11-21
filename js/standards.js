@@ -28,12 +28,13 @@
 
   // "Now" bands for the last hour (O3: 8-h mean): [moderate-from (exclusive), high-from (inclusive)].
   // env  = "תקן חוקי": MoEP index yellow band = 50%–100% of the legal limit (PM2.5 18.6–37.4,
-  //        PM10 66–129, NO2 >100, O3 >70, SO2 >175), red at the legal limit.
+  //        PM10 66–129, NO2 >100, SO2 >175), red at the legal limit. O3 (8-h mean) turns yellow only
+  //        above the WHO guideline (100) in both modes, red at the legal limit (140).
   // target = "יעד בריאותי": same, but particles turn yellow at the WHO 2021 guideline (PM2.5 >15, PM10 >45).
   // Benzene has no short-term limit: 2 / 5 are indicative thresholds only.
   const NOW_BANDS_BY_MODE = {
-    env:    { PM25: [18.5, 37.5], PM10: [65, 130], NO2: [100, 200], O3: [70, 140], SO2: [175, 350], C6H6: [2, 5] },
-    target: { PM25: [15, 37.5],   PM10: [45, 130], NO2: [100, 200], O3: [70, 140], SO2: [175, 350], C6H6: [2, 5] }
+    env:    { PM25: [18.5, 37.5], PM10: [65, 130], NO2: [100, 200], O3: [100, 140], SO2: [175, 350], C6H6: [2, 5] },
+    target: { PM25: [15, 37.5],   PM10: [45, 130], NO2: [100, 200], O3: [100, 140], SO2: [175, 350], C6H6: [2, 5] }
   };
 
   const modeKey = mode => (mode === 'target' ? 'target' : 'env');

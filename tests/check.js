@@ -49,6 +49,17 @@ ok(S.nowLevel('env', 'PM25', 18.5) === 0 && S.nowLevel('env', 'PM25', 18.6) === 
 ok(S.nowLevel('target', 'PM25', 15) === 0 && S.nowLevel('target', 'PM25', 15.1) === 1, 'PM2.5 WHO edge 15');
 ok(S.nowLevel('target', 'PM10', 45) === 0 && S.nowLevel('target', 'PM10', 46) === 1 && S.nowLevel('env', 'PM10', 46) === 0, 'PM10 WHO 45 vs legal 65');
 
+// health mode is never more lenient than legal mode, for every pollutant
+Object.keys(S.NOW_BANDS_BY_MODE.env).forEach(k => {
+  const t = S.NOW_BANDS_BY_MODE.target[k], e = S.NOW_BANDS_BY_MODE.env[k];
+  ok(t && t[0] <= e[0] && t[1] <= e[1], `bands ${k}: target ${t} <= env ${e}`);
+});
+// O3 (8-h mean): yellow only above WHO 100, red at legal 140 (Motzkin O3 86 stays fine)
+MODES.forEach(mode => {
+  ok(S.nowLevel(mode, 'O3', 86) === 0 && S.nowLevel(mode, 'O3', 100) === 0, `O3 86/100 fine in ${mode}`);
+  ok(S.nowLevel(mode, 'O3', 101) === 1 && S.nowLevel(mode, 'O3', 140) === 2, `O3 101 moderate / 140 high in ${mode}`);
+});
+
 // 4. ppb applies to gases only
 ['PM25', 'PM10', 'BaP'].forEach(k => {
   ok(S.unitLabel(k, 'ppb') === 'µg/m³', `${k} unit stays µg/m³ in ppb mode`);
