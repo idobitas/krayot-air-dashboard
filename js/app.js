@@ -1706,7 +1706,12 @@
           tf === 'all' || tf === 'monthly' ? mPct : 0
         );
 
-        const borderCol = maxPct > 100 ? (isTarget ? 'border-rose-600/80 bg-rose-950/15' : 'border-purple-600/80 bg-purple-950/15') : 'border-slate-800 bg-slate-950/70';
+        // collapsed row = last hour only (8-h mean for O3): hourly limit, or the active 24-h limit for PM;
+        // benzene has no short-term limit -> neutral indicative label. 24 h / 30 days stay in the expanded rows.
+        const nowIndicative = key === 'C6H6';
+        const nowLimit = (key === 'PM25' || key === 'PM10') ? dLimit : hLimit;
+        const nowPct = (m.hourly == null || nowIndicative || !nowLimit) ? 0 : Math.round((m.hourly / nowLimit) * 100);
+        const borderCol = nowPct > 100 ? (isTarget ? 'border-rose-600/80 bg-rose-950/15' : 'border-purple-600/80 bg-purple-950/15') : 'border-slate-800 bg-slate-950/70';
         const unitLbl = std.isGas ? getUnitLabel(key) : 'µg/m³';
         const dec = key === 'BaP' ? 5 : (key === 'C6H6' || key === 'H2S' ? 2 : 1);
 
@@ -1743,14 +1748,16 @@
           `;
         };
 
-        const accW = maxPct > 100 ? ['חריגה', 'text-rose-300', 'bg-rose-500'] : (maxPct >= 80 ? ['קרוב לגבול', 'text-orange-300', 'bg-orange-400'] : ['תקין', 'text-emerald-300', 'bg-emerald-400']);
+        const accW = nowIndicative ? ['אינדיקטיבי', 'text-slate-300', 'bg-slate-500'] : m.hourly == null ? ['אין נתון', 'text-slate-400', 'bg-slate-600']
+          : nowPct > 100 ? ['חריגה', 'text-rose-300', 'bg-rose-500'] : (nowPct >= 80 ? ['קרוב לגבול', 'text-orange-300', 'bg-orange-400'] : ['תקין', 'text-emerald-300', 'bg-emerald-400']);
+        const nowBarW = nowIndicative ? 0 : Math.min(100, nowPct);
         return { pct: maxPct, html: `
           <details class="rounded-2xl border ${borderCol} group">
           <summary class="list-none cursor-pointer p-3 flex items-center gap-3">
             <span class="min-w-0 flex-1">
               <span class="text-sm font-extrabold text-white">${std.name}</span>
               <span class="text-[11px] text-slate-400 ms-1">${std.formula}</span>
-              <span class="block h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mt-1.5"><span class="block h-full ${accW[2]} rounded-full" style="width:${Math.min(100, maxPct)}%"></span></span>
+              <span class="block h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mt-1.5"><span class="block h-full ${accW[2]} rounded-full" style="width:${nowBarW}%"></span></span>
             </span>
             <span class="text-xs font-extrabold ${accW[1]} shrink-0">${accW[0]}</span>
             <span class="text-slate-400 text-xs shrink-0 group-open:rotate-180 transition">▾</span>
@@ -1803,7 +1810,7 @@
           </div>
           </details>
         ` };
-      }).sort((a, b) => b.pct - a.pct).map(c => c.html).join('');
+      }).map(c => c.html).join('');
     }
 
     // "HH:00 (DD/MM)" in Israel local time (correct in summer too; archive stamps are fixed +02:00)
