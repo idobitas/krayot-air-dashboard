@@ -1096,7 +1096,13 @@
         w24.slice(0, 2).map(x => `${x.label} ${x.value} µg/m³ (יעד WHO ליממה ${x.limit})`).join(', ') + ' ב' + st.shortName : '';
       let goodWindow = null;
       if (lvl > 0 && WIND_FORECAST_CACHE && WIND_FORECAST_CACHE.length) {
-        goodWindow = WIND_FORECAST_CACHE.map(x => ({ ...x, risk: computeCombinedHourRisk(x, st) })).find(e => e.risk.level === 'low') || null;
+        // the forecast starts at the hour already running (e.g. 15:00 at 15:40): only recommend future hours
+        const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', hourCycle: 'h23' })
+          .formatToParts(new Date()).map(x => [x.type, x.value]));
+        const nowKey = `${p.month}${p.day}${p.hour}`;
+        const keyOf = x => (x.date || '').slice(3, 5) + (x.date || '').slice(0, 2) + (x.time || '').slice(0, 2);
+        goodWindow = WIND_FORECAST_CACHE.filter(x => keyOf(x) > nowKey || (p.month === '12' && keyOf(x).startsWith('01')))
+          .map(x => ({ ...x, risk: computeCombinedHourRisk(x, st) })).find(e => e.risk.level === 'low') || null;
       }
       // gentle note: particles a little above the WHO daily guideline but still in the "fine" band
       const soft = [['PM25', 15, 'PM2.5'], ['PM10', 45, 'PM10']].map(([k, who, code]) => {
