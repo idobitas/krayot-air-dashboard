@@ -122,6 +122,12 @@ ok(/setTimeout\(\(\) => \{ link\.textContent = label; \}, 3000\)/.test(appSrc), 
 ['לפי דיווח התושב', '(שעה אחרונה)', '(ממוצע יומי)', 'נמדד בקריית אתא'].forEach(t => ok(appSrc.includes(t), `summary labels "${t}"`));
 ok(!appSrc.includes('report6911Text') && appSrc.includes('function reportSummaryText()'), 'summary builder renamed to reportSummaryText');
 
+// 6d. SemVer: footer version == README "גרסה נוכחית"
+const readmeSrc = fs.readFileSync(path.join(__dirname, '../README.md'), 'utf8');
+const vFooter = (htmlSrc.match(/id="appVersion"[^>]*>[^<]*?v(\d+\.\d+\.\d+)</) || [])[1];
+const vReadme = (readmeSrc.match(/גרסה נוכחית: v(\d+\.\d+\.\d+)/) || [])[1];
+ok(vFooter && vFooter === vReadme, `version in footer (${vFooter}) matches README (${vReadme})`);
+
 // 7. fire_v2b.js invariants (engine frozen: these lock its safety rules on a synthetic fixture)
 const FireV2B = require('../js/fire_v2b.js');
 const FX = require('./fire_fixture.js');
