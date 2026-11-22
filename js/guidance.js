@@ -106,7 +106,7 @@
       const hv = st.metrics?.[k]?.hourly;
       return isNum(hv) && hv > who && S.nowLevel(mode, k, hv) === 0 ? `${code} ${Number(hv).toFixed(1)} µg/m³` : null;
     }).filter(Boolean);
-    const softNote = lvl === 0 && soft.length ? 'מעט מעל יעד WHO בשעה האחרונה: ' + soft.join(', ') + ' (לא מונע פתיחת חלונות)' : '';
+    const softNote = lvl === 0 && soft.length ? 'מעט מעל יעד WHO בשעה האחרונה: ' + soft.join(', ') : '';
     return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, because, reason, avg24, softNote, goodWindow, trapped,
       highRisk: lvl === 2, modRisk: lvl === 1 };
   }

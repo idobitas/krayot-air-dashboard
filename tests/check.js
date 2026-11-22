@@ -93,6 +93,19 @@ ok(G.computeGuidance(station('a', 'א', hourly({ PM25: 5 })), fireCtx).lvl === 2
 ok(G.computeGuidance(station('a', 'א', hourly({ PM25: 5 })), fireCtx).stationLvl === 0, 'network fire leaves the station button on its own bands');
 ok(G.computeGuidance({ metrics: {} }, clearCtx('env')) === null, 'no metrics -> null');
 
+// 6b. neutral factual wording: status labels, no behavioural advice, disclaimer on every tab
+const fs = require('fs'), path = require('path');
+const appSrc = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
+const htmlSrc = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+['איכות אוויר טובה', 'רמת מזהמים מוגברת', 'רמת זיהום גבוהה', '🌬️ צפוי פיזור טוב יותר החל מ-'].forEach(t =>
+  ok(appSrc.includes(t), `decision card uses "${t}"`));
+['אפשר לפתוח חלונות', 'עדיף לא לפתוח חלון', 'כדאי לסגור חלונות', 'שעת אוורור מומלצת', '🏃', 'מומלץ לסגור חלונות.'].forEach(t =>
+  ok(!appSrc.includes(t), `decision card no longer says "${t}"`));
+const soft = G.computeGuidance(station('s', 'בדיקה', hourly({ PM25: 17 })), clearCtx('env'));
+ok(soft.softNote && !/חלונות/.test(soft.softNote), 'soft WHO note carries no window advice');
+const footer = htmlSrc.indexOf('<footer'), mainEnd = htmlSrc.indexOf('</main>');
+ok(footer > mainEnd && htmlSrc.includes('הבהרה: המידע באתר מבוסס על נתוני ניטור ציבוריים'), 'disclaimer footer sits outside the tabs (all tabs)');
+
 // 7. fire_v2b.js invariants (engine frozen: these lock its safety rules on a synthetic fixture)
 const FireV2B = require('../js/fire_v2b.js');
 const FX = require('./fire_fixture.js');

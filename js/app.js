@@ -1055,25 +1055,24 @@
       if (!g) { el.innerHTML = '<div class="text-sm text-slate-400">טוען נתוני אמת…</div>'; return; }
       const lvl = g.lvl, kind = g.kind;
       const L = [
-        { icon: '✅', title: 'אפשר לפתוח חלונות עכשיו', cls: 'bg-emerald-950/50 border-emerald-500/60 text-emerald-50' },
-        { icon: '🟠', title: 'עדיף לא לפתוח חלון לאורך זמן', cls: 'bg-orange-950/55 border-orange-500/60 text-orange-50' },
-        { icon: '🪟', title: 'כדאי לסגור חלונות עכשיו', cls: 'bg-rose-950/60 border-rose-500/70 text-rose-50' }
+        { icon: '✅', title: 'איכות אוויר טובה', cls: 'bg-emerald-950/50 border-emerald-500/60 text-emerald-50' },
+        { icon: '🟠', title: 'רמת מזהמים מוגברת', cls: 'bg-orange-950/55 border-orange-500/60 text-orange-50' },
+        { icon: '🔴', title: 'רמת זיהום גבוהה', cls: 'bg-rose-950/60 border-rose-500/70 text-rose-50' }
       ][lvl];
       const todayDM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit' }).format(new Date());
       const dayWord = gw => !gw.date ? '' : (gw.date === todayDM ? 'היום' : 'מחר');
       const becauseTxt = (g.because || '').replace(/^בגלל: (?:🚨|💨) (?:ייתכן ריח חריף|סבירות גבוהה מאוד לריח חריף) \/ עשן (?:\(גלאי השעה המתגלגלת\) )?ב/, '📍 נמדד ב');
       const because = becauseTxt ? `<div class="mt-2 text-sm font-bold bg-black/25 border border-white/15 rounded-xl px-3 py-1.5">${becauseTxt}</div>` : '';
-      const trapNote = lvl === 0 && g.trapped ? `<div class="mt-2 text-sm font-bold bg-black/25 border border-white/15 rounded-xl px-3 py-1.5">🌬️ אפשר לפתוח – רוח חלשה, עדיף אוורור קצר</div>` : '';
+      const trapNote = lvl === 0 && g.trapped ? `<div class="mt-2 text-sm font-bold bg-black/25 border border-white/15 rounded-xl px-3 py-1.5">🌬️ רוח חלשה בשעות הקרובות – הזיהום מתפזר לאט</div>` : '';
       const avg = trapNote + (g.softNote ? `<div class="mt-2 text-xs sm:text-sm opacity-90">🌤️ ${g.softNote}</div>` : '') +
         (g.avg24 ? `<div class="mt-1.5 text-xs sm:text-sm opacity-90">ℹ️ ${g.avg24}</div>` : '');
-      const when = lvl > 0 && g.goodWindow ? `<div class="text-sm mt-1">⏰ שעת אוורור מומלצת: <strong>${dayWord(g.goodWindow)} בשעה <bdi class="mono">${g.goodWindow.time}</bdi></strong></div>` : '';
+      const when = lvl > 0 && g.goodWindow ? `<div class="text-sm mt-1">🌬️ צפוי פיזור טוב יותר החל מ-<strong>${dayWord(g.goodWindow)} בשעה <bdi class="mono">${g.goodWindow.time}</bdi></strong></div>` : '';
       // current wind: own anemometer, else Kiryat Ata (97, as the detector does for Motzkin), else the forecast
       const kb = STATIONS_DATA.find(o => o.id === 'kiryat_binyamin');
       const wSrc = (st.last30m && st.last30m.windDir != null) ? [st.last30m.windDir, st.last30m.windSpeed, '']
         : (kb && kb.last30m && kb.last30m.windDir != null) ? [kb.last30m.windDir, kb.last30m.windSpeed, ' • קריית אתא']
         : (WIND_FORECAST_CACHE && WIND_FORECAST_CACHE[0]) ? [WIND_FORECAST_CACHE[0].wd, WIND_FORECAST_CACHE[0].ws, ' • תחזית'] : null;
       const windTag = wSrc ? `<span class="inline-flex items-center min-h-[42px] px-3 rounded-full text-[13px] font-bold bg-black/25 border border-white/15">🧭 רוח מ${degToCompassHe(wSrc[0])} (${Math.round(wSrc[0])}°${wSrc[1] != null ? ', ' + Number(wSrc[1]).toFixed(1) + ' מ/ש' : ''}${wSrc[2]})</span>` : '';
-      const act = lvl === 2 ? '🏃 עדיף להימנע ממאמץ בחוץ' : (lvl === 1 ? '🏃 פעילות מתונה בחוץ בסדר • רגישים בזהירות' : '🏃 מתאים לספורט ולשהייה בגינה');
       const upd = st.live && st.live.measuredAt ? new Date(st.live.measuredAt).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }) : '';
       el.className = 'rounded-3xl border-2 px-5 py-4 shadow-xl ' + L.cls;
       el.innerHTML = `<div class="flex items-center gap-3">
@@ -1086,7 +1085,6 @@
         </div>
         ${because}${avg}
         <div class="flex flex-wrap items-center gap-2 mt-2">
-          <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-black/25 border border-white/15">${act}</span>
           ${windTag}
           <span class="text-[13px] opacity-80">${upd ? 'עודכן ' + upd + ' • ' : ''}${st.shortName}</span>
         </div>
@@ -1106,7 +1104,7 @@
       const name = id => (STATIONS_DATA.find(s => s.id === id) || {}).shortName || id;
       const hot = v.stations.filter(x => x.level === 'high' || x.level === 'watch').map(x => name(x.id));
       const V = {
-        fire: ['', '', 'עשן מגיע ל' + hot.join(', ') + '. מומלץ לסגור חלונות.', 'bg-orange-950/60 border-orange-500/60 text-orange-100'],
+        fire: ['', '', 'עשן מגיע ל' + hot.join(', ') + '.', 'bg-orange-950/60 border-orange-500/60 text-orange-100'],
         smoke: ['', '', 'סימני עשן ב' + hot.join(', ') + '. כדאי לעקוב.', 'bg-amber-950/50 border-amber-500/50 text-amber-100'],
         dust: ['🏜️', 'אובך / אבק באזור', 'האוויר מאובק, לא עשן שריפה.', 'bg-yellow-950/40 border-yellow-500/50 text-yellow-100'],
         regional: ['🌁', 'אוויר עומד (משוער)', 'החלקיקים עולים יחד בכל הקריות (כנראה אינוורסיה), לא שריפה מקומית.', 'bg-slate-800/80 border-slate-500/60 text-slate-100'],
