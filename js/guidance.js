@@ -4,7 +4,7 @@
 (function (root) {
   'use strict';
   const S = root.AQStd || (typeof require === 'function' ? require('./standards.js') : null);
-  const isNum = v => v != null && v !== '' && !isNaN(v);
+  const isNum = v => v != null && v !== '' && Number.isFinite(Number(v)); // NaN / ±Infinity are not values
 
   // worst pollutant in the LAST HOUR relative to its "now" band
   function stationWorst(st, mode) {
@@ -59,8 +59,8 @@
     const nameOf = ctx.nameOf || (id => id);
     const forecast = ctx.forecast || [];
     const riskOf = ctx.riskOf || (() => ({ level: 'med', score: 0 }));
-    const pm25 = st.metrics?.PM25 ? (st.metrics.PM25.hourly ?? null) : null;
-    const c6 = st.metrics?.C6H6 ? (st.metrics.C6H6.hourly ?? null) : null;
+    const pm25 = isNum(st.metrics?.PM25?.hourly) ? Number(st.metrics.PM25.hourly) : null;
+    const c6 = isNum(st.metrics?.C6H6?.hourly) ? Number(st.metrics.C6H6.hourly) : null;
     const isDust = !!(sig.isMineralDust || sig.level === 'dust');
     // station level: last-hour bands + this station's live detector
     const worst = stationWorst(st, mode);

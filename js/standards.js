@@ -38,7 +38,7 @@
   };
 
   const modeKey = mode => (mode === 'target' ? 'target' : 'env');
-  const isNum = v => v != null && v !== '' && !isNaN(v);
+  const isNum = v => v != null && v !== '' && Number.isFinite(Number(v)); // NaN / ±Infinity are not values
   function nowBands(mode) { return NOW_BANDS_BY_MODE[modeKey(mode)]; }
   // 0 fine, 1 moderate (yellow/orange), 2 high (red); null when there is no band or no value
   function nowLevel(mode, key, v) {

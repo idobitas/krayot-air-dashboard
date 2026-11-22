@@ -24,6 +24,7 @@ index.html  (GitHub Pages)  טוען את שני הקבצים בעליית הד�
 | `js/charts.js` | ציור הגרפים בלבד (Chart.js): `renderTrend`, `renderHistoryTimeline`, `renderV2BScan`. לא קורא מצב אפליקציה; `app.js` מכין את הנתונים. חושף `window.AQCharts` |
 | `js/guidance.js` | לוגיקת "עכשיו" נקייה: `computeGuidance` (הנתונים החיים נכנסים כ-ctx), `stationWorst`, `barStatus` לפסים המקופלים ולתגית "עכשיו:", `whoExceedances`. חושף `window.AQGuidance` |
 | `tests/check.js` | בדיקות בלי תלויות: התאמת כרטיס / כפתור / פס בשני המצבים, מוצקין 22.6 לא ירוק ב-WHO, קריית חיים 26.6 עקבית בחוקי, ppb לגזים בלבד, תחנה 517 בלי NaN. בנוסף 3 כללים קבועים של `fire_v2b.js`: שעת אבק = 0, שעה בודדת אחרי שעה חסרה ≤ 69, קריית ים (92) ≤ 59 כשמוצקין (382) חסרה |
+| `tests/sim.js` | סימולציה ו-fuzz בלי תלויות (בלי `app.js`): אבק כבד, 🚨 בתחנה אחת מול שכנה נקייה, אינוורסיה עמוקה, ערכים פגומים (null / 0 / ‎-5 / NaN / Infinity), 382 למטה כש-92 קופצת, 517 בלי חלקיקים, בלי Open-Meteo, ימי מעבר שעון, ו-250 ריצות fuzz עם seed (Mulberry32). אינווריאנטים: בלי NaN/undefined במחרוזות ובמערכי הגרפים, שעה אחרי null אף פעם לא 🚨, בריאותי ≥ חוקי, ppb משנה רק מספרי גזים, בלי הערת WHO במצב חוקי |
 | `tests/fire_fixture.js` | היסטוריה סינתטית של 6 ימים שמפעילה באמת כל אחד משלושת הכללים של הגלאי |
 | `js/app.js` | הסקריפט הראשי של הדאשבורד: ממזג את `live_krayot.json` לתחנות לפי `id`, טוען את ההיסטוריה, מרנדר הכל (סדר טעינה: `fire_v2b` ← `standards` ← `charts` ← `guidance` ← `app`; אין בו קריאות ישירות ל-Chart.js) |
 | `js/fire_v2b.js` | גלאי שריפות/עשן v2b לקריות (ציון 0–100, high ≥ 70, watch ≥ 55, אינוורסיה אזורית בנפרד). ניתוח: [`docs/fire-detector-analysis.md`](docs/fire-detector-analysis.md) |
@@ -67,7 +68,7 @@ index.html  (GitHub Pages)  טוען את שני הקבצים בעליית הד�
 
 ## גרסאות (SemVer)
 
-**גרסה נוכחית: v3.1.0** (מוצגת בתחתית כל הלשוניות, ליד ההבהרה). v1 = העלייה לאוויר (19/11), v2 = גלאי v2b וכרטיס ההחלטה, v3 = 3 לשוניות, פירוק ל-`standards`/`guidance`/`charts` + בדיקות, וממשק שכן עובדתי.
+**גרסה נוכחית: v3.1.1** (מוצגת בתחתית כל הלשוניות, ליד ההבהרה). v1 = העלייה לאוויר (19/11), v2 = גלאי v2b וכרטיס ההחלטה, v3 = 3 לשוניות, פירוק ל-`standards`/`guidance`/`charts` + בדיקות, וממשק שכן עובדתי.
 
 כלל: **כל push של קוד** (לא commit של נתוני הבוט ולא תיעוד בלבד) מעלה גרסה:
 - **PATCH** (`3.0.x`): תיקון באג, טקסט או עיצוב.
@@ -83,7 +84,7 @@ pip install git+https://github.com/GuyKh/py-air-sviva-api.git@6e8bd65315910ef120
 python scripts/fetch_sviva.py            # רגיל
 python scripts/fetch_sviva.py --backfill # משיכת 90 יום מחדש
 python -m http.server 8000               # ואז http://localhost:8000
-node tests/check.js                      # בדיקות הלוגיקה, לפני כל push
+node tests/check.js && node tests/sim.js # בדיקות הלוגיקה + סימולציה, לפני כל push
 ```
 
 דורש Python 3.11+.
