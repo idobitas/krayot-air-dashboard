@@ -533,12 +533,13 @@
       if (st.no2_annual > 10) health.push('NO₂');
       st.status = legal.length ? 'exceed_env' : (health.length ? 'exceed_target' : 'ok');
       st.statusText = (legal.length ? legal.join('; ')
-        : (health.length ? 'תקין חוקית • מעל יעד WHO 2021: ' + health.join(', ') : 'תקין (30 יום אחרונים)')) + (st.stale ? ' • נתון ישן' : '');
+        : (health.length ? 'תקין חוקית • מעל יעד WHO 2021: <bdi dir="ltr">' + health.join(', ') + '</bdi>' : 'תקין (30 יום אחרונים)')) + (st.stale ? ' • נתון ישן' : '');
       const w = st.last30m || {};
       st.wind = (w.windDir != null) ? ('עכשיו ' + Math.round(w.windDir) + '°' + (w.windSpeed != null ? ' • ' + Number(w.windSpeed).toFixed(1) + ' מ/ש' : ''))
         : (st.id === 'kiryat_motzkin_z2' ? 'אין מד רוח בתחנה (הגלאי משתמש ברוח מקריית בנימין)' : 'אין מד רוח בתחנה');
       const measured = Object.keys(m).filter(k => POLLUTANT_STANDARDS[k]).map(k => POLLUTANT_STANDARDS[k].formula);
-      st.notes = 'כל הערכים מ-air.sviva.gov.il. נמדד בתחנה: ' + (measured.join(', ') || '—') + '. "30 יום" = ממוצע אמיתי של 30 הימים האחרונים.';
+      // Latin lists wrapped LTR and Hebrew gershayim (no ASCII quotes / "=") so RTL lines wrap cleanly
+      st.notes = 'מקור: <bdi dir="ltr">air.sviva.gov.il</bdi><br>נמדד בתחנה: <bdi dir="ltr">' + (measured.join(', ') || '—') + '</bdi><br>״30 יום״ הוא ממוצע אמיתי של 30 הימים האחרונים.';
     }
 
 
@@ -1523,7 +1524,10 @@
           <div class="flex items-center gap-2.5 self-start sm:self-center">
           </div>
         </div>
-
+      `;
+      // advanced details sit at the bottom of the same card, below the pollutant accordions
+      const adv = document.getElementById('stationAdvanced');
+      if (adv) adv.innerHTML = `
         <details class="bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2 text-xs">
           <summary class="cursor-pointer font-bold text-slate-300">⚙️ פרטים מתקדמים למתעניינים</summary>
           <div class="space-y-2 pt-2 text-slate-300">
@@ -1531,7 +1535,7 @@
             <div class="text-slate-400">${st.name} • ${st.location}</div>` : `<div class="text-slate-400">${st.owner}</div>`}
             <div class="font-bold">${st.statusText} <span class="font-normal text-slate-400">(${Object.keys(st.metrics || {}).filter(k => POLLUTANT_STANDARDS[k]).length} מזהמים נמדדים)</span></div>
             <div class="flex flex-wrap gap-1.5">
-              ${exceedances.map(ex => `<span class="px-2.5 py-1 rounded-lg font-semibold border ${ex.color === 'purple' ? 'bg-purple-950/50 border-purple-700/70 text-purple-200' : (ex.color === 'green' ? 'bg-emerald-950/40 border-emerald-700/60 text-emerald-200' : 'bg-rose-950/50 border-rose-700/70 text-rose-200')}">${ex.color === 'purple' ? '🟣' : (ex.color === 'green' ? '🟢' : '🔴')} ${ex.text}</span>`).join('')}
+              ${exceedances.map(ex => `<span dir="rtl" class="block w-full text-right leading-relaxed px-2.5 py-1 rounded-lg font-semibold border ${ex.color === 'purple' ? 'bg-purple-950/50 border-purple-700/70 text-purple-200' : (ex.color === 'green' ? 'bg-emerald-950/40 border-emerald-700/60 text-emerald-200' : 'bg-rose-950/50 border-rose-700/70 text-rose-200')}">${ex.color === 'purple' ? '🟣' : (ex.color === 'green' ? '🟢' : '🔴')} ${ex.text.replace(/;\s*/g, ' • ').replace(/([A-Za-z][A-Za-z0-9.₀-₉]*(?: \d{4})?|\d+(?:\.\d+)?)/g, '<bdi dir="ltr">$1</bdi>')}</span>`).join('')}
             </div>
             <p class="leading-relaxed text-slate-400">${st.notes}</p>
           </div>

@@ -183,7 +183,12 @@
       </div>
 
       <!-- Selected Station Hero Summary + Exceedance Alert Banner -->
-      <div id="stationInspectorCard" class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4"></div>
+      <!-- Selected station: ONE card = header + pollutant accordions + advanced details -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
+        <div id="stationInspectorCard"></div>
+        <div id="pollutantCardsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 items-start"></div>
+        <div id="stationAdvanced"></div>
+      </div>
 
       <!-- When to air today: 12-hour wind strip (Open-Meteo + station) -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-2">
@@ -194,20 +199,6 @@
       <!-- Pirate Yard-Waste & Garbage Burning Explanation + Auto-Detection + Retrospective Analysis -->
       <section id="pirateFireIntelPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4"></section>
 
-      <!-- Timeframe Switcher + All Parameters Grid (Hourly / Daily / Monthly) -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 space-y-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-          <div>
-            <h2 class="text-sm sm:text-base font-extrabold text-white flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="clock" class="lucide lucide-clock w-4 h-4 text-sky-400"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-              <span>המזהמים בתחנה</span>
-            </h2>
-          </div>
-        </div>
-
-        <!-- Mobile-First Pollutant Cards Grid -->
-        <div id="pollutantCardsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 items-start"></div>
-      </div>
 
 
 
@@ -616,7 +607,7 @@ PPB_TO_UGM3 = {
 
   <!-- Disclaimer: every tab -->
   <footer class="max-w-7xl w-full mx-auto px-3 sm:px-5 pb-4 pt-1">
-    <p class="text-[11px] leading-relaxed text-slate-400 border-t border-slate-800 pt-3">הבהרה: המידע באתר מבוסס על נתוני ניטור ציבוריים של המשרד להגנת הסביבה ותחזית רוח פתוחה, ומוצג ככלי עזר קהילתי למידע כללי בלבד. ייתכנו עיכובים או אי־דיוקים במדידות, ואין לראות במידע ייעוץ רפואי, המלצה לפעולה או תחליף להתרעות הרשמיות של המשרד להגנת הסביבה ומשרד הבריאות. השימוש באתר הוא באחריות המשתמש בלבד. <span id="appVersion" class="mono text-slate-500 whitespace-nowrap" title="גרסת האתר (SemVer)">• v3.2.0</span></p>
+    <p class="text-[11px] leading-relaxed text-slate-400 border-t border-slate-800 pt-3">הבהרה: המידע באתר מבוסס על נתוני ניטור ציבוריים של המשרד להגנת הסביבה ותחזית רוח פתוחה, ומוצג ככלי עזר קהילתי למידע כללי בלבד. ייתכנו עיכובים או אי־דיוקים במדידות, ואין לראות במידע ייעוץ רפואי, המלצה לפעולה או תחליף להתרעות הרשמיות של המשרד להגנת הסביבה ומשרד הבריאות. השימוש באתר הוא באחריות המשתמש בלבד. <span id="appVersion" class="mono text-slate-500 whitespace-nowrap" title="גרסת האתר (SemVer)">• v3.3.0</span></p>
   </footer>
 
   <!-- Mobile Sticky Bottom Thumb Navigation Bar -->

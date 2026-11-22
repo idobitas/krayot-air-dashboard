@@ -161,6 +161,12 @@ ok(!/קריית ים \(Z1\)/.test(appSrc), 'Kiryat Yam shown without (Z1)');
     ok(new RegExp(id + ": '[^']+'").test(appSrc.slice(appSrc.indexOf('const STATION_AREA'))), `area subtitle for ${id}`));
 }
 
+// 6g. one unified selected-station card; clean RTL in "פרטים מתקדמים"
+ok(/<div id="stationInspectorCard"><\/div>\s*<div id="pollutantCardsGrid"[^>]*><\/div>\s*<div id="stationAdvanced"><\/div>/.test(htmlSrc), 'station header, accordions and advanced details live in ONE card');
+ok(!htmlSrc.includes('המזהמים בתחנה'), 'no separate pollutant box above the accordions');
+ok(!appSrc.includes('"30 יום" = ') && appSrc.includes('״30 יום״ הוא ממוצע אמיתי'), '30-day note uses gershayim, no ASCII quotes / "="');
+ok(/<bdi dir="ltr">' \+ \(measured\.join/.test(appSrc), 'measured pollutant list isolated LTR');
+
 // 6d. SemVer: footer version == README "גרסה נוכחית"
 const readmeSrc = fs.readFileSync(path.join(__dirname, '../README.md'), 'utf8');
 const vFooter = (htmlSrc.match(/id="appVersion"[^>]*>[^<]*?v(\d+\.\d+\.\d+)</) || [])[1];
