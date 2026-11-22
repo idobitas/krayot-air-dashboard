@@ -61,6 +61,33 @@ function audit({ banned }) {
   return issues;
 }
 
+// runs inside the page: readable + consistent font sizes on the visible tab (footer excluded)
+function fontAudit() {
+  const out = { small: [], big: [], mismatch: [] };
+  const inClosed = el => { for (let d = el.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) { if (!d.open && !d.querySelector(':scope > summary')?.contains(el)) return true; } return false; };
+  const shown = el => { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && el.offsetParent !== null && !inClosed(el); };
+  const fs = el => parseFloat(getComputedStyle(el).fontSize);
+  const label = el => (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 30);
+  const panel = document.querySelector('.tab-panel:not(.hidden)');
+  const scope = [document.querySelector('header'), document.getElementById('decisionCard'), panel].filter(Boolean);
+  const texty = el => [...el.childNodes].some(n => n.nodeType === 3 && n.nodeValue.trim());
+  const STRICT = '.station-pill, #stationInspectorCard, button, a[href].rounded-full, #pollutantCardsGrid summary';
+  scope.forEach(root => root.querySelectorAll('*').forEach(el => {
+    if (!texty(el) || !shown(el) || el.closest('footer, script, style, svg, canvas')) return;
+    const f = fs(el);
+    if (f < 12) out.small.push(`${label(el)} (${f}px)`);
+    else if (el.closest(STRICT) && f < 13) out.big.push(`${label(el)} (${f}px)`);
+  }));
+  // consistency between siblings of the same kind
+  const same = (name, els) => { const v = [...new Set(els.filter(shown).map(fs))]; if (v.length > 1) out.mismatch.push(`${name}: ${v.join(' / ')}px`); };
+  same('station buttons (name)', [...document.querySelectorAll('.station-pill')].map(p => p.querySelector('.font-extrabold')).filter(Boolean));
+  same('accordion row titles', [...document.querySelectorAll('#pollutantCardsGrid > details > summary > span:first-child > span:first-child')]);
+  same('accordion row status', [...document.querySelectorAll('#pollutantCardsGrid > details > summary > span:nth-child(2)')]);
+  same('report buttons', [...document.querySelectorAll('#decisionCard .mt-2 > .flex > a, #decisionCard .mt-2 > .flex > button')]);
+  if (panel) same('section headers', [...panel.querySelectorAll('h2')].filter(h => !h.closest('#stationInspectorCard')));
+  return out;
+}
+
 (async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}/`;
@@ -104,6 +131,10 @@ function audit({ banned }) {
       ok(!r.clipped.length, `${where}: no clipped controls → ${r.clipped.slice(0, 6).join(' | ')}`);
       ok(!r.overlap.length, `${where}: no overlapping controls → ${r.overlap.slice(0, 6).join(' | ')}`);
       ok(!r.rtl.length, `${where}: units/formulas LTR-isolated → ${r.rtl.slice(0, 8).join(' | ')}`);
+      const f = await page.evaluate(fontAudit);
+      ok(!f.small.length, `${where}: text >= 12px → ${f.small.slice(0, 8).join(' | ')}`);
+      ok(!f.big.length, `${where}: cards/buttons/accordion labels >= 13px → ${f.big.slice(0, 8).join(' | ')}`);
+      ok(!f.mismatch.length, `${where}: consistent font sizes → ${f.mismatch.join(' | ')}`);
       if (r.overflow || r.clipped.length || r.overlap.length || r.rtl.length) await page.screenshot({ path: path.join(SHOTS, `${mode}-${tab}.png`), fullPage: true });
     }
   }
