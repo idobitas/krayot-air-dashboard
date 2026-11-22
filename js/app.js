@@ -1112,18 +1112,12 @@
         regional: ['🌁', 'אוויר עומד (משוער)', 'החלקיקים עולים יחד בכל הקריות (כנראה אינוורסיה), לא שריפה מקומית.', 'bg-slate-800/80 border-slate-500/60 text-slate-100'],
         clear: ['🟢', 'אין חריגה מיוחדת בקריות', 'לא זוהו סימני שריפה, אובך או אוויר עומד, והממוצעים היממתיים בתוך יעדי WHO.', 'bg-emerald-950/40 border-emerald-600/50 text-emerald-100']
       }[v.kind];
-      // green only when the live values also meet WHO 2021 (24 h guideline; latest hour or 24 h mean)
-      if (v.kind === 'clear') {
-        const w = whoExceedances();
-        if (w.length) {
-          const legal = w.some(x => x.legal);
-          V[0] = legal ? '🔴' : '🟠';
-          V[1] = 'אין סימני שריפה • ממוצע 24 השעות האחרונות מעל יעד WHO 2021';
-          const keyOf = { 'PM2.5': 'PM25', 'PM10': 'PM10', 'NO₂': 'NO2' };
-          V[2] = '<span class="flex flex-wrap gap-1.5">' + w.slice(0, 2).map(x =>
-            `<span dir="rtl" class="px-2 py-0.5 rounded-lg bg-black/20 border border-white/10"><bdi dir="rtl">${plainLabel(keyOf[x.label], x.label)}</bdi>: <bdi dir="ltr">${x.value} µg/m³</bdi> ב${x.station} <span class="opacity-70">(יעד ${x.limit})</span></span>`).join('') + '</span>';
-          V[3] = legal ? 'bg-rose-950/50 border-rose-500/60 text-rose-100' : 'bg-orange-950/45 border-orange-500/55 text-orange-100';
-        }
+      // no smoke/dust but 24 h means above WHO: the card already says so (avg24 line) -> no extra sub-card
+      if (v.kind === 'clear' && whoExceedances().length) {
+        window.__verdictHTML = '';
+        el.className = 'hidden'; el.innerHTML = '';
+        renderDecisionCard();
+        return;
       }
       const extra = (v.kind === 'fire' || v.kind === 'smoke') && v.regional ? '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-800 border border-slate-600 text-slate-200">🌁 גם אוויר עומד באזור</span>' : '';
       const invHelp = 'אינוורסיה: בלילות שקטים שכבת אוויר חם נמצאת מעל אוויר קר ליד הקרקע וסוגרת עליו כמו מכסה, כך שהזיהום לא מתפזר ומצטבר בכל האזור. זה לא אומר שיש שריפה.';
