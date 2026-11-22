@@ -2,8 +2,12 @@
    Loaded after chart.js (CDN) and before app.js. Exposes window.AQCharts. */
 (function (root) {
   'use strict';
-  const LEGEND = { labels: { color: '#cbd5e1', font: { family: 'Assistant', size: 11 } } };
-  const TICK = '#94a3b8';
+  // axis / grid / legend colours follow the resolved theme (html[data-theme]) at draw time
+  const isLight = () => !!(root.document && root.document.documentElement && root.document.documentElement.dataset.theme === 'light');
+  const T = () => isLight()
+    ? { legend: '#1e293b', tick: '#334155', grid: 'rgba(100,116,139,0.25)', grid2: '#cbd5e1' }
+    : { legend: '#cbd5e1', tick: '#94a3b8', grid: 'rgba(51,65,85,0.3)', grid2: '#1e293b' };
+  const legend = () => ({ labels: { color: T().legend, font: { family: 'Assistant', size: 11 } } });
   const C = { line: '#38bdf8', fill: 'rgba(56,189,248,0.12)', high: '#ef4444', watch: '#f59e0b', legal: '#a855f7', border: '#0f172a' };
 
   // one chart per canvas: always destroy whatever is attached before drawing again
@@ -35,10 +39,10 @@
       options: {
         responsive: true, maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
-        plugins: { legend: LEGEND },
+        plugins: { legend: legend() },
         scales: {
-          x: { ticks: { color: TICK, font: { size: 10 } }, grid: { color: 'rgba(51,65,85,0.3)' } },
-          y: { beginAtZero: true, ticks: { color: TICK, font: { size: 10 } }, grid: { color: 'rgba(51,65,85,0.3)' } }
+          x: { ticks: { color: T().tick, font: { size: 10 } }, grid: { color: T().grid } },
+          y: { beginAtZero: true, ticks: { color: T().tick, font: { size: 10 } }, grid: { color: T().grid } }
         }
       }
     });
@@ -46,10 +50,10 @@
 
   const timelineOptions = extraX => ({
     responsive: true, maintainAspectRatio: false,
-    plugins: { legend: LEGEND },
+    plugins: { legend: legend() },
     scales: {
-      x: { ticks: { color: TICK, maxRotation: 35, font: { size: 10 }, ...(extraX || {}) }, grid: { color: '#1e293b' } },
-      y: { ticks: { color: TICK }, grid: { color: '#1e293b' } }
+      x: { ticks: { color: T().tick, maxRotation: 35, font: { size: 10 }, ...(extraX || {}) }, grid: { color: T().grid2 } },
+      y: { ticks: { color: T().tick }, grid: { color: T().grid2 } }
     }
   });
 

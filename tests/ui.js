@@ -92,6 +92,39 @@ function audit({ banned }) {
       if (r.overflow || r.clipped.length || r.overlap.length || r.rtl.length) await page.screenshot({ path: path.join(SHOTS, `${mode}-${tab}.png`), fullPage: true });
     }
   }
+  // ---- light theme pass: phone in light mode -> "auto" resolves to the daylight palette ----
+  const lctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'he-IL', timezoneId: 'Asia/Jerusalem', colorScheme: 'light' });
+  const lp = await lctx.newPage();
+  lp.on('console', m => { if (m.type() === 'error') errors.push('light console: ' + m.text()); });
+  lp.on('pageerror', e => errors.push('light pageerror: ' + e.message));
+  await lp.goto(base, { waitUntil: 'networkidle' });
+  await lp.waitForFunction(() => document.querySelectorAll('.station-pill').length > 0, null, { timeout: 30000 });
+  const lum = await lp.evaluate(() => {
+    const m = getComputedStyle(document.body).backgroundColor.match(/\d+/g).map(Number);
+    return { theme: document.documentElement.dataset.theme, pref: document.documentElement.dataset.themePref, bg: (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255 };
+  });
+  ok(lum.pref === 'auto' && lum.theme === 'light', `auto follows the phone (light) → ${lum.pref}/${lum.theme}`);
+  ok(lum.bg > 0.85, `light background (luminance ${lum.bg.toFixed(2)})`);
+  for (const tab of ['matrix', 'trends', 'guide']) {
+    const navBtn = lp.locator(`nav[aria-label="ניווט מובייל"] [data-tab="${tab}"]`);
+    if (await navBtn.count()) await navBtn.first().click(); else await lp.evaluate(t => switchTab(t), tab);
+    await lp.waitForTimeout(600);
+    const r = await lp.evaluate(audit, { banned: [] });
+    ok(!r.overflow, `light/${tab}: no horizontal overflow ${r.overflow || ''}`);
+    ok(!r.clipped.length, `light/${tab}: no clipped controls → ${r.clipped.slice(0, 6).join(' | ')}`);
+    ok(!r.overlap.length, `light/${tab}: no overlapping controls → ${r.overlap.slice(0, 6).join(' | ')}`);
+    if (r.overflow || r.clipped.length || r.overlap.length) await lp.screenshot({ path: path.join(SHOTS, `light-${tab}.png`), fullPage: true });
+  }
+  // manual choice wins over the phone and survives a reload
+  await lp.click('details[data-gear] > summary');
+  await lp.click('[data-theme-choice="dark"]');
+  await lp.reload({ waitUntil: 'networkidle' });
+  ok(await lp.evaluate(() => document.documentElement.dataset.theme === 'dark' && localStorage.getItem('krayot.theme') === 'dark'), 'manual "לילה" persists over a light phone');
+  await lp.click('details[data-gear] > summary');
+  await lp.click('[data-theme-choice="auto"]');
+  ok(await lp.evaluate(() => document.documentElement.dataset.theme === 'light'), 'back to auto -> light again');
+  await lctx.close();
+
   ok(!errors.length, 'zero console/page errors → ' + errors.slice(0, 5).join(' | '));
   await browser.close(); server.close();
   console.log(`ui: ${passes} passed, ${fails} failed`);

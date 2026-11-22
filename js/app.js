@@ -2416,6 +2416,30 @@
         renderMatrix();
       });
 
+      // theme: auto (follows the phone, live) / light / dark; persisted in localStorage 'krayot.theme'
+      const mqLight = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+      const applyTheme = (pref, rerender) => {
+        const light = pref === 'light' || (pref === 'auto' && !!(mqLight && mqLight.matches));
+        document.documentElement.dataset.themePref = pref;
+        document.documentElement.dataset.theme = light ? 'light' : 'dark';
+        document.querySelectorAll('.theme-btn').forEach(b => {
+          const on = b.dataset.themeChoice === pref;
+          b.setAttribute('aria-checked', on ? 'true' : 'false');
+          b.className = 'theme-btn flex-1 px-1.5 py-1.5 rounded-md font-bold transition ' + (on ? 'bg-sky-600 text-white' : 'text-slate-300 hover:text-white');
+        });
+        if (rerender) renderMatrix(); // charts pick up the new axis / grid colours
+      };
+      applyTheme(document.documentElement.dataset.themePref || 'auto', false);
+      document.querySelectorAll('.theme-btn').forEach(b => b.addEventListener('click', () => {
+        const pref = b.dataset.themeChoice;
+        try { localStorage.setItem('krayot.theme', pref); } catch (e) {}
+        applyTheme(pref, true);
+      }));
+      if (mqLight) {
+        const onScheme = () => { if ((document.documentElement.dataset.themePref || 'auto') === 'auto') applyTheme('auto', true); };
+        if (mqLight.addEventListener) mqLight.addEventListener('change', onScheme); else if (mqLight.addListener) mqLight.addListener(onScheme);
+      }
+
       const btnUnitUg = document.getElementById('btnUnitUg');
       const btnUnitPpb = document.getElementById('btnUnitPpb');
       btnUnitUg.addEventListener('click', () => {
