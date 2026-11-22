@@ -1,0 +1,12 @@
+{
+  "name": "krayot-air-dashboard",
+  "private": true,
+  "description": "Static dashboard; dev-only test tooling",
+  "scripts": {
+    "test": "node tests/check.js && node tests/sim.js",
+    "test:ui": "node tests/ui.js"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

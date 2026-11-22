@@ -714,6 +714,29 @@
     // =========================================================================
     // 2. HELPERS
     // =========================================================================
+    // RTL: formulas, units and the numbers attached to them become isolated LTR runs (<bdi dir="ltr">),
+    // so "14.0 µg/m³" or "PM2.5" never flip inside Hebrew text. Applied to rendered station content.
+    const LTR_TOKEN = /PM2\.5|PM10|µg\/m³|NO₂|O₃|SO₂|C₆H₆|ppb/;
+    const LTR_RUN = /((?:\d+(?:\.\d+)?\s?)?(?:PM2\.5|PM10|NO₂|O₃|SO₂|C₆H₆)(?:\s\d+(?:\.\d+)?)?(?:\s?(?:µg\/m³|ppb))?|\d+(?:\.\d+)?\s?(?:µg\/m³|ppb)|µg\/m³|ppb)/g;
+    function isolateLtr(root) {
+      if (!root) return;
+      const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), nodes = [];
+      for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+        if (LTR_TOKEN.test(n.nodeValue) && n.parentElement && !n.parentElement.closest('bdi, [dir="ltr"], script, style')) nodes.push(n);
+      }
+      nodes.forEach(n => {
+        const parts = n.nodeValue.split(LTR_RUN), frag = document.createDocumentFragment();
+        parts.forEach((p, i) => {
+          if (!p) return;
+          if (i % 2) { const b = document.createElement('bdi'); b.dir = 'ltr'; b.textContent = p; frag.appendChild(b); }
+          else frag.appendChild(document.createTextNode(p));
+        });
+        n.parentNode.replaceChild(frag, n);
+      });
+    }
+    const isolateStationContent = () => ['decisionCard', 'stationPillsStrip', 'stationInspectorCard', 'pollutantCardsGrid', 'stationAdvanced']
+      .forEach(id => isolateLtr(document.getElementById(id)));
+
     function formatGasValue(ugVal, gasKey, decimals = 2) { return AQStd.formatGas(ugVal, gasKey, APP_STATE.unitMode, decimals); }
     function getUnitLabel(gasKey) { return AQStd.unitLabel(gasKey, APP_STATE.unitMode); }
 
@@ -875,6 +898,7 @@
       updateCharts();
       renderDecisionCard();
       renderAiringStrip();
+      isolateStationContent();
     }
 
     const FIRE_MARKER_IDS = ['PM25', 'CO', 'C6H6'];
@@ -1129,6 +1153,7 @@
         </div>
         <div class="mt-2">${reportButtons(!!g.smoke || /^(🚨|💨)/.test(g.area))}</div>
         ${window.__verdictHTML ? `<details class="mt-2 text-xs"><summary class="cursor-pointer opacity-80 min-h-[42px] flex items-center text-[13px] font-bold">▾ פרטים נוספים</summary><div class="mt-2 p-2.5 rounded-xl bg-black/25 border border-white/10 flex flex-wrap items-center gap-x-3 gap-y-1.5">${window.__verdictHTML}</div></details>` : ''}`;
+      isolateLtr(el);
     }
 
     // WHO 2021 24-hour guidelines vs. 24-hour means only (the legal daily limit marks the red tone)
