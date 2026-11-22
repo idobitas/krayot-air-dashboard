@@ -144,6 +144,23 @@ ok(appSrc.includes("{ icon: '🚨', title: 'סבירות גבוהה מאוד ל�
 ok(/<span dir="ltr" class="mono font-extrabold \$\{wlv/.test(appSrc), 'station button value + unit are LTR');
 ok(!/קריית ים \(Z1\)/.test(appSrc), 'Kiryat Yam shown without (Z1)');
 
+// 6f. station area subtitles + nearest station (client-side Haversine, geolocation only on click, nothing sent)
+{
+  const fn = appSrc.match(/function haversineKm\(lat1, lon1, lat2, lon2\) \{[\s\S]*?\n    \}/);
+  ok(!!fn, 'haversineKm exists');
+  if (fn) {
+    const hk = new Function(fn[0] + '; return haversineKm;')();
+    ok(Math.abs(hk(32.8392, 35.0831, 32.8144, 35.0783) - 2.79) < 0.05, 'Motzkin→Bialik ≈ 2.8 km');
+    ok(hk(32.8, 35.08, 32.8, 35.08) === 0, 'same point = 0 km');
+  }
+  const near = appSrc.slice(appSrc.indexOf('window.selectNearestStation'), appSrc.indexOf('function getFilteredStations'));
+  ok(/getCurrentPosition\(/.test(near) && !/fetch\(|XMLHttpRequest|sendBeacon|localStorage\.setItem\('krayot\.loc/.test(near), 'location used locally only (no upload, not stored)');
+  ok(/err\.code === 1/.test(near) && near.includes('אין הרשאת מיקום'), 'denied permission handled');
+  ok(htmlSrc.includes('onclick="selectNearestStation(this)"') && htmlSrc.includes('📍 הכי קרובה אליי'), 'nearest button next to "בחר תחנה"');
+  ['kiryat_motzkin_z2', 'kiryat_yam_z1', 'kiryat_bialik_z4', 'kiryat_binyamin', 'kiryat_haim_regavim', 'kishon_mobile5'].forEach(id =>
+    ok(new RegExp(id + ": '[^']+'").test(appSrc.slice(appSrc.indexOf('const STATION_AREA'))), `area subtitle for ${id}`));
+}
+
 // 6d. SemVer: footer version == README "גרסה נוכחית"
 const readmeSrc = fs.readFileSync(path.join(__dirname, '../README.md'), 'utf8');
 const vFooter = (htmlSrc.match(/id="appVersion"[^>]*>[^<]*?v(\d+\.\d+\.\d+)</) || [])[1];

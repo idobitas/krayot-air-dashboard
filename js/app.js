@@ -722,6 +722,36 @@
       return 'bg-emerald-950/50 text-emerald-300 border border-emerald-800/50';
     }
 
+    // great-circle distance in km (client-side only)
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const R = 6371, rad = d => d * Math.PI / 180;
+      const dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(a));
+    }
+    window.selectNearestStation = function (btn) {
+      const info = document.getElementById('nearestInfo');
+      const say = t => { if (info) info.textContent = t; };
+      if (!navigator.geolocation) { say('הדפדפן לא תומך במיקום'); return; }
+      say('מאתר מיקום…');
+      if (btn) btn.disabled = true;
+      navigator.geolocation.getCurrentPosition(pos => {
+        if (btn) btn.disabled = false;
+        const { latitude, longitude } = pos.coords;
+        const best = getFilteredStations().filter(st => STATION_COORDS[st.id])
+          .map(st => ({ st, km: haversineKm(latitude, longitude, STATION_COORDS[st.id].lat, STATION_COORDS[st.id].lon) }))
+          .sort((a, b) => a.km - b.km)[0];
+        if (!best) { say('לא נמצאה תחנה'); return; }
+        APP_STATE.selectedStationId = best.st.id;
+        renderMatrix();
+        document.querySelector(`.station-pill[data-station-id="${best.st.id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
+        say(`📍 התחנה הקרובה אליך: ${best.st.shortName} • ~${best.km.toFixed(1)} ק"מ`);
+      }, err => {
+        if (btn) btn.disabled = false;
+        say(err && err.code === 1 ? 'אין הרשאת מיקום – אפשר לבחור תחנה ידנית' : 'המיקום לא זמין כרגע');
+      }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+    };
+
     function getFilteredStations() {
       const q = APP_STATE.matrixSearch.trim().toLowerCase();
       return STATIONS_DATA.filter(st => {
@@ -778,7 +808,7 @@
               : 'bg-slate-900 border-slate-800 hover:border-slate-700'
           }">
             <div class="flex items-center justify-between gap-2">
-              <span class="text-xs sm:text-sm font-extrabold text-white truncate">${st.shortName}</span>
+              <span class="min-w-0"><span class="block text-xs sm:text-sm font-extrabold text-white truncate">${st.shortName}</span>${STATION_AREA[st.id] ? `<span class="block text-[11px] text-slate-400 truncate">${STATION_AREA[st.id]}</span>` : ''}</span>
               <div class="flex items-center gap-1 shrink-0">
                 ${(() => { const s = detectPirateFireSignature(st); return (s.detected || s.level === 'dust') ? `<span title="${s.badgeText}" class="text-[10px] px-1.5 py-0.5 rounded ${s.level === 'high' ? 'bg-orange-500/20 text-orange-300 border-orange-500/40' : (s.level === 'dust' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40' : 'bg-amber-500/20 text-amber-300 border-amber-500/40')} border font-bold">${s.level === 'high' ? '🚨' : (s.level === 'dust' ? '🏜️' : '💨')}</span>` : ''; })()}
                 ${wlv ? `<span class="px-1.5 py-0.5 rounded-md border text-[13px] font-extrabold ${wlv.cls}">${wlv.word}</span>` : `<span class="w-2.5 h-2.5 rounded-full ${dotCls}"></span>`}
@@ -1488,6 +1518,7 @@
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div>
             <h2 class="text-lg sm:text-xl font-extrabold text-white flex items-center gap-2">${st.shortName}${(() => { const wl = stationLevel(st); return wl == null ? '' : `<span class="px-2 py-0.5 rounded-md border text-xs font-extrabold ${WORD_LEVELS[wl].cls}">${WORD_LEVELS[wl].word}</span>`; })()}</h2>
+            ${STATION_AREA[st.id] ? `<div class="text-xs text-slate-400 mt-0.5">📍 ${STATION_AREA[st.id]}</div>` : ''}
           </div>
           <div class="flex items-center gap-2.5 self-start sm:self-center">
           </div>
@@ -1844,6 +1875,15 @@
 
     let WIND_FORECAST_CACHE = null;
 
+    // short area subtitle shown under the station name (pills + station card)
+    const STATION_AREA = {
+      kiryat_motzkin_z2: 'נווה גנים',
+      kiryat_yam_z1: 'צפון הקריות',
+      kiryat_bialik_z4: 'לב העיר',
+      kiryat_binyamin: 'שכונת קריית בנימין',
+      kiryat_haim_regavim: 'רגבים, ליד חוות תש"ן',
+      kishon_mobile5: 'אזור התעשייה, גדר בז"ן'
+    };
     const STATION_COORDS = {
       kiryat_bialik_z4:   { lat: 32.8144, lon: 35.0783, label: 'קריית ביאליק (Z4)' },
       kiryat_motzkin_z2:  { lat: 32.8392, lon: 35.0831, label: 'קריית מוצקין (Z2)' },
