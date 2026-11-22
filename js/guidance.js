@@ -107,7 +107,10 @@
       return isNum(hv) && hv > who && S.nowLevel(mode, k, hv) === 0 ? `${code} ${Number(hv).toFixed(1)} µg/m³` : null;
     }).filter(Boolean);
     const softNote = lvl === 0 && soft.length ? 'מעט מעל יעד WHO בשעה האחרונה: ' + soft.join(', ') : '';
-    return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, because, reason, avg24, softNote, goodWindow, trapped,
+    // light-hearted neighbour wink, only on smoke alerts (🚨 / 💨); titles stay factual
+    const smoky = kind === 'fire' || kind === 'smoke' || sig.level === 'high' || sig.level === 'watch';
+    const wink = smoky ? '🪟 רמז מהאוויר: נראה שזה הזמן לסגור חלונות 😉' : '';
+    return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, because, reason, avg24, softNote, goodWindow, trapped, wink,
       highRisk: lvl === 2, modRisk: lvl === 1 };
   }
 

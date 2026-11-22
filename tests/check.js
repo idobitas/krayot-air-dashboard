@@ -102,6 +102,13 @@ const htmlSrc = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 ['אפשר לפתוח חלונות', 'עדיף לא לפתוח חלון', 'כדאי לסגור חלונות', 'שעת אוורור מומלצת', '🏃', 'מומלץ לסגור חלונות.'].forEach(t =>
   ok(!appSrc.includes(t), `decision card no longer says "${t}"`));
 ok(!/לסגור חלונות|מאמץ בחוץ|מפעילות גופנית בחוץ/.test(appSrc + htmlSrc), 'no window / exercise advice anywhere on the site');
+// the only allowed window line is the smoke-alert wink from guidance.js
+const WINK = '🪟 רמז מהאוויר: נראה שזה הזמן לסגור חלונות 😉';
+ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), clearCtx('env')).wink === '', 'no wink on clean air');
+ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 30 })), clearCtx('env')).wink === '', 'no wink on plain moderate PM (no smoke)');
+ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clearCtx('env'), live: { kind: 'smoke', stations: [] } }).wink === WINK, 'wink on network 💨');
+ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clearCtx('env'), sig: { level: 'high' } }).wink === WINK, 'wink on station 🚨');
+ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clearCtx('env'), live: { kind: 'dust', stations: [] } }).wink === '', 'no wink on dust');
 const soft = G.computeGuidance(station('s', 'בדיקה', hourly({ PM25: 17 })), clearCtx('env'));
 ok(soft.softNote && !/חלונות/.test(soft.softNote), 'soft WHO note carries no window advice');
 const footer = htmlSrc.indexOf('<footer'), mainEnd = htmlSrc.indexOf('</main>');

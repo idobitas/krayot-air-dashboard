@@ -1064,7 +1064,8 @@
       const becauseTxt = (g.because || '').replace(/^בגלל: (?:🚨|💨) (?:ייתכן ריח חריף|סבירות גבוהה מאוד לריח חריף) \/ עשן (?:\(גלאי השעה המתגלגלת\) )?ב/, '📍 נמדד ב');
       const because = becauseTxt ? `<div class="mt-2 text-sm font-bold bg-black/25 border border-white/15 rounded-xl px-3 py-1.5">${becauseTxt}</div>` : '';
       const trapNote = lvl === 0 && g.trapped ? `<div class="mt-2 text-sm font-bold bg-black/25 border border-white/15 rounded-xl px-3 py-1.5">🌬️ רוח חלשה בשעות הקרובות – הזיהום מתפזר לאט</div>` : '';
-      const avg = trapNote + (g.softNote ? `<div class="mt-2 text-xs sm:text-sm opacity-90">🌤️ ${g.softNote}</div>` : '') +
+      const winkNote = g.wink ? `<div class="mt-1.5 text-xs sm:text-sm opacity-90 italic">${g.wink}</div>` : '';
+      const avg = winkNote + trapNote + (g.softNote ? `<div class="mt-2 text-xs sm:text-sm opacity-90">🌤️ ${g.softNote}</div>` : '') +
         (g.avg24 ? `<div class="mt-1.5 text-xs sm:text-sm opacity-90">ℹ️ ${g.avg24}</div>` : '');
       const when = lvl > 0 && g.goodWindow ? `<div class="text-sm mt-1">🌬️ צפוי פיזור טוב יותר החל מ-<strong>${dayWord(g.goodWindow)} בשעה <bdi class="mono">${g.goodWindow.time}</bdi></strong></div>` : '';
       // current wind: own anemometer, else Kiryat Ata (97, as the detector does for Motzkin), else the forecast
