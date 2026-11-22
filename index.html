@@ -246,24 +246,6 @@
 
       <!-- Hidden canvas keepalive for station profile chart compatibility -->
       <div class="hidden"><canvas id="chartStationProfile"></canvas></div>
-
-      <!-- Data source / last update: bottom of the Now tab only -->
-      <details class="bg-slate-900/60 border border-slate-800 rounded-2xl px-3.5 py-2 group">
-        <summary class="cursor-pointer text-xs font-bold text-slate-300 py-1">⚙️ פרטים מתקדמים למתעניינים (מקור הנתונים)</summary>
-        <div class="space-y-3 pt-2">
-      <!-- Prominent Last Updated & Data Source Status Strip -->
-      <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900 border border-amber-500/40 rounded-2xl px-3.5 py-2.5 shadow-md">
-        <div class="flex items-center gap-2 text-xs sm:text-sm font-extrabold text-amber-300">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="clock" class="lucide lucide-clock w-4 h-4 text-amber-400 shrink-0"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          <span id="lastUpdatedBadge">טוען נתוני אמת מ-air.sviva.gov.il… • תחזית רוח: חיה (Open-Meteo)</span>
-          <button id="btnRefreshLive" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/50 transition">רענן נתוני אמת</button>
-        </div>
-        <div class="text-[11px] text-slate-300 flex flex-wrap items-center gap-2">
-          <span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 font-semibold">תקנות אוויר נקי (התשפ"ב–2022) + WHO 2021</span>
-        </div>
-      </div>
-        </div>
-      </details>
     </section>
 
 
@@ -636,6 +618,15 @@ PPB_TO_UGM3 = {
           <a href="https://github.com/GuyKh/py-air-sviva-api" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/40 text-purple-300 hover:bg-purple-500/25 font-semibold transition">py-air-sviva-api</a>
           <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25 font-semibold transition">open-meteo.com (תחזית רוח)</a>
         </div>
+        <!-- last update + refresh + legal basis (moved from the Now tab) -->
+        <div class="basis-full flex flex-wrap items-center gap-2 pt-2 mt-1 border-t border-slate-800 text-xs font-bold text-amber-300">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="clock" class="lucide lucide-clock w-4 h-4 text-amber-400 shrink-0"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span id="lastUpdatedBadge">טוען נתוני אמת מ-air.sviva.gov.il… • תחזית רוח: חיה (Open-Meteo)</span>
+          <button id="btnRefreshLive" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/50 transition">רענן נתוני אמת</button>
+        </div>
+        <div class="basis-full text-[11px] text-slate-300 flex flex-wrap items-center gap-2">
+          <span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 font-semibold">תקנות אוויר נקי (התשפ"ב–2022) + WHO 2021</span>
+        </div>
       </div>
     </section>
 
@@ -649,7 +640,7 @@ PPB_TO_UGM3 = {
 
   <!-- Disclaimer: every tab -->
   <footer class="max-w-7xl w-full mx-auto px-3 sm:px-5 pb-4 pt-1">
-    <p class="text-[11px] leading-relaxed text-slate-400 border-t border-slate-800 pt-3">הבהרה: המידע באתר מבוסס על נתוני ניטור ציבוריים של המשרד להגנת הסביבה ותחזית רוח פתוחה, ומוצג ככלי עזר קהילתי למידע כללי בלבד. ייתכנו עיכובים או אי־דיוקים במדידות, ואין לראות במידע ייעוץ רפואי, המלצה לפעולה או תחליף להתרעות הרשמיות של המשרד להגנת הסביבה ומשרד הבריאות. השימוש באתר הוא באחריות המשתמש בלבד. <span id="appVersion" class="mono text-slate-500 whitespace-nowrap" title="גרסת האתר (SemVer)">• v3.4.0</span></p>
+    <p class="text-[11px] leading-relaxed text-slate-400 border-t border-slate-800 pt-3">הבהרה: המידע באתר מבוסס על נתוני ניטור ציבוריים של המשרד להגנת הסביבה ותחזית רוח פתוחה, ומוצג ככלי עזר קהילתי למידע כללי בלבד. ייתכנו עיכובים או אי־דיוקים במדידות, ואין לראות במידע ייעוץ רפואי, המלצה לפעולה או תחליף להתרעות הרשמיות של המשרד להגנת הסביבה ומשרד הבריאות. השימוש באתר הוא באחריות המשתמש בלבד. <span id="appVersion" class="mono text-slate-500 whitespace-nowrap" title="גרסת האתר (SemVer)">• v3.4.1</span></p>
   </footer>
 
   <!-- Mobile Sticky Bottom Thumb Navigation Bar -->
