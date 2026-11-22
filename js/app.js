@@ -985,16 +985,12 @@
       if (!win) window.location.href = SVIVA_FORM_URL;
     };
     const SMELL_FORM_URL = 'https://forms.gle/LiJ5h1AczSw23LDr7';
-    window.call6911 = async function (btn) {
-      await copyTextReliable(report6911Text(), () => { if (btn) btn.textContent = '✓ התקציר הועתק – מחייג…'; });
-      window.location.href = 'tel:%2A6911';
-    };
     function reportButtons(prominent) {
       const b = 'inline-flex items-center min-h-[42px] px-3 rounded-full text-[13px] font-bold border transition';
       const quiet = 'bg-black/25 border-white/15 hover:bg-black/40';
       return `<div class="flex flex-wrap items-center gap-2">` +
         `<a href="${SMELL_FORM_URL}" target="_blank" rel="noopener noreferrer" class="${b} ${quiet}">👃 דיווח ריח (נאות אפק)</a>` +
-        `<button type="button" onclick="call6911(this)" class="${b} ${prominent ? 'bg-rose-600 border-rose-400 text-white' : quiet}">📞 מוקד *6911</button>` +
+        `<a href="tel:%2A6911" class="${b} ${prominent ? 'bg-rose-600 border-rose-400 text-white' : quiet}">📞 חיוג למוקד *6911</a>` +
         `<button type="button" onclick="openSvivaForm(this)" class="${b} ${quiet}">📝 טופס להגנ"ס</button></div>`;
     }
 
