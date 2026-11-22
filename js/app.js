@@ -110,8 +110,8 @@
       },
       {
         id: 'kiryat_yam_z1',
-        name: 'קריית ים / צפון הקריות (Z1)',
-        shortName: 'קריית ים (Z1)',
+        name: 'קריית ים / צפון הקריות',
+        shortName: 'קריית ים',
         code: 'HBUA-Z1',
         group: 'krayot',
         location: 'צפון הקריות / קריית ים (32°51′08″N, 35°04′46″E)',
@@ -787,7 +787,7 @@
             ${onlyBz ? '<div class="mt-0.5"><span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300">בנזן בלבד</span></div>' : ''}${st.stale ? '<div class="text-[10px] text-amber-300 mt-0.5">נתון ישן</div>' : ''}
             <div class="mt-2 flex items-center justify-between gap-1 text-[13px]">
               <span class="text-slate-300">${plbl}:</span>
-              <span class="mono font-extrabold ${wlv ? wlv.txt : 'text-slate-300'}">${ww ? formatGasValue(ww.value, ww.key, ww.key === 'C6H6' ? 2 : 1) + ' ' + getUnitLabel(ww.key) : '—'}</span>
+              <span dir="ltr" class="mono font-extrabold ${wlv ? wlv.txt : 'text-slate-300'}">${ww ? formatGasValue(ww.value, ww.key, ww.key === 'C6H6' ? 2 : 1) + ' ' + getUnitLabel(ww.key) : '—'}</span>
             </div>
           </button>
         `;
@@ -1062,6 +1062,10 @@
         { icon: '🟠', title: 'רמת מזהמים מוגברת', cls: 'bg-orange-950/55 border-orange-500/60 text-orange-50' },
         { icon: '🔴', title: 'רמת זיהום גבוהה', cls: 'bg-rose-950/60 border-rose-500/70 text-rose-50' }
       ][lvl];
+      // smoke at the selected station: the smoke label is the title (same colours as the level)
+      if (g.smoke) Object.assign(L, g.smoke === 'high' ? { icon: '🚨', title: 'סבירות גבוהה מאוד לריח חריף / עשן' } : { icon: '💨', title: 'ייתכן ריח חריף / עשן' });
+      // events at OTHER stations: a small separate note, never the card colour
+      const areaNote = g.area ? `<div class="mt-2 text-xs sm:text-sm font-bold rounded-xl px-3 py-1.5 bg-slate-900/70 border border-amber-500/40 text-amber-200">${g.area}</div>` : '';
       const todayDM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit' }).format(new Date());
       const dayWord = gw => !gw.date ? '' : (gw.date === todayDM ? 'היום' : 'מחר');
       const becauseTxt = (g.because || '').replace(/^בגלל: (?:🚨|💨) (?:ייתכן ריח חריף|סבירות גבוהה מאוד לריח חריף) \/ עשן (?:\(גלאי השעה המתגלגלת\) )?ב/, '📍 נמדד ב');
@@ -1087,12 +1091,12 @@
             ${when}
           </div>
         </div>
-        ${because}${avg}
+        ${because}${areaNote}${avg}
         <div class="flex flex-wrap items-center gap-2 mt-2">
           ${windTag}
           <span class="text-[13px] opacity-80">${upd ? 'עודכן ' + upd + ' • ' : ''}${st.shortName}</span>
         </div>
-        <div class="mt-2">${reportButtons(kind === 'fire' || kind === 'smoke')}</div>
+        <div class="mt-2">${reportButtons(!!g.smoke || /^(🚨|💨)/.test(g.area))}</div>
         ${window.__verdictHTML ? `<details class="mt-2 text-xs"><summary class="cursor-pointer opacity-80 min-h-[42px] flex items-center text-[13px] font-bold">▾ פרטים נוספים</summary><div class="mt-2 p-2.5 rounded-xl bg-black/25 border border-white/10 flex flex-wrap items-center gap-x-3 gap-y-1.5">${window.__verdictHTML}</div></details>` : ''}`;
     }
 
@@ -1845,7 +1849,7 @@
       kiryat_motzkin_z2:  { lat: 32.8392, lon: 35.0831, label: 'קריית מוצקין (Z2)' },
       kiryat_binyamin:    { lat: 32.7960, lon: 35.0950, label: 'קריית אתא – קריית בנימין' },
       kiryat_haim_regavim:{ lat: 32.8308, lon: 35.0542, label: 'קריית חיים – רגבים' },
-      kiryat_yam_z1:      { lat: 32.8522, lon: 35.0794, label: 'קריית ים (Z1)' },
+      kiryat_yam_z1:      { lat: 32.8522, lon: 35.0794, label: 'קריית ים' },
       kishon_mobile5:     { lat: 32.7950, lon: 35.0450, label: 'גדר בז"ן / הקישון' },
       haifa_atzmaut:      { lat: 32.8190, lon: 35.0010, label: 'חיפה – עצמאות' },
       haifa_igud:         { lat: 32.8110, lon: 35.0350, label: 'חיפה – איגוד' },

@@ -67,27 +67,32 @@
     let stationLvl = worst ? worst.lvl : 0;
     if (sig.level === 'high') stationLvl = 2;
     else if (sig.level === 'watch' || isDust) stationLvl = Math.max(stationLvl, 1);
-    // card level: station level + network-wide live events
-    let lvl = stationLvl, because = '';
-    const hot = v ? (v.stations || []).filter(x => x.level === 'high' || x.level === 'watch').map(x => nameOf(x.id)) : [];
-    if (kind === 'fire') { lvl = 2; because = 'בגלל: 🚨 סבירות גבוהה מאוד לריח חריף / עשן (גלאי השעה המתגלגלת) ב' + hot.join(', '); }
-    else if (kind === 'smoke') { lvl = Math.max(lvl, 1); because = 'בגלל: 💨 ייתכן ריח חריף / עשן (גלאי השעה המתגלגלת) ב' + hot.join(', '); }
-    else if (kind === 'dust') { lvl = Math.max(lvl, 1); because = 'בגלל: אבק / אובך בכמה תחנות בקריות'; }
-    else if (kind === 'regional') { lvl = Math.max(lvl, 1); because = 'בגלל: אוויר עומד (משוער) – החלקיקים עולים יחד בכל הקריות'; }
-    if (!because && stationLvl > 0) {
-      because = sig.level === 'high' || sig.level === 'watch' ? 'בגלל: 💨 ייתכן ריח חריף / עשן ב' + st.shortName
+    // card level = the SELECTED station only. Events elsewhere in the network become a separate area note.
+    const lvl = stationLvl;
+    const smoke = sig.level === 'high' ? 'high' : (sig.level === 'watch' ? 'watch' : null);
+    const others = v ? (v.stations || []).filter(x => x.id !== st.id) : [];
+    const hiElse = others.filter(x => x.level === 'high').map(x => nameOf(x.id));
+    const waElse = others.filter(x => x.level === 'watch').map(x => nameOf(x.id));
+    const area = hiElse.length ? '🚨 באזור: סבירות גבוהה לעשן ב' + hiElse.join(', ')
+      : waElse.length ? '💨 באזור: ייתכן עשן ב' + waElse.join(', ')
+      : (!smoke && !isDust && kind === 'dust') ? '🏜️ באזור: אבק / אובך בכמה תחנות בקריות'
+      : (!smoke && kind === 'regional') ? '🌁 באזור: אוויר עומד (משוער) – החלקיקים עולים יחד בכל הקריות'
+      : '';
+    let because = '';
+    if (stationLvl > 0) {
+      because = smoke ? `בגלל: ${smoke === 'high' ? '🚨 סבירות גבוהה מאוד לריח חריף' : '💨 ייתכן ריח חריף'} / עשן ב${st.shortName}`
         : isDust ? 'בגלל: אבק / אובך ב' + st.shortName
         : worst.key === 'O3' ? `בגלל: אוזון (ממוצע 8 שעות) ב${st.shortName}`
         : `בגלל: ${S.PLAIN_NAMES[worst.key] || worst.code} (${worst.code}) בשעה האחרונה ב${st.shortName}`;
     }
-    const reason = kind === 'fire' ? 'סבירות גבוהה מאוד לריח חריף / עשן באוויר.'
-      : kind === 'smoke' ? 'ייתכן ריח חריף / עשן באוויר.'
-      : (kind === 'dust' || isDust) ? 'יש אבק / אובך באוויר (לא עשן שריפה).'
-      : kind === 'regional' ? 'אוויר עומד (משוער): הזיהום לא מתפזר.'
+    // the smoke label itself is the card title, so the reason line doesn't repeat it
+    const reason = smoke ? 'סימני עשן בתחנה בשעה האחרונה.'
+      : isDust ? 'יש אבק / אובך באוויר (לא עשן שריפה).'
       : lvl > 0 ? 'רמת המזהמים בשעה האחרונה גבוהה.'
       : 'האוויר בשעה האחרונה תקין.';
     const w24 = ctx.who24 || [];
-    const avg24 = w24.length ? 'הממוצע של 24 השעות האחרונות עדיין גבוה: ' +
+    // WHO 24 h note only when the health target is the active benchmark
+    const avg24 = mode === 'target' && w24.length ? 'הממוצע של 24 השעות האחרונות עדיין גבוה: ' +
       w24.slice(0, 2).map(x => `${x.label} ${x.value} µg/m³ (יעד WHO ליממה ${x.limit})`).join(', ') + ' ב' + st.shortName : '';
     let goodWindow = null;
     if (lvl > 0 && forecast.length) {
@@ -108,9 +113,8 @@
     }).filter(Boolean);
     const softNote = lvl === 0 && soft.length ? 'מעט מעל יעד WHO בשעה האחרונה: ' + soft.join(', ') : '';
     // light-hearted neighbour wink, only on smoke alerts (🚨 / 💨); titles stay factual
-    const smoky = kind === 'fire' || kind === 'smoke' || sig.level === 'high' || sig.level === 'watch';
-    const wink = smoky ? '🪟 רמז מהאוויר: נראה שזה הזמן לסגור חלונות 😉' : '';
-    return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, because, reason, avg24, softNote, goodWindow, trapped, wink,
+    const wink = smoke ? '🪟 רמז מהאוויר: נראה שזה הזמן לסגור חלונות 😉' : '';
+    return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, smoke, area, because, reason, avg24, softNote, goodWindow, trapped, wink,
       highRisk: lvl === 2, modRisk: lvl === 1 };
   }
 

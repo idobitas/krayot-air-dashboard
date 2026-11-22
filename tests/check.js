@@ -89,7 +89,23 @@ ok(G.barStatus('C6H6', 7, 'env').word === 'חריגה', 'benzene 7 = high');
 
 // 6. detector / network events still override the bands
 const fireCtx = { ...clearCtx('env'), live: { kind: 'fire', stations: [{ id: 'kiryat_bialik_z4', level: 'high' }] }, nameOf: () => 'ביאליק' };
-ok(G.computeGuidance(station('a', 'א', hourly({ PM25: 5 })), fireCtx).lvl === 2, 'network fire -> card red');
+ok(G.computeGuidance(station('a', 'א', hourly({ PM25: 5 })), fireCtx).lvl === 0, 'fire at ANOTHER station never colours the selected card');
+ok(/^🚨 באזור: .*ביאליק/.test(G.computeGuidance(station('a', 'א', hourly({ PM25: 5 })), fireCtx).area), 'fire elsewhere -> separate area note');
+{
+  const smokeCtx = { ...clearCtx('env'), live: { kind: 'smoke', stations: [{ id: 'kiryat_bialik_z4', level: 'watch' }] }, nameOf: id => id === 'kiryat_bialik_z4' ? 'קריית ביאליק' : id };
+  const mz = G.computeGuidance(station('kiryat_motzkin_z2', 'קריית מוצקין', hourly({ PM25: 10 })), smokeCtx);
+  ok(mz.lvl === 0 && mz.smoke === null && mz.area === '💨 באזור: ייתכן עשן בקריית ביאליק', 'Motzkin stays green; Bialik smoke shown as area note');
+  const bi = G.computeGuidance(station('kiryat_bialik_z4', 'קריית ביאליק', hourly({ PM25: 30 })), { ...smokeCtx, sig: { level: 'watch' } });
+  ok(bi.smoke === 'watch' && bi.lvl >= 1 && bi.area === '' && !/ייתכן ריח/.test(bi.reason), 'own smoke: smoke flag, no self area note, reason does not repeat the title');
+  const hi = G.computeGuidance(station('kiryat_bialik_z4', 'קריית ביאליק', hourly({ PM25: 30 })), { ...clearCtx('env'), sig: { level: 'high' } });
+  ok(hi.smoke === 'high' && hi.lvl === 2, 'own 🚨 -> high');
+}
+// WHO 24 h note only in health mode
+{
+  const w24 = [{ label: 'PM2.5', value: 17.1, limit: 15 }];
+  ok(G.computeGuidance(station('a', 'א', hourly({ PM25: 10 })), { ...clearCtx('env'), who24: w24 }).avg24 === '', 'no WHO 24 h note in legal mode');
+  ok(/יעד WHO ליממה 15/.test(G.computeGuidance(station('a', 'א', hourly({ PM25: 10 })), { ...clearCtx('target'), who24: w24 }).avg24), 'WHO 24 h note in health mode');
+}
 ok(G.computeGuidance(station('a', 'א', hourly({ PM25: 5 })), fireCtx).stationLvl === 0, 'network fire leaves the station button on its own bands');
 ok(G.computeGuidance({ metrics: {} }, clearCtx('env')) === null, 'no metrics -> null');
 
@@ -106,7 +122,8 @@ ok(!/לסגור חלונות|מאמץ בחוץ|מפעילות גופנית בח�
 const WINK = '🪟 רמז מהאוויר: נראה שזה הזמן לסגור חלונות 😉';
 ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), clearCtx('env')).wink === '', 'no wink on clean air');
 ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 30 })), clearCtx('env')).wink === '', 'no wink on plain moderate PM (no smoke)');
-ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clearCtx('env'), live: { kind: 'smoke', stations: [] } }).wink === WINK, 'wink on network 💨');
+ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clearCtx('env'), sig: { level: 'watch' } }).wink === WINK, 'wink on station 💨');
+ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clearCtx('env'), live: { kind: 'smoke', stations: [{ id: 'other', level: 'watch' }] } }).wink === '', 'no wink for smoke at another station');
 ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clearCtx('env'), sig: { level: 'high' } }).wink === WINK, 'wink on station 🚨');
 ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clearCtx('env'), live: { kind: 'dust', stations: [] } }).wink === '', 'no wink on dust');
 const soft = G.computeGuidance(station('s', 'בדיקה', hourly({ PM25: 17 })), clearCtx('env'));
@@ -121,6 +138,11 @@ ok(!/window\.open\(SVIVA_FORM_URL/.test(appSrc) && !/location\.href = SVIVA_FORM
 ok(/setTimeout\(\(\) => \{ link\.textContent = label; \}, 3000\)/.test(appSrc), 'form button label resets after 3 s');
 ['לפי דיווח התושב', '(שעה אחרונה)', '(ממוצע יומי)', 'נמדד בקריית אתא'].forEach(t => ok(appSrc.includes(t), `summary labels "${t}"`));
 ok(!appSrc.includes('report6911Text') && appSrc.includes('function reportSummaryText()'), 'summary builder renamed to reportSummaryText');
+
+// 6e. smoke titles, LTR values on station buttons, Kiryat Yam without the station code
+ok(appSrc.includes("{ icon: '🚨', title: 'סבירות גבוהה מאוד לריח חריף / עשן' }") && appSrc.includes("{ icon: '💨', title: 'ייתכן ריח חריף / עשן' }"), 'smoke titles on the card');
+ok(/<span dir="ltr" class="mono font-extrabold \$\{wlv/.test(appSrc), 'station button value + unit are LTR');
+ok(!/קריית ים \(Z1\)/.test(appSrc), 'Kiryat Yam shown without (Z1)');
 
 // 6d. SemVer: footer version == README "גרסה נוכחית"
 const readmeSrc = fs.readFileSync(path.join(__dirname, '../README.md'), 'utf8');
