@@ -72,6 +72,21 @@ function audit({ banned }) {
   await page.goto(base, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.querySelectorAll('.station-pill').length > 0 && !/טוען/.test(document.getElementById('decisionCard').textContent), null, { timeout: 30000 });
 
+  // open accordion rows survive mode / unit toggles, without a scroll jump
+  await page.evaluate(() => { const d = document.querySelector('#pollutantCardsGrid details[data-pol]'); d.open = true; d.scrollIntoView({ block: 'center' }); });
+  const keep = await page.evaluate(async () => {
+    const key = document.querySelector('#pollutantCardsGrid details[data-pol][open]').dataset.pol, out = {};
+    const row = () => document.querySelector(`#pollutantCardsGrid details[data-pol="${key}"]`);
+    const top0 = row().getBoundingClientRect().top, shift = () => Math.round(Math.abs(row().getBoundingClientRect().top - top0));
+    document.getElementById('btnBenchTarget').click(); out.mode = !!row()?.open; out.dyMode = shift();
+    document.getElementById('btnUnitPpb').click(); out.unit = !!row()?.open; out.dyUnit = shift();
+    document.getElementById('btnUnitUg').click(); document.getElementById('btnBenchEnv').click(); out.back = !!row()?.open; out.dyBack = shift();
+    return out;
+  });
+  ok(keep.mode && keep.unit && keep.back, `open row stays open across mode/unit toggles (${JSON.stringify(keep)})`);
+  ok(keep.dyMode < 2 && keep.dyUnit < 2 && keep.dyBack < 2, `open row does not move on screen (${keep.dyMode}/${keep.dyUnit}/${keep.dyBack}px)`);
+  await page.evaluate(() => { document.querySelectorAll('#pollutantCardsGrid details[open]').forEach(d => d.open = false); window.scrollTo(0, 0); });
+
   // default view: banned strings
   const d = await page.evaluate(audit, { banned: ['NaN', 'undefined', 'HBUA', 'py-air-sviva-api', 'סף חשד'] });
   ok(!d.banned.length, 'default view free of banned text: ' + d.banned.join(', '));

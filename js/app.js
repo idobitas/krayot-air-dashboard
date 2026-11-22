@@ -1578,6 +1578,11 @@
       // fixed display order: particles, gases, benzene (indicative) last
       const keys = Object.keys(POLLUTANT_STANDARDS).filter(k => st.metrics && st.metrics[k]).sort((a, b) => (a === 'C6H6') - (b === 'C6H6'));
       if (!keys.length) { grid.innerHTML = '<div class="p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-xs">ממתין לנתוני אמת מהתחנה…</div>'; return; }
+      // keep the rows (and their 💡 explainers) the user opened when only the mode / unit changes
+      const sameStation = grid.dataset.station === st.id;
+      const openRows = sameStation ? [...grid.querySelectorAll('details[data-pol][open]')].map(d => d.dataset.pol) : [];
+      const openTips = sameStation ? [...grid.querySelectorAll('details[data-pol-tip][open]')].map(d => d.dataset.polTip) : [];
+      grid.dataset.station = st.id;
       grid.innerHTML = keys.map(key => {
         const std = POLLUTANT_STANDARDS[key];
         const m = st.metrics[key];
@@ -1641,7 +1646,7 @@
         const accW = [bar.word, bar.txtCls, bar.barCls];
         const nowBarW = bar.width;
         return { pct: maxPct, html: `
-          <details class="rounded-2xl border ${borderCol} group">
+          <details data-pol="${key}" class="rounded-2xl border ${borderCol} group">
           <summary class="list-none cursor-pointer p-3 flex items-center gap-3">
             <span class="min-w-0 flex-1">
               <span class="text-sm font-extrabold text-white">${std.name}</span>
@@ -1674,7 +1679,7 @@
             </div>
 
             <!-- Intuitive Expandable Explanation -->
-            <details class="bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2 text-xs">
+            <details data-pol-tip="${key}" class="bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2 text-xs">
               <summary class="cursor-pointer font-bold text-sky-300 flex items-center justify-between">
                 <span>💡 מה זה אומר בשבילי? (הסבר פשוט)</span>
                 <span class="text-[10px] text-slate-400">פתח ▾</span>
@@ -1688,6 +1693,8 @@
           </details>
         ` };
       }).map(c => c.html).join('');
+      openRows.forEach(k => { const d = grid.querySelector(`details[data-pol="${k}"]`); if (d) d.open = true; });
+      openTips.forEach(k => { const d = grid.querySelector(`details[data-pol-tip="${k}"]`); if (d) d.open = true; });
     }
 
     // "HH:00 (DD/MM)" in Israel local time (correct in summer too; archive stamps are fixed +02:00)
@@ -2401,19 +2408,30 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       });
 
+      // re-render without moving what the user is reading: the first open pollutant row (else the first
+      // visible card) keeps its on-screen position even if content above it grows or shrinks
+      const renderKeepingPlace = () => {
+        const anchor = document.querySelector('#pollutantCardsGrid details[data-pol][open]')
+          || [...document.querySelectorAll('.tab-panel:not(.hidden) > *')].find(el => el.getBoundingClientRect().bottom > 0);
+        const key = anchor && anchor.dataset ? anchor.dataset.pol : null;
+        const top0 = anchor ? anchor.getBoundingClientRect().top : null;
+        renderMatrix();
+        const again = key ? document.querySelector(`#pollutantCardsGrid details[data-pol="${key}"]`) : anchor;
+        if (again && top0 != null) window.scrollBy(0, again.getBoundingClientRect().top - top0);
+      };
       const btnBenchEnv = document.getElementById('btnBenchEnv');
       const btnBenchTarget = document.getElementById('btnBenchTarget');
       btnBenchEnv.addEventListener('click', () => {
         APP_STATE.benchmarkMode = 'env';
         btnBenchEnv.className = 'px-2 py-1.5 rounded-md font-bold bg-purple-600 text-white transition';
         btnBenchTarget.className = 'px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition';
-        renderMatrix();
+        renderKeepingPlace();
       });
       btnBenchTarget.addEventListener('click', () => {
         APP_STATE.benchmarkMode = 'target';
         btnBenchTarget.className = 'px-2 py-1.5 rounded-md font-bold bg-rose-600 text-white transition';
         btnBenchEnv.className = 'px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition';
-        renderMatrix();
+        renderKeepingPlace();
       });
 
       // theme: auto (follows the phone, live) / light / dark; persisted in localStorage 'krayot.theme'
@@ -2451,13 +2469,13 @@
         APP_STATE.unitMode = 'ug';
         btnUnitUg.className = 'flex-1 px-2 py-1.5 rounded-md font-bold bg-sky-600 text-white transition';
         btnUnitPpb.className = 'flex-1 px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition';
-        renderMatrix();
+        renderKeepingPlace();
       });
       btnUnitPpb.addEventListener('click', () => {
         APP_STATE.unitMode = 'ppb';
         btnUnitPpb.className = 'flex-1 px-2 py-1.5 rounded-md font-bold bg-purple-600 text-white transition';
         btnUnitUg.className = 'flex-1 px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition';
-        renderMatrix();
+        renderKeepingPlace();
       });
 
       document.getElementById('trendPollutantSelect').addEventListener('change', updateCharts);
