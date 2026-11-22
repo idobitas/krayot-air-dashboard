@@ -1907,10 +1907,10 @@
     // short area subtitle shown under the station name (pills + station card)
     const STATION_AREA = {
       kiryat_motzkin_z2: 'נווה גנים',
-      kiryat_yam_z1: 'צפון הקריות',
-      kiryat_bialik_z4: 'לב העיר',
-      kiryat_binyamin: 'שכונת קריית בנימין',
-      kiryat_haim_regavim: 'רגבים, ליד חוות תש"ן',
+      kiryat_yam_z1: "שכונה ד'",
+      kiryat_bialik_z4: 'דרום',
+      kiryat_binyamin: 'קריית בנימין',
+      kiryat_haim_regavim: 'מערבית',
       kishon_mobile5: 'אזור התעשייה, גדר בז"ן'
     };
     const STATION_COORDS = {

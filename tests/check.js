@@ -158,7 +158,10 @@ ok(!/קריית ים \(Z1\)/.test(appSrc), 'Kiryat Yam shown without (Z1)');
   ok(/err\.code === 1/.test(near) && near.includes('אין הרשאת מיקום'), 'denied permission handled');
   ok(htmlSrc.includes('onclick="selectNearestStation(this)"') && htmlSrc.includes('📍 הכי קרובה אליי'), 'nearest button next to "בחר תחנה"');
   ['kiryat_motzkin_z2', 'kiryat_yam_z1', 'kiryat_bialik_z4', 'kiryat_binyamin', 'kiryat_haim_regavim', 'kishon_mobile5'].forEach(id =>
-    ok(new RegExp(id + ": '[^']+'").test(appSrc.slice(appSrc.indexOf('const STATION_AREA'))), `area subtitle for ${id}`));
+    ok(new RegExp(id + `: (?:'[^']+'|"[^"]+")`).test(appSrc.slice(appSrc.indexOf('const STATION_AREA'))), `area subtitle for ${id}`));
+  { const area = appSrc.slice(appSrc.indexOf('const STATION_AREA'), appSrc.indexOf('const STATION_COORDS'));
+    [['kiryat_bialik_z4', 'דרום'], ['kiryat_binyamin', 'קריית בנימין'], ['kiryat_haim_regavim', 'מערבית'], ['kiryat_yam_z1', "שכונה ד'"], ['kiryat_motzkin_z2', 'נווה גנים']]
+      .forEach(([id, t]) => ok(area.includes(`${id}: ${t.includes("'") ? '"' + t + '"' : "'" + t + "'"}`), `${id} subtitle = ${t}`)); }
 }
 
 // 6g. one unified selected-station card; clean RTL in "פרטים מתקדמים"
