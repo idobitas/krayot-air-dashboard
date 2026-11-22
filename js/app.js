@@ -995,9 +995,10 @@
       const b = 'inline-flex items-center min-h-[42px] px-3 rounded-full text-[13px] font-bold border transition';
       const quiet = 'bg-black/25 border-white/15 hover:bg-black/40';
       return `<div class="flex flex-wrap items-center gap-2">` +
-        `<a href="${SMELL_FORM_URL}" target="_blank" rel="noopener noreferrer" class="${b} ${quiet}">👃 דיווח ריח (נאות אפק)</a>` +
         `<a href="tel:%2A6911" class="${b} ${prominent ? 'bg-rose-600 border-rose-400 text-white' : quiet}">📞 חיוג למוקד *6911</a>` +
-        `<a href="${SVIVA_FORM_URL}" target="_blank" rel="noopener noreferrer" onclick="copySvivaSummary(this)" class="${b} ${quiet}">📝 טופס להגנ"ס</a></div>`;
+        `<a href="${SVIVA_FORM_URL}" target="_blank" rel="noopener noreferrer" onclick="copySvivaSummary(this)" class="${b} ${quiet}">📝 טופס להגנ"ס</a>` +
+        // community log only (our own sampling) - not sent to any authority
+        `<a href="${SMELL_FORM_URL}" target="_blank" rel="noopener noreferrer" class="${b} ${quiet}">👃 יומן ריח קהילתי (לא לרשויות)</a></div>`;
     }
 
     // 12-hour "when to air" strip: hour, wind arrow + short direction, functional status
