@@ -115,6 +115,12 @@ function audit({ banned }) {
     ok(!r.overlap.length, `light/${tab}: no overlapping controls → ${r.overlap.slice(0, 6).join(' | ')}`);
     if (r.overflow || r.clipped.length || r.overlap.length) await lp.screenshot({ path: path.join(SHOTS, `light-${tab}.png`), fullPage: true });
   }
+  // ⚙️ closes on an outside tap; unit buttons fill the row like the theme buttons
+  await lp.click('details[data-gear] > summary');
+  const fill = await lp.evaluate(() => { const row = document.getElementById('btnUnitUg').parentElement, a = document.getElementById('btnUnitUg').getBoundingClientRect(), b = document.getElementById('btnUnitPpb').getBoundingClientRect(); return (a.width + b.width) / (row.clientWidth - 4); });
+  ok(fill > 0.95, `unit buttons fill their row (${fill.toFixed(2)})`);
+  await lp.mouse.click(200, 600);
+  ok(await lp.evaluate(() => !document.querySelector('details[data-gear]').open), '⚙️ closes on a tap outside');
   // manual choice wins over the phone and survives a reload
   await lp.click('details[data-gear] > summary');
   await lp.click('[data-theme-choice="dark"]');

@@ -2440,18 +2440,23 @@
         if (mqLight.addEventListener) mqLight.addEventListener('change', onScheme); else if (mqLight.addListener) mqLight.addListener(onScheme);
       }
 
+      // ⚙️ menu closes on a tap/click outside it, or on Escape
+      const closeGear = () => document.querySelectorAll('details[data-gear][open]').forEach(d => { d.open = false; });
+      document.addEventListener('pointerdown', e => { if (!e.target.closest('details[data-gear]')) closeGear(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') closeGear(); });
+
       const btnUnitUg = document.getElementById('btnUnitUg');
       const btnUnitPpb = document.getElementById('btnUnitPpb');
       btnUnitUg.addEventListener('click', () => {
         APP_STATE.unitMode = 'ug';
-        btnUnitUg.className = 'px-2 py-1.5 rounded-md font-bold bg-sky-600 text-white transition';
-        btnUnitPpb.className = 'px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition';
+        btnUnitUg.className = 'flex-1 px-2 py-1.5 rounded-md font-bold bg-sky-600 text-white transition';
+        btnUnitPpb.className = 'flex-1 px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition';
         renderMatrix();
       });
       btnUnitPpb.addEventListener('click', () => {
         APP_STATE.unitMode = 'ppb';
-        btnUnitPpb.className = 'px-2 py-1.5 rounded-md font-bold bg-purple-600 text-white transition';
-        btnUnitUg.className = 'px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition';
+        btnUnitPpb.className = 'flex-1 px-2 py-1.5 rounded-md font-bold bg-purple-600 text-white transition';
+        btnUnitUg.className = 'flex-1 px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition';
         renderMatrix();
       });
 
