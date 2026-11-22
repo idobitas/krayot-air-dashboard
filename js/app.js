@@ -967,22 +967,28 @@
     window.copyTextReliable = copyTextReliable;
 
     // quick report to the Ministry of Environmental Protection hotline *6911 (copies a summary)
-    function report6911Text() {
+    // summary pasted into the MoEP online form: what was measured, labelled honestly (window, source)
+    function reportSummaryText() {
       const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
       const now = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-      const pm = st.metrics?.PM25 ? (st.metrics.PM25.hourly ?? st.metrics.PM25.daily) : null;
-      const w = st.last30m || {}, wsrc = w.windDir != null ? w : ((STATIONS_DATA.find(s => s.id === 'kiryat_binyamin') || {}).last30m || {});
-      const wind = wsrc.windDir != null ? `${degToCompassHe(wsrc.windDir)} (${Math.round(wsrc.windDir)}°)` : 'לא ידוע';
-      return `דיווח למוקד *6911 – ריח עשן / שריפה | ${now} | אזור: ${st.shortName} | PM2.5: ${pm == null ? 'לא נמדד בתחנה' : Number(pm).toFixed(1) + ' µg/m³'} | רוח: ${wind}`;
+      const m = st.metrics?.PM25 || null;
+      const pm = !m ? 'לא נמדד בתחנה'
+        : m.hourly != null ? `${Number(m.hourly).toFixed(1)} µg/m³ (שעה אחרונה)`
+        : m.daily != null ? `${Number(m.daily).toFixed(1)} µg/m³ (ממוצע יומי)` : 'אין נתון';
+      const own = st.last30m || {}, kb = STATIONS_DATA.find(s => s.id === 'kiryat_binyamin') || {};
+      const wsrc = own.windDir != null ? [own, ''] : ((kb.last30m || {}).windDir != null ? [kb.last30m, ', נמדד בקריית אתא'] : null);
+      const wind = wsrc ? `${degToCompassHe(wsrc[0].windDir)} (${Math.round(wsrc[0].windDir)}°${wsrc[1]})` : 'לא ידוע';
+      return 'נושא: פנייה בנושא מפגע זיהום אוויר באזור ' + st.shortName + '\n' +
+        `סוג המפגע: ריח חריף / עשן (לפי דיווח התושב) | ${now} | אזור: ${st.shortName} | PM2.5: ${pm} | רוח: ${wind}` +
+        '\nמקור הנתונים: תחנות הניטור של המשרד להגנת הסביבה (air.sviva.gov.il).';
     }
     const SVIVA_FORM_URL = 'https://govforms.gov.il/mw/forms/ContactUsNew@sviva.gov.il?gbxid=0#!contactUs';
-    window.openSvivaForm = async function (btn) {
-      const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
-      const txt = 'נושא: פנייה בנושא מפגע זיהום אוויר / ריח עשן באזור ' + st.shortName + '\n' +
-        report6911Text().replace('דיווח למוקד *6911 – ', 'פרטי האירוע: ') + '\nמקור הנתונים: תחנות הניטור של המשרד להגנת הסביבה (air.sviva.gov.il).';
-      const win = window.open(SVIVA_FORM_URL, '_blank', 'noopener');
-      await copyTextReliable(txt, () => { if (btn) btn.textContent = '✓ התקציר הועתק – הדבק בטופס'; });
-      if (!win) window.location.href = SVIVA_FORM_URL;
+    // the link itself opens the form in a new tab; this only copies the summary and restores the label after 3 s
+    window.copySvivaSummary = function (link) {
+      const label = link.dataset.label || (link.dataset.label = link.textContent);
+      copyTextReliable(reportSummaryText(), () => { link.textContent = '✓ התקציר הועתק – הדבק בטופס'; });
+      clearTimeout(link._resetT);
+      link._resetT = setTimeout(() => { link.textContent = label; }, 3000);
     };
     const SMELL_FORM_URL = 'https://forms.gle/LiJ5h1AczSw23LDr7';
     function reportButtons(prominent) {
@@ -991,7 +997,7 @@
       return `<div class="flex flex-wrap items-center gap-2">` +
         `<a href="${SMELL_FORM_URL}" target="_blank" rel="noopener noreferrer" class="${b} ${quiet}">👃 דיווח ריח (נאות אפק)</a>` +
         `<a href="tel:%2A6911" class="${b} ${prominent ? 'bg-rose-600 border-rose-400 text-white' : quiet}">📞 חיוג למוקד *6911</a>` +
-        `<button type="button" onclick="openSvivaForm(this)" class="${b} ${quiet}">📝 טופס להגנ"ס</button></div>`;
+        `<a href="${SVIVA_FORM_URL}" target="_blank" rel="noopener noreferrer" onclick="copySvivaSummary(this)" class="${b} ${quiet}">📝 טופס להגנ"ס</a></div>`;
     }
 
     // 12-hour "when to air" strip: hour, wind arrow + short direction, functional status

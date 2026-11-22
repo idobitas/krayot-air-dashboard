@@ -114,6 +114,14 @@ ok(soft.softNote && !/חלונות/.test(soft.softNote), 'soft WHO note carries 
 const footer = htmlSrc.indexOf('<footer'), mainEnd = htmlSrc.indexOf('</main>');
 ok(footer > mainEnd && htmlSrc.includes('הבהרה: המידע באתר מבוסס על נתוני ניטור ציבוריים'), 'disclaimer footer sits outside the tabs (all tabs)');
 
+// 6c. report buttons: *6911 = plain tel link; MoEP form = real link in a new tab, honest summary, label resets
+ok(appSrc.includes('href="tel:%2A6911"') && !appSrc.includes('call6911'), '*6911 is a plain tel: link');
+ok(/<a href="\$\{SVIVA_FORM_URL\}" target="_blank" rel="noopener noreferrer" onclick="copySvivaSummary\(this\)"/.test(appSrc), 'MoEP form opens as <a target=_blank>');
+ok(!/window\.open\(SVIVA_FORM_URL/.test(appSrc) && !/location\.href = SVIVA_FORM_URL/.test(appSrc), 'MoEP form never navigates the dashboard away');
+ok(/setTimeout\(\(\) => \{ link\.textContent = label; \}, 3000\)/.test(appSrc), 'form button label resets after 3 s');
+['לפי דיווח התושב', '(שעה אחרונה)', '(ממוצע יומי)', 'נמדד בקריית אתא'].forEach(t => ok(appSrc.includes(t), `summary labels "${t}"`));
+ok(!appSrc.includes('report6911Text') && appSrc.includes('function reportSummaryText()'), 'summary builder renamed to reportSummaryText');
+
 // 7. fire_v2b.js invariants (engine frozen: these lock its safety rules on a synthetic fixture)
 const FireV2B = require('../js/fire_v2b.js');
 const FX = require('./fire_fixture.js');
