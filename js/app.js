@@ -716,8 +716,8 @@
     // =========================================================================
     // RTL: formulas, units and the numbers attached to them become isolated LTR runs (<bdi dir="ltr">),
     // so "14.0 µg/m³" or "PM2.5" never flip inside Hebrew text. Applied to rendered station content.
-    const LTR_TOKEN = /PM2\.5|PM10|µg\/m³|NO₂|O₃|SO₂|C₆H₆|ppb/;
-    const LTR_RUN = /((?:\d+(?:\.\d+)?\s?)?(?:PM2\.5|PM10|NO₂|O₃|SO₂|C₆H₆)(?:\s\d+(?:\.\d+)?)?(?:\s?(?:µg\/m³|ppb))?|\d+(?:\.\d+)?\s?(?:µg\/m³|ppb)|µg\/m³|ppb)/g;
+    const LTR_TOKEN = /PM2\.5|PM10|µg\/m³|NO₂|O₃|SO₂|C₆H₆|ppb|WHO|IARC|\d°|m\/s/;
+    const LTR_RUN = /((?:\d+(?:\.\d+)?\s?)?(?:PM2\.5|PM10|NO₂|O₃|SO₂|C₆H₆)(?:\s\d+(?:\.\d+)?)?(?:\s?(?:µg\/m³|ppb))?|\d+(?:\.\d+)?\s?(?:µg\/m³|ppb)|µg\/m³|ppb|(?:WHO|IARC)(?::?\s?\d+(?:\.\d+)?)?|\d+(?:\.\d+)?°C?|\d+(?:\.\d+)?\s?m\/s|m\/s)/g;
     function isolateLtr(root) {
       if (!root) return;
       const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), nodes = [];
@@ -1083,7 +1083,7 @@
         return `<div class="snap-start shrink-0 min-w-[92px] rounded-xl border px-2.5 py-1.5 text-center ${g.s[1]}">
           <div class="mono text-xs font-bold" dir="ltr">${range}</div>
           <div class="text-[13px] font-extrabold mt-0.5">${g.s[0]}</div>
-          <div class="text-[10px] opacity-80"><span style="display:inline-block;transform:rotate(${(a.wd + 180) % 360}deg)">↑</span> רוח מ${degToCompassHe(a.wd)}</div>
+          <div class="text-[10px]"><span style="display:inline-block;transform:rotate(${(a.wd + 180) % 360}deg)">↑</span> רוח מ${degToCompassHe(a.wd)}</div>
         </div>`;
       }).join('');
     }
@@ -1135,7 +1135,7 @@
       const wSrc = (st.last30m && st.last30m.windDir != null) ? [st.last30m.windDir, st.last30m.windSpeed, '']
         : (kb && kb.last30m && kb.last30m.windDir != null) ? [kb.last30m.windDir, kb.last30m.windSpeed, ' • קריית אתא']
         : (WIND_FORECAST_CACHE && WIND_FORECAST_CACHE[0]) ? [WIND_FORECAST_CACHE[0].wd, WIND_FORECAST_CACHE[0].ws, ' • תחזית'] : null;
-      const windTag = wSrc ? `<span class="inline-flex items-center min-h-[42px] px-3 rounded-full text-[13px] font-bold bg-black/25 border border-white/15">🧭 רוח מ${degToCompassHe(wSrc[0])} (${Math.round(wSrc[0])}°${wSrc[1] != null ? ', ' + Number(wSrc[1]).toFixed(1) + ' מ/ש' : ''}${wSrc[2]})</span>` : '';
+      const windTag = wSrc ? `<span class="inline-flex items-center min-h-[42px] px-3 rounded-full text-[13px] font-bold bg-black/25 border border-white/15">🧭 רוח מ${degToCompassHe(wSrc[0])} · <bdi dir="ltr">${Math.round(wSrc[0])}°</bdi>${wSrc[1] != null ? ' · <bdi dir="ltr">' + Number(wSrc[1]).toFixed(1) + '</bdi> מ/ש' : ''}${wSrc[2]}</span>` : '';
       const upd = st.live && st.live.measuredAt ? new Date(st.live.measuredAt).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }) : '';
       el.className = 'rounded-3xl border-2 px-5 py-4 shadow-xl ' + L.cls;
       el.innerHTML = `<div class="flex items-center gap-3">
@@ -1149,7 +1149,7 @@
         ${because}${areaNote}${avg}
         <div class="flex flex-wrap items-center gap-2 mt-2">
           ${windTag}
-          <span class="text-[13px] opacity-80">${upd ? 'עודכן ' + upd + ' • ' : ''}${st.shortName}</span>
+          <span class="text-[13px]">${upd ? 'עודכן ' + upd + ' • ' : ''}${st.shortName}</span>
         </div>
         <div class="mt-2">${reportButtons(!!g.smoke || /^(🚨|💨)/.test(g.area))}</div>
         ${window.__verdictHTML ? `<details class="mt-2 text-xs"><summary class="cursor-pointer opacity-80 min-h-[42px] flex items-center text-[13px] font-bold">▾ פרטים נוספים</summary><div class="mt-2 p-2.5 rounded-xl bg-black/25 border border-white/10 flex flex-wrap items-center gap-x-3 gap-y-1.5">${window.__verdictHTML}</div></details>` : ''}`;
@@ -1614,6 +1614,8 @@
           if (tf !== 'all' && tf !== tfKey) return '';
           // in ppb mode the limits written in the label are converted too, so value, limit and % share one unit
           subNote = AQStd.convertLabel(subNote, key, APP_STATE.unitMode);
+          // no nested parentheses inside the "(…)" wrapper: inner "(יעד WHO: 15)" becomes "• יעד WHO: 15"
+          subNote = String(subNote || '').replace(/\s*\(([^()]*)\)/g, ' • $1');
           if (val === null || val === undefined || isNaN(val)) {
             return `<div class="flex items-center justify-between text-xs"><span class="text-slate-400 font-semibold">${label}</span><span class="text-slate-400">${tfKey === 'monthly' ? 'עוד אין 30 יום מלאים' : 'אין נתון'}</span></div>`;
           }
@@ -1816,6 +1818,7 @@
               </span>
             </div>
           `;
+          isolateLtr(sumEl);
         }
 
         AQCharts.renderTrend(ctxTrend, {
@@ -1885,6 +1888,7 @@
           </div>
         </article>
       `).join('');
+      isolateLtr(grid);
     }
 
     // =========================================================================
@@ -2005,9 +2009,16 @@
             rh: Math.round(h.relative_humidity_2m[i] ?? 0)
           });
         }
+        // re-render the card/airing strip only when the forecast actually changed (a fresh network
+        // answer or another station's forecast); a cache hit with the same slots must not wipe
+        // transient card state (copied label, open details).
+        const changed = JSON.stringify(slice) !== JSON.stringify(WIND_FORECAST_CACHE);
         WIND_FORECAST_CACHE = slice;
-        renderDecisionCard();
-        renderAiringStrip();
+        window.__windFcRenders = (window.__windFcRenders || 0) + (changed ? 1 : 0);
+        if (changed) {
+          renderDecisionCard();
+          renderAiringStrip();
+        }
         statusEl.textContent = `עודכן חי (${coords.label})`;
         statusEl.className = 'text-[11px] font-bold text-emerald-300 mono';
 
@@ -2537,6 +2548,23 @@
         return res.json();
       }
 
+      // One "last hour" for the whole UI: the detector reads rolling.hourly, so the card, station
+      // buttons and MOEP summary read it too (metrics.hourly stays as fallback for pollutants
+      // rolling doesn't carry, e.g. NO2, and for O3's 8-hour window).
+      function applyRollingHour(st, rolling) {
+        const h = rolling && rolling.hourly;
+        if (!h) return;
+        Object.keys(st.metrics || {}).forEach(k => {
+          const m = st.metrics[k];
+          if (!m || (k === 'O3' && m.window === '8h')) return;
+          const v = Number(h[k]);
+          if (h[k] == null || !Number.isFinite(v)) return;
+          if (m.hourlyWindow === undefined) m.hourlyWindow = m.hourly;
+          m.hourly = v;
+          m.hourlySource = 'rolling';
+        });
+      }
+
       async function loadLiveData() {
         try {
           const data = await fetchJson('./live_krayot.json');
@@ -2554,6 +2582,7 @@
             Object.entries(live.metrics || {}).forEach(([k, v]) => {
               st.metrics[k] = Object.assign(st.metrics[k] || {}, Object.fromEntries(Object.entries(v).filter(([, x]) => x != null)));
             });
+            applyRollingHour(st, live.rolling);
             deriveRealSummary(st);
           });
           if (data.timestamp) {

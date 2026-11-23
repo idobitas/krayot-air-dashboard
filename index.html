@@ -27,6 +27,10 @@
       main button, header button, main a[href].rounded-full { font-size: 13px; }
       :is(.station-pill, #stationInspectorCard, #stationAdvanced, #pollutantCardsGrid summary, main button, header button, main a[href].rounded-full):is(.text-xs, .text-\[10px\], .text-\[11px\], .text-\[12px\]),
       :is(.station-pill, #stationInspectorCard, #stationAdvanced, #pollutantCardsGrid summary, main button, header button, main a[href].rounded-full) :is(.text-xs, .text-\[10px\], .text-\[11px\], .text-\[12px\]) { font-size: 13px !important; line-height: 1.4; }
+      /* touch targets >= 40px: buttons (mode toggle, nearest, categories, refresh…) and every collapsible summary */
+      :is(header, main) button { min-height: 40px; }
+      :is(header, main) summary { min-height: 40px; display: flex; align-items: center; }
+      header details > summary { min-width: 40px; justify-content: center; }
     }
     /* ===== Light theme ("אור יום"): html[data-theme="light"] remaps the dark palette ===== */
     html[data-theme="light"] { color-scheme: light; }
@@ -225,7 +229,7 @@
             <span>בחר תחנה:</span>
           </h2>
           <div class="flex items-center gap-2 min-w-0">
-            <button type="button" id="btnNearestStation" onclick="selectNearestStation(this)" title="המיקום משמש רק בדפדפן שלך לחישוב המרחק ולא נשלח לשום מקום" class="shrink-0 inline-flex items-center min-h-[36px] px-3 rounded-full text-xs font-bold bg-sky-500/15 border border-sky-500/40 text-sky-200 hover:bg-sky-500/25 disabled:opacity-60 transition">📍 הכי קרובה אליי</button>
+            <button type="button" id="btnNearestStation" onclick="selectNearestStation(this)" title="המיקום משמש רק בדפדפן שלך לחישוב המרחק ולא נשלח לשום מקום" class="shrink-0 inline-flex items-center min-h-[40px] px-3 rounded-full text-xs font-bold bg-sky-500/15 border border-sky-500/40 text-sky-200 hover:bg-sky-500/25 disabled:opacity-60 transition">📍 הכי קרובה אליי</button>
           </div>
         </div>
         <div id="nearestInfo" class="text-[12px] text-sky-200 px-1 -mt-1 mb-2 empty:hidden" aria-live="polite"></div>
@@ -648,7 +652,7 @@ PPB_TO_UGM3 = {
 
   <!-- Disclaimer: every tab -->
   <footer class="max-w-7xl w-full mx-auto px-3 sm:px-5 pb-4 pt-1">
-    <p class="text-[11px] leading-relaxed text-slate-400 border-t border-slate-800 pt-3">הבהרה: המידע באתר מבוסס על נתוני ניטור ציבוריים של המשרד להגנת הסביבה ותחזית רוח פתוחה, ומוצג ככלי עזר קהילתי למידע כללי בלבד. ייתכנו עיכובים או אי־דיוקים במדידות, ואין לראות במידע ייעוץ רפואי, המלצה לפעולה או תחליף להתרעות הרשמיות של המשרד להגנת הסביבה ומשרד הבריאות. השימוש באתר הוא באחריות המשתמש בלבד. <span id="appVersion" class="mono text-slate-500 whitespace-nowrap" title="גרסת האתר (SemVer)">• v3.4.5</span></p>
+    <p class="text-[11px] leading-relaxed text-slate-400 border-t border-slate-800 pt-3">הבהרה: המידע באתר מבוסס על נתוני ניטור ציבוריים של המשרד להגנת הסביבה ותחזית רוח פתוחה, ומוצג ככלי עזר קהילתי למידע כללי בלבד. ייתכנו עיכובים או אי־דיוקים במדידות, ואין לראות במידע ייעוץ רפואי, המלצה לפעולה או תחליף להתרעות הרשמיות של המשרד להגנת הסביבה ומשרד הבריאות. השימוש באתר הוא באחריות המשתמש בלבד. <span id="appVersion" class="mono text-slate-400 whitespace-nowrap" title="גרסת האתר (SemVer)">• v3.4.6</span></p>
   </footer>
 
   <!-- Mobile Sticky Bottom Thumb Navigation Bar -->

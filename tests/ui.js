@@ -22,7 +22,7 @@ const ok = (cond, msg) => { if (cond) passes++; else { fails++; console.error('F
 
 // runs inside the page: layout + RTL + banned-text audit of the visible tab
 function audit({ banned }) {
-  const issues = { overflow: null, clipped: [], overlap: [], rtl: [], banned: [] };
+  const issues = { overflow: null, clipped: [], overlap: [], rtl: [], nested: [], small: [], contrast: [], banned: [] };
   const vw = window.innerWidth;
   if (document.documentElement.scrollWidth > vw) issues.overflow = `${document.documentElement.scrollWidth} > ${vw}`;
   // Chrome keeps boxes for content of a CLOSED <details>; anything outside its <summary> is not visible
@@ -47,8 +47,8 @@ function audit({ banned }) {
     if (w > 2 && h > 2) issues.overlap.push(`"${label(a.el)}" × "${label(b.el)}"`);
   }
   // RTL: units / formulas in dynamic station content must sit inside dir="ltr" or <bdi>
-  const TOKEN = /PM2\.5|µg\/m³|NO₂|O₃|\bppb\b/;
-  ['#decisionCard', '#stationPillsStrip', '#stationInspectorCard', '#pollutantCardsGrid', '#stationAdvanced'].forEach(sel => {
+  const TOKEN = /PM2\.5|µg\/m³|NO₂|O₃|\bppb\b|WHO|IARC|\d°|m\/s/;
+  ['#decisionCard', '#stationPillsStrip', '#stationInspectorCard', '#pollutantCardsGrid', '#stationAdvanced', '#trendChartSummary', '#paramCardsGrid'].forEach(sel => {
     const root = document.querySelector(sel); if (!root || !visible(root)) return;
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let n = walk.nextNode(); n; n = walk.nextNode()) {
@@ -56,6 +56,27 @@ function audit({ banned }) {
       if (!n.parentElement.closest('bdi, [dir="ltr"]')) issues.rtl.push(`${sel}: "${n.nodeValue.trim().slice(0, 50)}"`);
     }
   });
+  // no nested parentheses in a standards sub-note, e.g. "(תקן: 37.5 (יעד WHO: 15))"
+  document.querySelectorAll('#pollutantCardsGrid span').forEach(el => { if (visible(el) && /\([^()]*\(/.test(el.textContent)) issues.nested.push(label(el)); });
+  // touch targets: every visible button / summary in header, card and tab is >= 40px tall (the ⚙️ also wide)
+  [document.querySelector('header'), document.getElementById('decisionCard'), panel].filter(Boolean).forEach(root => root.querySelectorAll('button, summary').forEach(el => {
+    if (!visible(el)) return; const r = el.getBoundingClientRect();
+    if (r.height < 39.5 || r.width < 39.5) issues.small.push(`${label(el) || el.id} ${Math.round(r.width)}×${Math.round(r.height)}`);
+  }));
+  // WCAG AA text contrast (4.5:1, 3:1 for large text) incl. inherited opacity
+  const rgb = c => (c.match(/[\d.]+/g) || [0, 0, 0, 0]).map(Number);
+  const lum = ([r, g, b]) => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+  const mix = (t, b) => { const a = t[3] == null ? 1 : t[3]; return [0, 1, 2].map(i => t[i] * a + b[i] * (1 - a)); };
+  const bgOf = el => { const st = []; for (let e = el; e; e = e.parentElement) { const c = rgb(getComputedStyle(e).backgroundColor); if (c.length === 4 && c[3] === 0) continue; st.push(c); if (c.length === 3 || c[3] === 1) break; }
+    let base = rgb(getComputedStyle(document.body).backgroundColor).slice(0, 3); for (let i = st.length - 1; i >= 0; i--) base = mix(st[i], base); return base; };
+  [document.querySelector('header'), document.getElementById('decisionCard'), panel, document.querySelector('footer')].filter(Boolean).forEach(root => root.querySelectorAll('*').forEach(el => {
+    if (![...el.childNodes].some(n => n.nodeType === 3 && n.nodeValue.trim()) || !visible(el)) return;
+    const cs = getComputedStyle(el), bg = bgOf(el); let fg = rgb(cs.color); if (fg.length === 4) fg = mix(fg, bg);
+    let op = 1; for (let e = el; e; e = e.parentElement) op *= parseFloat(getComputedStyle(e).opacity); if (op < 1) fg = mix([...fg, op], bg);
+    const L1 = lum(fg), L2 = lum(bg), ratio = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+    const size = parseFloat(cs.fontSize), need = (size >= 24 || (parseInt(cs.fontWeight) >= 700 && size >= 18.66)) ? 3 : 4.5;
+    if (ratio < need) issues.contrast.push(`${label(el)} ${ratio.toFixed(2)}`);
+  }));
   const text = document.body.innerText;
   banned.forEach(b => { if (text.includes(b)) issues.banned.push(b); });
   return issues;
@@ -114,6 +135,21 @@ function fontAudit() {
   ok(keep.dyMode < 2 && keep.dyUnit < 2 && keep.dyBack < 2, `open row does not move on screen (${keep.dyMode}/${keep.dyUnit}/${keep.dyBack}px)`);
   await page.evaluate(() => { document.querySelectorAll('#pollutantCardsGrid details[open]').forEach(d => d.open = false); window.scrollTo(0, 0); });
 
+  // one "last hour": card / buttons / MOEP summary read rolling.hourly, same as the detector
+  const roll = await page.evaluate(() => { const bad = []; let n = 0;
+    STATIONS_DATA.forEach(st => { const h = st.live && st.live.rolling && st.live.rolling.hourly; if (!h) return;
+      Object.keys(st.metrics || {}).forEach(k => { if (k === 'O3' || h[k] == null || !Number.isFinite(Number(h[k]))) return; n++; if (Number(st.metrics[k].hourly) !== Number(h[k])) bad.push(`${st.id}/${k} ${st.metrics[k].hourly}≠${h[k]}`); }); });
+    return { n, bad }; });
+  ok(roll.n > 0 && !roll.bad.length, `metrics.hourly follows rolling.hourly (${roll.n} values) → ${roll.bad.slice(0, 4).join(' | ')}`);
+  // a cached wind forecast must not re-render the card (transient state survives)
+  const late = await page.evaluate(async () => {
+    const card = document.getElementById('decisionCard'), marker = card.firstElementChild; marker.dataset.uiMark = '1';
+    const before = window.__windFcRenders || 0;
+    await fetchWindForecast(); await fetchWindForecast(); await new Promise(r => setTimeout(r, 300));
+    return { kept: card.firstElementChild === marker && marker.dataset.uiMark === '1', renders: (window.__windFcRenders || 0) - before };
+  });
+  ok(late.kept && late.renders === 0, `cached forecast keeps the card as is (${JSON.stringify(late)})`);
+
   // default view: banned strings
   const d = await page.evaluate(audit, { banned: ['NaN', 'undefined', 'HBUA', 'py-air-sviva-api', 'סף חשד'] });
   ok(!d.banned.length, 'default view free of banned text: ' + d.banned.join(', '));
@@ -131,6 +167,9 @@ function fontAudit() {
       ok(!r.clipped.length, `${where}: no clipped controls → ${r.clipped.slice(0, 6).join(' | ')}`);
       ok(!r.overlap.length, `${where}: no overlapping controls → ${r.overlap.slice(0, 6).join(' | ')}`);
       ok(!r.rtl.length, `${where}: units/formulas LTR-isolated → ${r.rtl.slice(0, 8).join(' | ')}`);
+      ok(!r.nested.length, `${where}: no nested parentheses → ${r.nested.slice(0, 4).join(' | ')}`);
+      ok(!r.small.length, `${where}: touch targets >= 40px → ${r.small.slice(0, 8).join(' | ')}`);
+      ok(!r.contrast.length, `${where}: text contrast >= AA → ${r.contrast.slice(0, 8).join(' | ')}`);
       const f = await page.evaluate(fontAudit);
       ok(!f.small.length, `${where}: text >= 12px → ${f.small.slice(0, 8).join(' | ')}`);
       ok(!f.big.length, `${where}: cards/buttons/accordion labels >= 13px → ${f.big.slice(0, 8).join(' | ')}`);
@@ -159,6 +198,10 @@ function fontAudit() {
     ok(!r.overflow, `light/${tab}: no horizontal overflow ${r.overflow || ''}`);
     ok(!r.clipped.length, `light/${tab}: no clipped controls → ${r.clipped.slice(0, 6).join(' | ')}`);
     ok(!r.overlap.length, `light/${tab}: no overlapping controls → ${r.overlap.slice(0, 6).join(' | ')}`);
+    ok(!r.rtl.length, `light/${tab}: units/formulas LTR-isolated → ${r.rtl.slice(0, 8).join(' | ')}`);
+    ok(!r.nested.length, `${'light/' + tab}: no nested parentheses → ${r.nested.slice(0, 4).join(' | ')}`);
+    ok(!r.small.length, `${'light/' + tab}: touch targets >= 40px → ${r.small.slice(0, 8).join(' | ')}`);
+    ok(!r.contrast.length, `${'light/' + tab}: text contrast >= AA → ${r.contrast.slice(0, 8).join(' | ')}`);
     if (r.overflow || r.clipped.length || r.overlap.length) await lp.screenshot({ path: path.join(SHOTS, `light-${tab}.png`), fullPage: true });
   }
   // ⚙️ closes on an outside tap; unit buttons fill the row like the theme buttons
