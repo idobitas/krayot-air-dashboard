@@ -202,5 +202,25 @@ if (R && R.S) {
   yam.S.forEach((s, i) => { if (mot.S[i] === null && s !== null) ok(s <= 59, `Yam cap hour ${i}: ${s}`); });
 }
 
+// ---- round 2 (v3.4.7): limits from standards.js, forecast nulls, SRI, dead code ----
+{
+  ok(S.limit('PM25', 'd', 'env') === 37.5 && S.limit('PM25', 'd', 'target') === 15 && S.limit('PM25', 'm', 'target') === 5, 'limit(): PM2.5 37.5 / 15 / 5');
+  ok(S.limit('NO2', 'm', 'env') === 40 && S.limit('NO2', 'm', 'target') === 10 && S.limit('PM10', 'd', 'env') === 130, 'limit(): NO2 40/10, PM10 130');
+  ok(S.limit('C6H6', 'd', 'env') === 3.9 && S.limit('CH2O', 'h', 'env') === 15 && S.limit('XX', 'd', 'env') === null, 'limit(): benzene 3.9, CH2O 15, unknown -> null');
+  for (const mode of MODES) for (const k of ['PM25', 'PM10', 'NO2']) ok(S.limit(k, 'm', 'target') <= S.limit(k, 'm', 'env'), `limit(): ${k} health target <= legal (${mode})`);
+  // no numeric limit literals left in the threshold sites of app.js
+  [/pm25_max24h > 37\.5/, /pm10_max24h > 130/, /no2_annual > 40/, /c6h6 > 3\.9/, /ch2o > 15/, /if \(v > 15\) n\+\+/, /isTarget \? (10|5|15) : (40|25|50)/, /dcount\('C6H6', 3\.9\)/]
+    .forEach(re => ok(!re.test(appSrc), 'no hardcoded threshold in app.js: ' + re));
+  ok(/ws: num\(h\.wind_speed_10m\[i\], 1\)/.test(appSrc) && !/wind_speed_10m\[i\] \?\? 0/.test(appSrc), 'forecast: missing wind stays null (no ?? 0)');
+  ok(/timeZone: 'Asia\/Jerusalem'[^\n]*\n[^\n]*\n\s*const nowStr/.test(appSrc), 'forecast: nowStr computed in Asia/Jerusalem');
+  ok(/slot\.ws == null \|\| slot\.wd == null\) return \{ score: 0, level: 'na', missing: true \}/.test(appSrc), 'forecast: a slot without wind is "na", not stagnant air');
+  const trap = G.computeGuidance(station('s', 'בדיקה', hourly({ PM25: 40 })), { ...clearCtx('env'), forecast: [{ time: '10:00', date: '01/01', ws: null, wd: null }], riskOf: () => ({ score: 0, level: 'na', missing: true }) });
+  ok(trap && trap.trapped === false && trap.goodWindow === null, 'guidance: missing forecast hours are neither trapped air nor a good window');
+  ['chart.js@', 'lucide@'].forEach(lib => ok(new RegExp('<script src="[^"]*' + lib.replace('.', '\\.') + '[^"]*" integrity="sha384-[A-Za-z0-9+/=]{64}" crossorigin="anonymous"').test(htmlSrc), 'SRI integrity on ' + lib));
+  ['countStationExceedances', 'plainLabel', 'chartStationProfile', 'matrixFilter', 'matrixSearch', 'timeframeView', 'const plim'].forEach(w => ok(!appSrc.includes(w) && !htmlSrc.includes(w), 'dead code removed: ' + w));
+  ok(/OFFLINE FALLBACK ONLY[\s\S]{0,400}function detectPirateFireSignatureLegacy/.test(appSrc), 'legacy detector marked as offline fallback');
+  ok(htmlSrc.includes('התקן החוקי') && htmlSrc.includes('יעד בריאותי (מחמיר)'), 'mode toggle labels');
+}
+
 console.log(`${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

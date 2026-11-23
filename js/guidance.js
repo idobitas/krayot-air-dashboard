@@ -105,7 +105,7 @@
         .map(x => ({ ...x, risk: riskOf(x) })).find(e => e.risk.level === 'low') || null;
     }
     // trapped air: same rule as the guide tab (next 3 forecast hours mostly weak dispersion)
-    const trapped = !!(forecast.length && Math.max(...forecast.slice(0, 3).map(x => riskOf(x).score)) >= 70);
+    const trapped = !!(forecast.length && Math.max(0, ...forecast.slice(0, 3).map(x => riskOf(x)).filter(r => !r.missing).map(r => r.score)) >= 70);
     // gentle note: particles a little above the WHO daily guideline but still in the "fine" band
     const soft = [['PM25', 15, 'PM2.5'], ['PM10', 45, 'PM10']].map(([k, who, code]) => {
       const hv = st.metrics?.[k]?.hourly;

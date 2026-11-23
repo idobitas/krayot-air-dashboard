@@ -55,13 +55,20 @@
   }
   function unitLabel(key, unitMode) { return unitMode === 'ppb' && isPpbCapable(key) ? 'ppb' : 'µg/m³'; }
   // limits written inside a row label ("תקן יממתי: 80 (יעד WHO: 25)") follow the unit, gases only
+  // limit(key, 'h'|'d'|'m', 'env'|'target'): the one place app.js reads numeric limits from
+  function limit(key, tf, mode) {
+    const s = POLLUTANT_STANDARDS[key]; if (!s) return null;
+    const v = s[tf + (mode === 'target' ? 'Target' : 'Env')];
+    return Number.isFinite(v) ? v : null;
+  }
+
   function convertLabel(label, key, unitMode) {
     if (!label || unitMode !== 'ppb' || !isPpbCapable(key)) return label;
     return label.replace(/((?:תקן|יעד)[^\d()•]*?)(\d+(?:\.\d+)?)/g, (_, pre, num) => pre + formatGas(parseFloat(num), key, unitMode, 1) + ' ppb');
   }
 
   const api = { GAS_CONVERSION, POLLUTANT_STANDARDS, PLAIN_NAMES, DAILY_WHO_VS_LEGAL, NOW_BANDS_BY_MODE,
-    nowBands, nowLevel, isPpbCapable, formatGas, unitLabel, convertLabel };
+    nowBands, nowLevel, isPpbCapable, formatGas, unitLabel, convertLabel, limit };
   root.AQStd = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

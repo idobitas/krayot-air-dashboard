@@ -13,8 +13,8 @@
   </script>
   <title>איכות אוויר בקריות ומפרץ חיפה | envihaifa.net &amp; air.sviva.gov.il</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" integrity="sha384-ieG+IKD0d/ZPXyCBTMVAbqsQdns8QGJR/e26WMw7M4fkaI/rHcS/YIoi+ah9WGge" crossorigin="anonymous"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
     .dev-only { display: none !important; }
@@ -142,13 +142,13 @@
 
       <!-- Global benchmark switch: always visible (sticky header), re-renders every tab -->
       <div class="flex items-center justify-between gap-2">
-        <span class="text-[12px] font-bold text-slate-300">בסיס השוואה לצבעים:</span>
+        <span class="min-w-0 text-[12px] leading-tight font-bold text-slate-300">בסיס השוואה לצבעים:</span>
         <div title="בסיס השוואה לצבעים ולאחוזים בכל האתר" class="shrink-0 flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[12px]">
-          <button id="btnBenchEnv" type="button" class="px-2 py-1.5 rounded-md font-bold bg-purple-600 text-white transition" title="השוואה לתקן הסביבה החוקי">
-            תקן חוקי
+          <button id="btnBenchEnv" type="button" class="px-2 py-1.5 rounded-md font-bold whitespace-nowrap bg-purple-600 text-white transition" title="השוואה לתקן הסביבה החוקי">
+            התקן החוקי
           </button>
-          <button id="btnBenchTarget" type="button" class="px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition" title="השוואה לערך היעד הבריאותי המחמיר">
-            יעד בריאותי
+          <button id="btnBenchTarget" type="button" class="px-2 py-1.5 rounded-md font-bold whitespace-nowrap text-slate-300 hover:text-white transition" title="השוואה לערך היעד הבריאותי המחמיר">
+            יעד בריאותי (מחמיר)
           </button>
         </div>
       </div>
@@ -257,7 +257,6 @@
 
 
       <!-- Hidden canvas keepalive for station profile chart compatibility -->
-      <div class="hidden"><canvas id="chartStationProfile"></canvas></div>
     </section>
 
 
@@ -652,7 +651,7 @@ PPB_TO_UGM3 = {
 
   <!-- Disclaimer: every tab -->
   <footer class="max-w-7xl w-full mx-auto px-3 sm:px-5 pb-4 pt-1">
-    <p class="text-[11px] leading-relaxed text-slate-400 border-t border-slate-800 pt-3">הבהרה: המידע באתר מבוסס על נתוני ניטור ציבוריים של המשרד להגנת הסביבה ותחזית רוח פתוחה, ומוצג ככלי עזר קהילתי למידע כללי בלבד. ייתכנו עיכובים או אי־דיוקים במדידות, ואין לראות במידע ייעוץ רפואי, המלצה לפעולה או תחליף להתרעות הרשמיות של המשרד להגנת הסביבה ומשרד הבריאות. השימוש באתר הוא באחריות המשתמש בלבד. <span id="appVersion" class="mono text-slate-400 whitespace-nowrap" title="גרסת האתר (SemVer)">• v3.4.6</span></p>
+    <p class="text-[11px] leading-relaxed text-slate-400 border-t border-slate-800 pt-3">הבהרה: המידע באתר מבוסס על נתוני ניטור ציבוריים של המשרד להגנת הסביבה ותחזית רוח פתוחה, ומוצג ככלי עזר קהילתי למידע כללי בלבד. ייתכנו עיכובים או אי־דיוקים במדידות, ואין לראות במידע ייעוץ רפואי, המלצה לפעולה או תחליף להתרעות הרשמיות של המשרד להגנת הסביבה ומשרד הבריאות. השימוש באתר הוא באחריות המשתמש בלבד. <span id="appVersion" class="mono text-slate-400 whitespace-nowrap" title="גרסת האתר (SemVer)">• v3.4.7</span></p>
   </footer>
 
   <!-- Mobile Sticky Bottom Thumb Navigation Bar -->

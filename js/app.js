@@ -9,10 +9,7 @@
       activeTab: 'matrix',
       benchmarkMode: 'env', // 'env' or 'target'
       unitMode: 'ug',       // 'ug' or 'ppb'
-      matrixFilter: 'krayot', // Default focus on Krayot!
-      matrixSearch: '',
       selectedStationId: (() => { try { return localStorage.getItem('krayot.station') || 'kiryat_motzkin_z2'; } catch (e) { return 'kiryat_motzkin_z2'; } })(),
-      timeframeView: 'all', // 'all', 'hourly', 'daily', 'monthly'
       paramCategory: 'live',
       paramSearch: '',
       aqiInputs: { PM25: 24.4, PM10: 34.5, O3: 36.1, SO2: 0.8, NO2: 2.4, NOX: 38.0, CO: 0.3 }
@@ -516,7 +513,7 @@
       const dmax = k => { const v = days.map(d => d[k]).filter(x => x != null); return v.length ? +Math.max(...v).toFixed(2) : null; };
       const dcount = (k, thr) => days.filter(d => d[k] != null && d[k] > thr).length;
       const mon = k => (m[k] && m[k].monthlyReal) ? m[k].monthly : null;
-      if (m.C6H6) { st.c6h6_max24h = dmax('C6H6'); st.c6h6_exceedDays = dcount('C6H6', 3.9); st.c6h6_annual = mon('C6H6'); }
+      if (m.C6H6) { st.c6h6_max24h = dmax('C6H6'); st.c6h6_exceedDays = dcount('C6H6', AQStd.limit('C6H6', 'd', 'env')); st.c6h6_annual = mon('C6H6'); }
       if (m.PM25) { st.pm25_max24h = dmax('PM25'); st.pm25_annual = mon('PM25'); }
       if (m.PM10) { st.pm10_max24h = dmax('PM10'); st.pm10_annual = mon('PM10'); }
       if (m.NO2) st.no2_annual = mon('NO2');
@@ -525,12 +522,12 @@
       if (m.H2S) st.h2s_annual = mon('H2S');
       const legal = [], health = [];
       if (st.c6h6_exceedDays > 0) legal.push((st.c6h6_exceedDays === 1 ? 'יום חריגה אחד' : st.c6h6_exceedDays + ' ימי חריגה') + ' בבנזן ב-30 הימים האחרונים');
-      if (st.pm25_max24h > 37.5) legal.push('PM2.5: יממה מעל התקן ב-30 הימים האחרונים');
-      if (st.pm10_max24h > 130) legal.push('PM10: יממה מעל התקן ב-30 הימים האחרונים');
-      if (st.no2_annual > 40) legal.push('NO₂: ממוצע 30 יום מעל התקן השנתי');
-      if (st.pm25_annual > 5) health.push('PM2.5');
-      if (st.pm10_annual > 15) health.push('PM10');
-      if (st.no2_annual > 10) health.push('NO₂');
+      if (st.pm25_max24h > AQStd.limit('PM25', 'd', 'env')) legal.push('PM2.5: יממה מעל התקן ב-30 הימים האחרונים');
+      if (st.pm10_max24h > AQStd.limit('PM10', 'd', 'env')) legal.push('PM10: יממה מעל התקן ב-30 הימים האחרונים');
+      if (st.no2_annual > AQStd.limit('NO2', 'm', 'env')) legal.push('NO₂: ממוצע 30 יום מעל התקן השנתי');
+      if (st.pm25_annual > AQStd.limit('PM25', 'm', 'target')) health.push('PM2.5');
+      if (st.pm10_annual > AQStd.limit('PM10', 'm', 'target')) health.push('PM10');
+      if (st.no2_annual > AQStd.limit('NO2', 'm', 'target')) health.push('NO₂');
       st.status = legal.length ? 'exceed_env' : (health.length ? 'exceed_target' : 'ok');
       st.statusText = (legal.length ? legal.join('; ')
         : (health.length ? 'תקין חוקית • מעל יעד WHO 2021: <bdi dir="ltr">' + health.join(', ') + '</bdi>' : 'תקין (30 יום אחרונים)')) + (st.stale ? ' • נתון ישן' : '');
@@ -776,19 +773,9 @@
       }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
     };
 
+    // the 6 Krayot stations are always shown (area filter and station search were removed on purpose)
     function getFilteredStations() {
-      const q = APP_STATE.matrixSearch.trim().toLowerCase();
-      return STATIONS_DATA.filter(st => {
-        if (APP_STATE.matrixFilter === 'krayot' && st.group !== 'krayot') return false;
-        if (APP_STATE.matrixFilter === 'exceed_env' && st.status !== 'exceed_env') return false;
-        if (APP_STATE.matrixFilter === 'industrial' && st.group !== 'industrial' && st.id !== 'kishon_mobile5') return false;
-        if (APP_STATE.matrixFilter === 'carmel' && st.group !== 'carmel') return false;
-        if (q) {
-          const hay = (st.name + ' ' + st.shortName + ' ' + st.code + ' ' + st.location + ' ' + st.notes).toLowerCase();
-          if (!hay.includes(q)) return false;
-        }
-        return true;
-      });
+      return STATIONS_DATA.filter(st => st.group === 'krayot');
     }
 
     // =========================================================================
@@ -817,14 +804,10 @@
       strip.innerHTML = filtered.map(st => {
         const active = st.id === APP_STATE.selectedStationId;
         const dotCls = { exceed_env: 'bg-purple-500 pulse-red', exceed_target: 'bg-rose-500', ok: 'bg-emerald-400' }[st.status] || 'bg-slate-500';
-        const pk = st.metrics.C6H6 ? 'C6H6' : (st.metrics.PM25 ? 'PM25' : null);
-        const pv = pk ? st.metrics[pk].daily : null;
-        const plim = pk === 'C6H6' ? 3.9 : (APP_STATE.benchmarkMode === 'target' ? 15 : 37.5);
         const ww = stationWorst(st);
         const onlyBz = Object.keys(st.metrics || {}).every(k => k === 'C6H6' || k === 'Toluene') && Object.keys(st.metrics || {}).length > 0;
         const plbl = ww ? ww.code : 'ממתין לנתונים';
         const wl = stationLevel(st), wlv = wl == null ? null : WORD_LEVELS[wl];
-        const pval = pk === 'C6H6' ? formatGasValue(pv, 'C6H6') + ' ' + getUnitLabel('C6H6') : (pv == null ? '—' : Number(pv).toFixed(1) + ' µg/m³');
         return `
           <button type="button" data-station-id="${st.id}" class="station-pill snap-start shrink-0 lg:shrink lg:flex-1 lg:min-w-0 text-right rounded-2xl p-3 min-w-[175px] sm:min-w-[195px] border transition ${
             active
@@ -861,10 +844,11 @@
         // annual/30-day limits: legal (Israel) vs. WHO 2021 guideline (PM2.5 5, PM10 15, NO2 10)
         const pct = (v, lim) => v == null ? 0 : Math.round((v / lim) * 100);
         const dash = v => v == null ? '—' : v;
-        const c6Pct = pct(st.c6h6_max24h, 3.9);
-        const no2Pct = pct(st.no2_annual, isTarget ? 10 : 40);
-        const pm25Pct = pct(st.pm25_annual, isTarget ? 5 : 25);
-        const pm10Pct = pct(st.pm10_annual, isTarget ? 15 : 50);
+        const mode = isTarget ? 'target' : 'env';
+        const c6Pct = pct(st.c6h6_max24h, AQStd.limit('C6H6', 'd', 'env'));
+        const no2Pct = pct(st.no2_annual, AQStd.limit('NO2', 'm', mode));
+        const pm25Pct = pct(st.pm25_annual, AQStd.limit('PM25', 'm', mode));
+        const pm10Pct = pct(st.pm10_annual, AQStd.limit('PM10', 'm', mode));
         return `
           <tr data-station-id="${st.id}" class="station-row cursor-pointer hover:bg-slate-800/70 ${st.id === APP_STATE.selectedStationId ? 'bg-sky-950/30' : ''}">
             <td class="py-2 px-3 sticky right-0 bg-slate-900 border-l border-slate-800 font-bold text-white">${st.shortName}</td>
@@ -875,7 +859,7 @@
               return `<td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded text-[11px] font-bold ${cls}">${lbl}</span></td>`;
             })()}
             <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(c6Pct, st.c6h6_exceedDays > 7)} mono">${formatGasValue(st.c6h6_max24h, 'C6H6')}${st.c6h6_max24h == null ? '' : ' (' + c6Pct + '%)'}</span></td>
-            <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(no2Pct, st.no2_annual > 40)} mono">${formatGasValue(st.no2_annual, 'NO2', 1)}</span></td>
+            <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(no2Pct, st.no2_annual > AQStd.limit('NO2', 'm', 'env'))} mono">${formatGasValue(st.no2_annual, 'NO2', 1)}</span></td>
             <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(pm25Pct)} mono">${dash(st.pm25_max24h)} / ${dash(st.pm25_annual)}</span></td>
             <td class="py-2 px-2.5 text-center"><span class="px-2 py-0.5 rounded ${getCellBadgeClass(pm10Pct)} mono">${dash(st.pm10_max24h)} / ${dash(st.pm10_annual)}</span></td>
             <td class="py-2 px-2.5 text-center mono">${formatGasValue(st.o3_annual, 'O3', 1)}</td>
@@ -959,7 +943,8 @@
         }
       }
       if (typeof WIND_FORECAST_CACHE !== 'undefined' && Array.isArray(WIND_FORECAST_CACHE) && WIND_FORECAST_CACHE.length) {
-        return { windDir: Number(WIND_FORECAST_CACHE[0].wd), windSpeed: Number(WIND_FORECAST_CACHE[0].ws), source: 'open-meteo' };
+        const f0 = WIND_FORECAST_CACHE[0];
+        if (f0.wd != null) return { windDir: Number(f0.wd), windSpeed: f0.ws == null ? null : Number(f0.ws), source: 'open-meteo' };
       }
       return { windDir: null, windSpeed: null, source: 'none' };
     }
@@ -989,9 +974,6 @@
       }
       return v2bSignature(st) || detectPirateFireSignatureLegacy(st, allStations, opts);
     }
-
-    // plain-language names shown next to the professional ones (never instead of them)
-    const plainLabel = (k, code) => `${code} (${PLAIN_NAMES[k] || ''})`;
 
     // one word per station from live values vs. WHO 2021 24 h guidelines (benzene vs. its daily limit)
     const WORD_LEVELS = [
@@ -1065,7 +1047,8 @@
       const S = {
         low: ['פיזור טוב', 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'],
         med: ['רוח חלשה', 'bg-orange-500/15 border-orange-500/40 text-orange-200'],
-        high: ['עשן מהמזרח', 'bg-rose-500/20 border-rose-500/50 text-rose-200']
+        high: ['עשן מהמזרח', 'bg-rose-500/20 border-rose-500/50 text-rose-200'],
+        na: ['אין נתון רוח', 'bg-slate-800 border-slate-700 text-slate-300']
       };
       // consecutive hours with the same status become one tile ("00:00–09:00 • עשן מהמזרח")
       const groups = [];
@@ -1083,7 +1066,7 @@
         return `<div class="snap-start shrink-0 min-w-[92px] rounded-xl border px-2.5 py-1.5 text-center ${g.s[1]}">
           <div class="mono text-xs font-bold" dir="ltr">${range}</div>
           <div class="text-[13px] font-extrabold mt-0.5">${g.s[0]}</div>
-          <div class="text-[10px]"><span style="display:inline-block;transform:rotate(${(a.wd + 180) % 360}deg)">↑</span> רוח מ${degToCompassHe(a.wd)}</div>
+          ${a.wd == null ? '' : `<div class="text-[10px]"><span style="display:inline-block;transform:rotate(${(a.wd + 180) % 360}deg)">↑</span> רוח מ${degToCompassHe(a.wd)}</div>`}
         </div>`;
       }).join('');
     }
@@ -1134,7 +1117,7 @@
       const kb = STATIONS_DATA.find(o => o.id === 'kiryat_binyamin');
       const wSrc = (st.last30m && st.last30m.windDir != null) ? [st.last30m.windDir, st.last30m.windSpeed, '']
         : (kb && kb.last30m && kb.last30m.windDir != null) ? [kb.last30m.windDir, kb.last30m.windSpeed, ' • קריית אתא']
-        : (WIND_FORECAST_CACHE && WIND_FORECAST_CACHE[0]) ? [WIND_FORECAST_CACHE[0].wd, WIND_FORECAST_CACHE[0].ws, ' • תחזית'] : null;
+        : (WIND_FORECAST_CACHE && WIND_FORECAST_CACHE[0] && WIND_FORECAST_CACHE[0].wd != null) ? [WIND_FORECAST_CACHE[0].wd, WIND_FORECAST_CACHE[0].ws, ' • תחזית'] : null;
       const windTag = wSrc ? `<span class="inline-flex items-center min-h-[42px] px-3 rounded-full text-[13px] font-bold bg-black/25 border border-white/15">🧭 רוח מ${degToCompassHe(wSrc[0])} · <bdi dir="ltr">${Math.round(wSrc[0])}°</bdi>${wSrc[1] != null ? ' · <bdi dir="ltr">' + Number(wSrc[1]).toFixed(1) + '</bdi> מ/ש' : ''}${wSrc[2]}</span>` : '';
       const upd = st.live && st.live.measuredAt ? new Date(st.live.measuredAt).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }) : '';
       el.className = 'rounded-3xl border-2 px-5 py-4 shadow-xl ' + L.cls;
@@ -1152,7 +1135,7 @@
           <span class="text-[13px]">${upd ? 'עודכן ' + upd + ' • ' : ''}${st.shortName}</span>
         </div>
         <div class="mt-2">${reportButtons(!!g.smoke || /^(🚨|💨)/.test(g.area))}</div>
-        ${window.__verdictHTML ? `<details class="mt-2 text-xs"><summary class="cursor-pointer opacity-80 min-h-[42px] flex items-center text-[13px] font-bold">▾ פרטים נוספים</summary><div class="mt-2 p-2.5 rounded-xl bg-black/25 border border-white/10 flex flex-wrap items-center gap-x-3 gap-y-1.5">${window.__verdictHTML}</div></details>` : ''}`;
+        ${window.__verdictHTML ? `<details class="mt-2 text-xs"><summary class="cursor-pointer min-h-[42px] flex items-center text-[13px] font-bold">▾ פרטים נוספים</summary><div class="mt-2 p-2.5 rounded-xl bg-black/25 border border-white/10 flex flex-wrap items-center gap-x-3 gap-y-1.5">${window.__verdictHTML}</div></details>` : ''}`;
       isolateLtr(el);
     }
 
@@ -1194,6 +1177,8 @@
       renderDecisionCard();
     }
 
+    // OFFLINE FALLBACK ONLY: the pre-v2b detector. Used solely when FireV2B produced no result for a
+    // station (history not loaded yet / failed, or a non-PM station). The live verdict comes from fire_v2b.js.
     function detectPirateFireSignatureLegacy(st, allStations = null, opts = {}) {
       const m = st.metrics || {};
       const r30 = st.last30m || {};
@@ -1407,9 +1392,9 @@
       const peakHours = eps.filter(e => lastT - R.axis[e.end] <= 86400000).map(fmt);
       if (!peakHours.length) { // no smoke score >= 55 in the last 24 h: show WHO 2021 hours and the PM2.5 peak instead
         const ch = R.S[st.id], from = Math.max(0, R.axis.length - 24);
-        let n = 0, pk = -1, pkI = -1;
-        for (let i = from; i < R.axis.length; i++) { const v = ch.PM25[i]; if (v == null) continue; if (v > 15) n++; if (v > pk) { pk = v; pkI = i; } }
-        if (pkI >= 0) peakHours.push(`ℹ️ אין אירוע עשן; ${n ? hrs(n) + ' מעל יעד WHO 2021 (15)' : 'כל השעות בתוך יעד WHO 2021'} • שיא PM2.5 ${pk.toFixed(1)} µg/m³ ב-${v2bHourLabel(R.axis[pkI])}`);
+        let n = 0, pk = -1, pkI = -1; const who = AQStd.limit('PM25', 'd', 'target');
+        for (let i = from; i < R.axis.length; i++) { const v = ch.PM25[i]; if (v == null) continue; if (v > who) n++; if (v > pk) { pk = v; pkI = i; } }
+        if (pkI >= 0) peakHours.push(`ℹ️ אין אירוע עשן; ${n ? hrs(n) + ` מעל יעד WHO 2021 (${who})` : 'כל השעות בתוך יעד WHO 2021'} • שיא PM2.5 ${pk.toFixed(1)} µg/m³ ב-${v2bHourLabel(R.axis[pkI])}`);
       }
       const peakDays = eps.filter(e => lastT - R.axis[e.end] <= 30 * 86400000).slice(-12).reverse().map(fmt);
       const byMonth = {};
@@ -1510,35 +1495,21 @@
       }
     }
 
-    function countStationExceedances(st, mode) {
-      let count = 0;
-      const keys = Object.keys(POLLUTANT_STANDARDS);
-      keys.forEach(key => {
-        const std = POLLUTANT_STANDARDS[key];
-        const m = st.metrics?.[key];
-        if (!m) return;
-        const hLim = mode === 'target' ? std.hTarget : std.hEnv;
-        const dLim = mode === 'target' ? std.dTarget : std.dEnv;
-        const mLim = mode === 'target' ? std.mTarget : std.mEnv;
-        if ((m.hourly > hLim) || (m.daily > dLim) || (m.monthly > mLim)) count++;
-      });
-      return count;
-    }
-
     function renderStationInspector() {
       const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
       const container = document.getElementById('stationInspectorCard');
 
       const exceedances = [];
-      if (st.c6h6_max24h > 3.9) exceedances.push({ color: 'purple', text: `בנזן: ${st.c6h6_exceedDays === 1 ? 'יום אחד' : st.c6h6_exceedDays + ' ימים'} מעל התקן היממתי 3.9 ב-30 הימים האחרונים (שיא ${st.c6h6_max24h} µg/m³)` });
-      if (st.pm25_max24h > 37.5) exceedances.push({ color: 'purple', text: `PM2.5: שיא יממתי ${st.pm25_max24h} µg/m³ ב-30 יום (תקן 37.5)` });
-      else if (st.pm25_annual > 5) exceedances.push({ color: 'rose', text: `PM2.5 מעל יעד WHO 2021 (ממוצע 30 יום ${st.pm25_annual} מול 5; תקן חוקי שנתי 25)` });
-      if (st.ch2o_exceed1h > 0) exceedances.push({ color: 'purple', text: `פורמאלדהיד: ${st.ch2o_exceed1h} עליות שעתיות מעל 15 µg/m³` });
-      if (st.no2_annual > 40) exceedances.push({ color: 'purple', text: `NO₂ ממוצע 30 יום ${st.no2_annual} µg/m³ (מעל התקן השנתי 40)` });
+      const c6L = AQStd.limit('C6H6', 'd', 'env'), pm25D = AQStd.limit('PM25', 'd', 'env'), pm25M = AQStd.limit('PM25', 'm', 'env'), pm25W = AQStd.limit('PM25', 'm', 'target'), no2M = AQStd.limit('NO2', 'm', 'env'), pm10D = AQStd.limit('PM10', 'd', 'env'), ch2oH = AQStd.limit('CH2O', 'h', 'env'), o3M = AQStd.limit('O3', 'm', 'env');
+      if (st.c6h6_max24h > c6L) exceedances.push({ color: 'purple', text: `בנזן: ${st.c6h6_exceedDays === 1 ? 'יום אחד' : st.c6h6_exceedDays + ' ימים'} מעל התקן היממתי ${c6L} ב-30 הימים האחרונים (שיא ${st.c6h6_max24h} µg/m³)` });
+      if (st.pm25_max24h > pm25D) exceedances.push({ color: 'purple', text: `PM2.5: שיא יממתי ${st.pm25_max24h} µg/m³ ב-30 יום (תקן ${pm25D})` });
+      else if (st.pm25_annual > pm25W) exceedances.push({ color: 'rose', text: `PM2.5 מעל יעד WHO 2021 (ממוצע 30 יום ${st.pm25_annual} מול ${pm25W}; תקן חוקי שנתי ${pm25M})` });
+      if (st.ch2o_exceed1h > 0) exceedances.push({ color: 'purple', text: `פורמאלדהיד: ${st.ch2o_exceed1h} עליות שעתיות מעל ${ch2oH} µg/m³` });
+      if (st.no2_annual > no2M) exceedances.push({ color: 'purple', text: `NO₂ ממוצע 30 יום ${st.no2_annual} µg/m³ (מעל התקן השנתי ${no2M})` });
       if (st.bap_exceedDays > 0) exceedances.push({ color: 'rose', text: `בנזו-א-פירן (מסרטן): ${st.bap_exceedDays} יממות מעל ערך היעד הבריאותי` });
-      if (st.pm10_max24h > 130) exceedances.push({ color: 'purple', text: `PM10: שיא יממתי ${st.pm10_max24h} µg/m³ ב-30 יום (תקן 130)` });
+      if (st.pm10_max24h > pm10D) exceedances.push({ color: 'purple', text: `PM10: שיא יממתי ${st.pm10_max24h} µg/m³ ב-30 יום (תקן ${pm10D})` });
       if (!exceedances.length && st.status !== 'unknown') exceedances.push({ color: 'green', text: 'אין חריגה מתקן או מיעד WHO במזהמים שנמדדים כאן (30 יום)' });
-      if (st.o3_annual > 100) exceedances.push({ color: 'rose', text: `אוזון שנתי גבוה (${st.o3_annual} µg/m³) עם עליות מעל יעד 8-שעתי` });
+      if (st.o3_annual > o3M) exceedances.push({ color: 'rose', text: `אוזון שנתי גבוה (${st.o3_annual} µg/m³) עם עליות מעל יעד 8-שעתי` });
 
       container.innerHTML = `
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
@@ -1573,7 +1544,6 @@
       const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
       const grid = document.getElementById('pollutantCardsGrid');
       const isTarget = APP_STATE.benchmarkMode === 'target';
-      const tf = APP_STATE.timeframeView;
 
       // fixed display order: particles, gases, benzene (indicative) last
       const keys = Object.keys(POLLUTANT_STANDARDS).filter(k => st.metrics && st.metrics[k]).sort((a, b) => (a === 'C6H6') - (b === 'C6H6'));
@@ -1596,11 +1566,7 @@
         const dPct = m.daily == null ? 0 : Math.round((m.daily / dLimit) * 100);
         const mPct = (m.monthly == null || !m.monthlyReal) ? 0 : Math.round((m.monthly / mLimit) * 100);
 
-        const maxPct = Math.max(
-          tf === 'all' || tf === 'hourly' ? hPct : 0,
-          tf === 'all' || tf === 'daily' ? dPct : 0,
-          tf === 'all' || tf === 'monthly' ? mPct : 0
-        );
+        const maxPct = Math.max(hPct, dPct, mPct);
 
         // collapsed row = last hour only (8-h mean for O3): hourly limit, or the active 24-h limit for PM;
         // benzene has no short-term limit -> neutral indicative label. 24 h / 30 days stay in the expanded rows.
@@ -1611,7 +1577,6 @@
         const dec = key === 'BaP' ? 5 : (key === 'C6H6' || key === 'H2S' ? 2 : 1);
 
         const renderTimeRow = (tfKey, label, val, limit, pct, subNote, targetLimit) => {
-          if (tf !== 'all' && tf !== tfKey) return '';
           // in ppb mode the limits written in the label are converted too, so value, limit and % share one unit
           subNote = AQStd.convertLabel(subNote, key, APP_STATE.unitMode);
           // no nested parentheses inside the "(…)" wrapper: inner "(יעד WHO: 15)" becomes "• יעד WHO: 15"
@@ -1945,6 +1910,7 @@
     }
 
     function computeCombinedHourRisk(slot, st) {
+      if (!slot || slot.ws == null || slot.wd == null) return { score: 0, level: 'na', missing: true };
       // Weighted 0-100 risk score combining:
       // 1) Station current ground measurement (up to 25 pts)
       // 2) Wind direction from eastern/SE village corridor 60-165 deg (up to 30 pts)
@@ -1959,7 +1925,7 @@
       const nightPts = (hourNum >= 20 || hourNum <= 6) ? 15 : 0;
 
       // Gust dispersion bonus reduces trapping slightly
-      const gustBonus = slot.gust >= 6.0 ? -10 : 0;
+      const gustBonus = slot.gust != null && slot.gust >= 6.0 ? -10 : 0;
       const score = Math.max(0, Math.min(100, stationPts + dirPts + speedPts + nightPts + gustBonus));
       const level = score >= 65 ? 'high' : (score >= 40 ? 'med' : 'low');
       return { score, level };
@@ -1991,22 +1957,26 @@
         // the user may have switched station while this request was in flight
         if ((STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0]).id !== st.id) return;
         const h = data.hourly;
-        const nowLocal = new Date();
-        const pad = n => String(n).padStart(2, '0');
-        const nowStr = `${nowLocal.getFullYear()}-${pad(nowLocal.getMonth() + 1)}-${pad(nowLocal.getDate())}T${pad(nowLocal.getHours())}:00`;
+        // Open-Meteo answers in the location's zone (timezone=auto -> Asia/Jerusalem): pick "now" in Israel time,
+        // not the device clock (a phone abroad or with a wrong zone would start the strip at the wrong hour)
+        const ilp = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' })
+          .formatToParts(new Date()).map(x => [x.type, x.value]));
+        const nowStr = `${ilp.year}-${ilp.month}-${ilp.day}T${ilp.hour}:00`;
         let startIdx = h.time.findIndex(t => t >= nowStr);
         if (startIdx < 0) startIdx = 0;
 
+        const num = (v, d) => (v == null || !Number.isFinite(Number(v))) ? null : +Number(v).toFixed(d);
         const slice = [];
         for (let i = startIdx; i < Math.min(h.time.length, startIdx + 12); i++) {
           slice.push({
             time: h.time[i].slice(11, 16),
             date: h.time[i].slice(8, 10) + '/' + h.time[i].slice(5, 7),
-            ws: +(h.wind_speed_10m[i] ?? 0).toFixed(1),
-            gust: +(h.wind_gusts_10m[i] ?? 0).toFixed(1),
-            wd: Math.round(h.wind_direction_10m[i] ?? 0),
-            temp: Math.round(h.temperature_2m[i] ?? 0),
-            rh: Math.round(h.relative_humidity_2m[i] ?? 0)
+            // missing values stay null (never 0 = fake calm)
+            ws: num(h.wind_speed_10m[i], 1),
+            gust: num(h.wind_gusts_10m[i], 1),
+            wd: num(h.wind_direction_10m[i], 0),
+            temp: num(h.temperature_2m[i], 0),
+            rh: num(h.relative_humidity_2m[i], 0)
           });
         }
         // re-render the card/airing strip only when the forecast actually changed (a fresh network
@@ -2023,8 +1993,9 @@
         statusEl.className = 'text-[11px] font-bold text-emerald-300 mono';
 
         const evaluated = slice.map(slot => ({ ...slot, risk: computeCombinedHourRisk(slot, st) }));
-        const highHours = evaluated.filter(e => e.risk.level === 'high').map(e => e.time);
-        const bestHour = [...evaluated].sort((a, b) => a.risk.score - b.risk.score)[0];
+        const known = evaluated.filter(e => !e.risk.missing);
+        const highHours = known.filter(e => e.risk.level === 'high').map(e => e.time);
+        const bestHour = [...known].sort((a, b) => a.risk.score - b.risk.score)[0];
 
         if (sumEl) {
           sumEl.innerHTML = `
@@ -2034,7 +2005,7 @@
                 ${highHours.length ? `<span class="text-orange-300 font-bold"> שעות סיכון גבוה ללכידת עשן: <span class="mono">${highHours.join(', ')}</span></span>` : '<span class="text-emerald-300 font-bold"> לא צפויות שעות לכידה חמורה ב-12 השעות הקרובות</span>'}
               </div>
               <div class="text-[11px] mono text-sky-300 font-bold">
-                שעת הפיזור הטובה ביותר: ${bestHour.time} (${bestHour.ws} m/s ${degToCompassHe(bestHour.wd)})
+                ${bestHour ? `שעת הפיזור הטובה ביותר: ${bestHour.time} (${bestHour.ws} m/s ${degToCompassHe(bestHour.wd)})` : 'אין נתוני רוח בתחזית'}
               </div>
             </div>
           `;
@@ -2043,15 +2014,15 @@
         grid.innerHTML = evaluated.map(slot => {
           const r = slot.risk;
           const cardCls = r.level === 'high' ? 'border-orange-500/60 bg-orange-950/25' : (r.level === 'med' ? 'border-amber-500/40 bg-amber-950/15' : 'border-slate-800 bg-slate-950/75');
-          const riskTxt = r.level === 'high' ? '💨 סיכון גבוה' : (r.level === 'med' ? '🟡 זהירות' : '🟢 פיזור טוב');
+          const riskTxt = r.missing ? '— אין נתון רוח' : (r.level === 'high' ? '💨 סיכון גבוה' : (r.level === 'med' ? '🟡 זהירות' : '🟢 פיזור טוב'));
           return `
             <div class="rounded-xl border ${cardCls} p-2.5 space-y-1">
               <div class="flex items-center justify-between">
                 <span class="mono font-extrabold text-white">${slot.time}</span>
                 <span class="text-[10px] text-slate-400 mono">${slot.date}</span>
               </div>
-              <div class="text-[11px] text-sky-300 font-bold mono">${slot.ws} m/s (משב ${slot.gust})</div>
-              <div class="text-[11px] text-slate-300">${degToCompassHe(slot.wd)} (${slot.wd}°)</div>
+              <div class="text-[11px] text-sky-300 font-bold mono">${slot.ws == null ? '—' : slot.ws + ' m/s'} (משב ${slot.gust == null ? '—' : slot.gust})</div>
+              <div class="text-[11px] text-slate-300">${slot.wd == null ? '—' : `${degToCompassHe(slot.wd)} (${slot.wd}°)`}</div>
               <div class="text-[10px] text-slate-400 mono">${slot.temp}°C • ${slot.rh}% לחות</div>
               <div class="text-[10px] font-bold pt-0.5 ${r.level === 'high' ? 'text-orange-300' : (r.level === 'med' ? 'text-amber-300' : 'text-emerald-300')}">${riskTxt}</div>
             </div>
@@ -2178,7 +2149,7 @@
           const so2 = (Number(s.SO2_ppb || 4) * GAS_CONVERSION.SO2);
           const ch2o = Number(s.CH2O_ugm3 || 5.0);
           const h2s = Number(s.H2S_ugm3 || 0.8);
-          const isExceed = c6h6 > 3.9 || pm25 > 37.5 || no2 > 40;
+          const isExceed = c6h6 > AQStd.limit('C6H6', 'd', 'env') || pm25 > AQStd.limit('PM25', 'd', 'env') || no2 > AQStd.limit('NO2', 'm', 'env');
 
           const newSt = {
             id: 'custom_' + Date.now(),
@@ -2193,8 +2164,8 @@
             statusText: isExceed ? 'חריגה מתקן סביבה (API)' : 'נטען בהצלחה מ-API',
             aqiIndex: isExceed ? -12 : 42,
             wind: 'נתוני API חיים',
-            c6h6_max24h: c6h6, c6h6_exceedDays: c6h6 > 3.9 ? 1 : 0, c6h6_annual: +(c6h6*0.25).toFixed(2),
-            ch2o_max1h: ch2o, ch2o_exceed1h: ch2o > 15 ? 1 : 0, ch2o_max24h: +(ch2o*0.4).toFixed(2),
+            c6h6_max24h: c6h6, c6h6_exceedDays: c6h6 > AQStd.limit('C6H6', 'd', 'env') ? 1 : 0, c6h6_annual: +(c6h6*0.25).toFixed(2),
+            ch2o_max1h: ch2o, ch2o_exceed1h: ch2o > AQStd.limit('CH2O', 'h', 'env') ? 1 : 0, ch2o_max24h: +(ch2o*0.4).toFixed(2),
             bap_exceedDays: 1, bap_annual: 0.00010, h2s_max24h: h2s, h2s_annual: +(h2s*0.5).toFixed(2),
             no2_annual: +no2.toFixed(1), nox_max24h: 150, nox_exceed30m: 0,
             pm25_annual: +(pm25*0.65).toFixed(1), pm25_max24h: pm25,
@@ -2434,14 +2405,14 @@
       const btnBenchTarget = document.getElementById('btnBenchTarget');
       btnBenchEnv.addEventListener('click', () => {
         APP_STATE.benchmarkMode = 'env';
-        btnBenchEnv.className = 'px-2 py-1.5 rounded-md font-bold bg-purple-600 text-white transition';
-        btnBenchTarget.className = 'px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition';
+        btnBenchEnv.className = 'px-2 py-1.5 rounded-md font-bold whitespace-nowrap bg-purple-600 text-white transition';
+        btnBenchTarget.className = 'px-2 py-1.5 rounded-md font-bold whitespace-nowrap text-slate-300 hover:text-white transition';
         renderKeepingPlace();
       });
       btnBenchTarget.addEventListener('click', () => {
         APP_STATE.benchmarkMode = 'target';
-        btnBenchTarget.className = 'px-2 py-1.5 rounded-md font-bold bg-rose-600 text-white transition';
-        btnBenchEnv.className = 'px-2 py-1.5 rounded-md font-bold text-slate-300 hover:text-white transition';
+        btnBenchTarget.className = 'px-2 py-1.5 rounded-md font-bold whitespace-nowrap bg-rose-600 text-white transition';
+        btnBenchEnv.className = 'px-2 py-1.5 rounded-md font-bold whitespace-nowrap text-slate-300 hover:text-white transition';
         renderKeepingPlace();
       });
 
