@@ -230,6 +230,22 @@ function fontAudit() {
   ok(await lp.evaluate(() => document.documentElement.dataset.theme === 'light'), 'back to auto -> light again');
   await lctx.close();
 
+  // ?dev=1 JSON import: imported text is shown as text, never parsed as HTML
+  { const dctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
+    const dp = await dctx.newPage();
+    await dp.goto(base + '?dev=1', { waitUntil: 'networkidle' });
+    await dp.waitForFunction(() => document.querySelectorAll('.station-pill').length > 0, null, { timeout: 30000 });
+    const x = await dp.evaluate(async () => {
+      const bad = '<img src=x onerror="window.__xss=1">';
+      document.getElementById('jsonImportTextarea').value = JSON.stringify({ name: bad, shortName: bad, code: bad, location: bad, sensors: { 'PM2.5_ugm3': 12 } });
+      document.getElementById('btnParseJson').click();
+      await new Promise(r => setTimeout(r, 800));
+      const st = STATIONS_DATA.find(o => o.id === APP_STATE.selectedStationId);
+      return { xss: !!window.__xss, img: !!document.querySelector('img[src="x"]'), escaped: /&lt;img/.test(st.shortName), status: document.getElementById('jsonImportStatus').textContent };
+    });
+    ok(!x.xss && !x.img && x.escaped, `dev JSON import escapes imported text (${JSON.stringify(x)})`);
+    await dctx.close(); }
+
   ok(!errors.length, 'zero console/page errors → ' + errors.slice(0, 5).join(' | '));
   await browser.close(); server.close();
   console.log(`ui: ${passes} passed, ${fails} failed`);

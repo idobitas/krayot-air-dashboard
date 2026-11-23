@@ -2141,6 +2141,8 @@
         const statusEl = document.getElementById('jsonImportStatus');
         try {
           const parsed = JSON.parse(ta.value);
+          // imported text ends up inside innerHTML templates (pills, station card, table): store it HTML-escaped
+          const esc = v => String(v).replace(/[&<>"'`]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]));
           const s = parsed.sensors || parsed;
           const c6h6 = Number(s.C6H6_ugm3 || 1.5);
           const pm25 = Number(s['PM2.5_ugm3'] || 18.0);
@@ -2154,13 +2156,13 @@
 
           const newSt = {
             id: 'custom_' + Date.now(),
-            name: parsed.name || 'תחנה מיובאת',
-            shortName: parsed.shortName || 'תחנה חדשה',
-            code: parsed.code || 'API-LIVE',
+            name: esc(parsed.name || 'תחנה מיובאת'),
+            shortName: esc(parsed.shortName || 'תחנה חדשה'),
+            code: esc(parsed.code || 'API-LIVE'),
             group: 'krayot',
-            location: parsed.location || 'ייבוא API',
-            type: parsed.type || 'תחנת API',
-            owner: parsed.owner || 'py-air-sviva-api',
+            location: esc(parsed.location || 'ייבוא API'),
+            type: esc(parsed.type || 'תחנת API'),
+            owner: esc(parsed.owner || 'py-air-sviva-api'),
             status: isExceed ? 'exceed_env' : 'exceed_target',
             statusText: isExceed ? 'חריגה מתקן סביבה (API)' : 'נטען בהצלחה מ-API',
             aqiIndex: isExceed ? -12 : 42,
@@ -2188,7 +2190,7 @@
           };
           STATIONS_DATA.unshift(newSt);
           APP_STATE.selectedStationId = newSt.id;
-          document.getElementById('kpiTotalStations').textContent = STATIONS_DATA.length;
+          const kpi = document.getElementById('kpiTotalStations'); if (kpi) kpi.textContent = STATIONS_DATA.length;
           statusEl.textContent = 'נוסף בהצלחה!';
           const dataTs = parsed.timestamp || parsed.datetime || parsed.date || ('יובא ידנית ב-' + new Date().toLocaleString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })); updateLastUpdatedTimestamp(dataTs);
           setTimeout(() => switchTab('matrix'), 350);
