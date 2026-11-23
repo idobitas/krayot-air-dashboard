@@ -1034,7 +1034,8 @@
       return `<div class="flex flex-wrap items-center gap-2">` +
         `<a href="tel:%2A6911" class="${b} ${prominent ? 'bg-rose-600 border-rose-400 text-white' : quiet}">📞 חיוג למוקד *6911</a>` +
         `<a href="${SVIVA_FORM_URL}" target="_blank" rel="noopener noreferrer" onclick="copySvivaSummary(this)" class="${b} ${quiet}">📝 טופס להגנ"ס</a>` +
-        // community log only (our own sampling) - not sent to any authority
+        // community log only (our own sampling) - not sent to any authority; full-width caption sits right above it
+        `<p class="smell-caption basis-full text-[12px] leading-snug mt-1">מריחים ריח? דיווח קצר עוזר לנו לדייק את הגלאי – נשמר לכיול בלבד ולא עובר לרשויות</p>` +
         `<a href="${SMELL_FORM_URL}" target="_blank" rel="noopener noreferrer" class="${b} ${quiet}">👃 יומן ריח קהילתי (לא לרשויות)</a></div>`;
     }
 

@@ -170,6 +170,11 @@ function fontAudit() {
       ok(!r.nested.length, `${where}: no nested parentheses → ${r.nested.slice(0, 4).join(' | ')}`);
       ok(!r.small.length, `${where}: touch targets >= 40px → ${r.small.slice(0, 8).join(' | ')}`);
       ok(!r.contrast.length, `${where}: text contrast >= AA → ${r.contrast.slice(0, 8).join(' | ')}`);
+      { const c = await page.evaluate(() => { const a = document.getElementById('contactLink'), r = a && a.getBoundingClientRect(), cap = document.querySelector('#decisionCard .smell-caption'), smell = [...document.querySelectorAll('#decisionCard a')].find(x => x.textContent.includes('יומן ריח קהילתי'));
+        return { ok: !!a && r.height >= 40 && r.width > 0 && getComputedStyle(a).display !== 'none' && a.target === '_blank' && /noopener/.test(a.rel) && /noreferrer/.test(a.rel) && a.href === 'https://forms.gle/xFaUqyk5zSPzRLgy9',
+          cap: !!cap && !!smell && cap.getBoundingClientRect().bottom <= smell.getBoundingClientRect().top + 1 && cap.textContent.includes('לא עובר לרשויות'), h: r && Math.round(r.height) }; });
+        ok(c.ok, `${where}: footer "צור קשר" link visible, >= 40px, new tab, noopener (${c.h}px)`);
+        ok(c.cap, `${where}: smell-log caption sits above the community log button`); }
       const f = await page.evaluate(fontAudit);
       ok(!f.small.length, `${where}: text >= 12px → ${f.small.slice(0, 8).join(' | ')}`);
       ok(!f.big.length, `${where}: cards/buttons/accordion labels >= 13px → ${f.big.slice(0, 8).join(' | ')}`);
@@ -202,6 +207,11 @@ function fontAudit() {
     ok(!r.nested.length, `${'light/' + tab}: no nested parentheses → ${r.nested.slice(0, 4).join(' | ')}`);
     ok(!r.small.length, `${'light/' + tab}: touch targets >= 40px → ${r.small.slice(0, 8).join(' | ')}`);
     ok(!r.contrast.length, `${'light/' + tab}: text contrast >= AA → ${r.contrast.slice(0, 8).join(' | ')}`);
+    { const c = await lp.evaluate(() => { const a = document.getElementById('contactLink'), r = a && a.getBoundingClientRect(), cap = document.querySelector('#decisionCard .smell-caption'), smell = [...document.querySelectorAll('#decisionCard a')].find(x => x.textContent.includes('יומן ריח קהילתי'));
+        return { ok: !!a && r.height >= 40 && r.width > 0 && getComputedStyle(a).display !== 'none' && a.target === '_blank' && /noopener/.test(a.rel) && /noreferrer/.test(a.rel) && a.href === 'https://forms.gle/xFaUqyk5zSPzRLgy9',
+          cap: !!cap && !!smell && cap.getBoundingClientRect().bottom <= smell.getBoundingClientRect().top + 1 && cap.textContent.includes('לא עובר לרשויות'), h: r && Math.round(r.height) }; });
+      ok(c.ok, `${'light/' + tab}: footer "צור קשר" link visible, >= 40px, new tab, noopener (${c.h}px)`);
+      ok(c.cap, `${'light/' + tab}: smell-log caption sits above the community log button`); }
     if (r.overflow || r.clipped.length || r.overlap.length) await lp.screenshot({ path: path.join(SHOTS, `light-${tab}.png`), fullPage: true });
   }
   // ⚙️ closes on an outside tap; unit buttons fill the row like the theme buttons
