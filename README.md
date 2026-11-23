@@ -20,7 +20,7 @@ index.html  (GitHub Pages)  טוען את שני הקבצים בעליית הד�
 | קובץ | תפקיד |
 |---|---|
 | `index.html` | מבנה ועיצוב בלבד (המכלים ריקים, הסקריפט ממלא אותם בטעינה) |
-| `js/standards.js` | נתונים ועזרים בלבד, בלי DOM: תקנים חוקיים ויעדי WHO, ספי "עכשיו" לכל מצב (`NOW_BANDS_BY_MODE`), שמות פשוטים, המרת µg↔ppb (לגזים בלבד), ו-`limit(key, h|d|m, env|target)` – המקור היחיד לספים המספריים ב-`app.js` (מ-v3.4.7). חושף `window.AQStd` |
+| `js/standards.js` | נתונים ועזרים בלבד, בלי DOM: תקנים חוקיים ויעדי WHO, ספי "עכשיו" לכל מצב (`NOW_BANDS_BY_MODE`), שמות פשוטים, המרת µg↔ppb (לגזים בלבד), ו-`limit(key, h/d/m, env/target)` – המקור היחיד לספים המספריים ב-`app.js` (מ-v3.4.7). חושף `window.AQStd` |
 | `js/charts.js` | ציור הגרפים בלבד (Chart.js): `renderTrend`, `renderHistoryTimeline`, `renderV2BScan`. לא קורא מצב אפליקציה; `app.js` מכין את הנתונים. חושף `window.AQCharts` |
 | `js/guidance.js` | לוגיקת "עכשיו" נקייה: `computeGuidance` (הנתונים החיים נכנסים כ-ctx), `stationWorst`, `barStatus` לפסים המקופלים ולתגית "עכשיו:", `whoExceedances`. חושף `window.AQGuidance` |
 | `tests/check.js` | בדיקות בלי תלויות: התאמת כרטיס / כפתור / פס בשני המצבים, מוצקין 22.6 לא ירוק ב-WHO, קריית חיים 26.6 עקבית בחוקי, ppb לגזים בלבד, תחנה 517 בלי NaN. בנוסף 3 כללים קבועים של `fire_v2b.js`: שעת אבק = 0, שעה בודדת אחרי שעה חסרה ≤ 69, קריית ים (92) ≤ 59 כשמוצקין (382) חסרה |
