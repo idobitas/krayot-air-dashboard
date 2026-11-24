@@ -222,5 +222,8 @@ if (R && R.S) {
   ok(htmlSrc.includes('התקן החוקי') && htmlSrc.includes('יעד בריאותי (מחמיר)'), 'mode toggle labels');
 }
 
+// v3.5.0: the decision card has no '▾ פרטים נוספים' fold (user removed it)
+ok(!appSrc.includes('פרטים נוספים</summary>'), 'decision card has no פרטים נוספים fold');
+
 console.log(`${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

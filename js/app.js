@@ -1135,8 +1135,7 @@
           ${windTag}
           <span class="text-[13px]">${upd ? 'עודכן ' + upd + ' • ' : ''}${st.shortName}</span>
         </div>
-        <div class="mt-2">${reportButtons(!!g.smoke || /^(🚨|💨)/.test(g.area))}</div>
-        ${window.__verdictHTML ? `<details class="mt-2 text-xs"><summary class="cursor-pointer min-h-[42px] flex items-center text-[13px] font-bold">▾ פרטים נוספים</summary><div class="mt-2 p-2.5 rounded-xl bg-black/25 border border-white/10 flex flex-wrap items-center gap-x-3 gap-y-1.5">${window.__verdictHTML}</div></details>` : ''}`;
+        <div class="mt-2">${reportButtons(!!g.smoke || /^(🚨|💨)/.test(g.area))}</div>`;
       isolateLtr(el);
     }
 
