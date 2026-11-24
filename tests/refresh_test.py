@@ -119,5 +119,14 @@ with tempfile.TemporaryDirectory() as tmp:
     doc = json.loads(fs.HISTORY.read_text(encoding="utf-8"))
     ok(doc.get("lastRefreshDate") == "2026-11-25" and doc["windowDays"] == fs.WINDOW_DAYS, "history_90d.json stores lastRefreshDate")
 
+# 9) lastRefreshDate is recorded only when the refresh ran and no Sviva station failed
+now = datetime(2026, 11, 25, 3, 10, tzinfo=il)
+h = {"lastRefreshDate": "2026-11-24"}
+ok(not fs.mark_refresh(h, True, 1, now=now) and h["lastRefreshDate"] == "2026-11-24", "a failed station keeps yesterday's date (retry next run)")
+ok(fs.refresh_due(h, now=now + timedelta(minutes=10)), "so the next run refreshes again")
+ok(not fs.mark_refresh(h, False, 0, now=now) and h["lastRefreshDate"] == "2026-11-24", "no refresh -> nothing marked")
+ok(fs.mark_refresh(h, True, 0, now=now) and h["lastRefreshDate"] == "2026-11-25", "all stations OK -> today's date")
+ok(not fs.refresh_due(h, now=now + timedelta(minutes=10)), "and no second refresh today")
+
 print(f"refresh: {passes} passed, {fails} failed")
 sys.exit(1 if fails else 0)

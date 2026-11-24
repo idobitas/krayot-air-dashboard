@@ -40,6 +40,15 @@ def refresh_due(history, now=None, force=False):
     return force or (now.hour >= REFRESH_HOUR and history.get("lastRefreshDate") != now.date().isoformat())
 
 
+def mark_refresh(history, refresh, failures, now=None):
+    """Record today's nightly refresh only if it ran and every Sviva station succeeded; otherwise the
+    next run (still after REFRESH_HOUR) retries it. Returns True when marked."""
+    if not refresh or failures:
+        return False
+    history["lastRefreshDate"] = (now or datetime.now(IL_TZ)).date().isoformat()
+    return True
+
+
 def today_il():
     """Calendar date in Israel. py-air-sviva-api turns hours_back / missing dates into the
     runner's date.today() (UTC), so between 00:00 and 02:00/03:00 Israel time it asked only for
@@ -521,6 +530,7 @@ async def main(force_backfill=False, force_refresh=False):
     refresh = refresh_due(history, force=force_refresh)
     days_back = REFRESH_DAYS if refresh else REGULAR_DAYS
     purged = defaultdict(set)
+    failures = 0  # Sviva stations that failed this run (live, reference, archive-only)
     if refresh:
         print(f"Nightly refresh: re-reading {REFRESH_DAYS} days (QA/QC corrections)")
     async with aiohttp.ClientSession() as session:
@@ -538,6 +548,7 @@ async def main(force_backfill=False, force_refresh=False):
                 tag = " [backfill]" if need_backfill else ""
                 print(f"OK   {name} ({api_id}) @ {st['measuredAt']} history={st['historyDays']}d{tag}")
             except Exception as exc:  # keep going; one station must not kill the run
+                failures += 1
                 print(f"FAIL {name} ({api_id}): {exc!r}", file=sys.stderr)
         # auxiliary series for the fire detector; failures never affect the Krayot output
         references = []
@@ -551,6 +562,7 @@ async def main(force_backfill=False, force_refresh=False):
                 references.append({"id": ref_id, "apiStationId": api_id, "name": name, "rolling": roll})
                 print(f"OK   {name} ({api_id}) rows={len(rows)}{' [backfill]' if need_backfill else ''}")
             except Exception as exc:
+                failures += 1
                 print(f"FAIL {name} ({api_id}): {exc!r}", file=sys.stderr)
         # silent archive (all channels, history only; not added to `references` / live output)
         for arc_id, (api_id, name) in ARCHIVE_ONLY.items():
@@ -562,6 +574,7 @@ async def main(force_backfill=False, force_refresh=False):
                 hist_stations[arc_id] = {"apiStationId": api_id, "rows": rows}
                 print(f"OK   {name} ({api_id}) rows={len(rows)}{' [backfill]' if need_backfill else ''}")
             except Exception as exc:
+                failures += 1
                 print(f"FAIL {name} ({api_id}): {exc!r}", file=sys.stderr)
         for om_id, (api_id, lat, lon) in OPEN_METEO.items():
             existing = hist_stations.get(om_id, {}).get("rows", [])
@@ -579,7 +592,8 @@ async def main(force_backfill=False, force_refresh=False):
     history["updated"] = max((r["t"] for k, s in hist_stations.items() if k in STATIONS for r in s["rows"][-1:]),
                              default=ts)
     if refresh:
-        history["lastRefreshDate"] = datetime.now(IL_TZ).date().isoformat()
+        if not mark_refresh(history, refresh, failures):
+            print(f"Nightly refresh NOT marked done: {failures} station(s) failed; the next run retries", file=sys.stderr)
         n = sum(len(v) for v in purged.values())
         print(f"Nightly refresh done; purged {n} invalidated hour(s)" + (": " + ", ".join(
             f"{k}×{len(v)}" for k, v in purged.items() if v) if n else ""))

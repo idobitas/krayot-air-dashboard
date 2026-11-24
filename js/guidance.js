@@ -13,7 +13,9 @@
       const v = (st.metrics || {})[k] ? st.metrics[k].hourly : null;
       if (!isNum(v)) return;
       const r = v / b[0];
-      if (!best || r > best.r) best = { key: k, code: k === 'C6H6' ? 'בנזן' : (S.POLLUTANT_STANDARDS[k] || {}).formula || k, value: v, r, lvl: S.nowLevel(mode, k, v) };
+      const lvl = S.nowLevel(mode, k, v);
+      // severity first (a red O3 is never hidden by an orange PM2.5), then the ratio to the band
+      if (!best || lvl > best.lvl || (lvl === best.lvl && r > best.r)) best = { key: k, code: k === 'C6H6' ? 'בנזן' : (S.POLLUTANT_STANDARDS[k] || {}).formula || k, value: v, r, lvl };
     });
     return best;
   }
@@ -106,15 +108,9 @@
     }
     // trapped air: same rule as the guide tab (next 3 forecast hours mostly weak dispersion)
     const trapped = !!(forecast.length && Math.max(0, ...forecast.slice(0, 3).map(x => riskOf(x)).filter(r => !r.missing).map(r => r.score)) >= 70);
-    // gentle note: particles a little above the WHO daily guideline but still in the "fine" band
-    const soft = [['PM25', 15, 'PM2.5'], ['PM10', 45, 'PM10']].map(([k, who, code]) => {
-      const hv = st.metrics?.[k]?.hourly;
-      return isNum(hv) && hv > who && S.nowLevel(mode, k, hv) === 0 ? `${code} ${Number(hv).toFixed(1)} µg/m³` : null;
-    }).filter(Boolean);
-    const softNote = lvl === 0 && soft.length ? 'מעט מעל יעד WHO בשעה האחרונה: ' + soft.join(', ') : '';
     // light-hearted neighbour wink, only on smoke alerts (🚨 / 💨); titles stay factual
     const wink = smoke ? '🪟 רמז מהאוויר: נראה שזה הזמן לסגור חלונות 😉' : '';
-    return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, smoke, area, because, reason, avg24, softNote, goodWindow, trapped, wink,
+    return { sig, pm25, c6, isDust, kind, worst, stationLvl, lvl, smoke, area, because, reason, avg24, goodWindow, trapped, wink,
       highRisk: lvl === 2, modRisk: lvl === 1 };
   }
 

@@ -126,8 +126,9 @@ ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clear
 ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clearCtx('env'), live: { kind: 'smoke', stations: [{ id: 'other', level: 'watch' }] } }).wink === '', 'no wink for smoke at another station');
 ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clearCtx('env'), sig: { level: 'high' } }).wink === WINK, 'wink on station 🚨');
 ok(G.computeGuidance(station('w', 'בדיקה', hourly({ PM25: 5 })), { ...clearCtx('env'), live: { kind: 'dust', stations: [] } }).wink === '', 'no wink on dust');
-const soft = G.computeGuidance(station('s', 'בדיקה', hourly({ PM25: 17 })), clearCtx('env'));
-ok(soft.softNote && !/חלונות/.test(soft.softNote), 'soft WHO note carries no window advice');
+// v3.5.11: no softNote at all (it leaked a WHO line into the legal mode)
+for (const mode of MODES) { const g = G.computeGuidance(station('s', 'בדיקה', hourly({ PM25: 17, PM10: 50 })), clearCtx(mode)); ok(g && !('softNote' in g), 'no softNote in ' + mode); }
+ok(!/softNote/.test(appSrc), 'app.js renders no softNote');
 const footer = htmlSrc.indexOf('<footer'), mainEnd = htmlSrc.indexOf('</main>');
 ok(footer > mainEnd && htmlSrc.includes('הבהרה: המידע באתר מבוסס על נתוני ניטור ציבוריים'), 'disclaimer footer sits outside the tabs (all tabs)');
 
@@ -268,6 +269,25 @@ ok(/id: 'kiryat_binyamin',[\s\S]{0,120}shortName: 'קריית אתא',/.test(app
   ok(/REGULAR_DAYS = 1/.test(py) && /REFRESH_DAYS = 4/.test(py) && /REFRESH_HOUR = 3/.test(py) && py.includes('"--refresh-4d"') && py.includes('lastRefreshDate'), 'fetch_sviva.py: nightly 4-day refresh wired');
   ok(fs.existsSync(path.join(__dirname, 'refresh_test.py')), 'tests/refresh_test.py exists');
   ok(/fetch\(`\$\{url\}\?t=\$\{Date\.now\(\)\}`, \{ cache: 'no-store' \}\)/.test(appSrc) && /fetchJson\('\.\/data\/history_90d\.json'\)/.test(appSrc) && /fetchJson\('\.\/' \+ opt\.dataset\.file\)/.test(appSrc), 'history and monthly archives are fetched no-store with a cache-buster');
+}
+
+// v3.5.11 audit fixes
+{
+  // stationWorst: severity first — a red O3 (lvl 2) beats an orange PM2.5 with a higher band ratio
+  const w = G.stationWorst(station('x', 'בדיקה', hourly({ PM25: 35, O3: 141 })), 'env');
+  ok(w && w.key === 'O3' && w.lvl === 2, 'stationWorst: red O3 141 wins over orange PM2.5 35 (' + (w && w.key) + ')');
+  const w2 = G.stationWorst(station('x', 'בדיקה', hourly({ PM25: 30, PM10: 70 })), 'env');
+  ok(w2 && w2.key === 'PM25', 'stationWorst: same level -> higher ratio wins (' + (w2 && w2.key) + ')');
+  for (const mode of MODES) {
+    const g = G.computeGuidance(station('x', 'בדיקה', hourly({ PM25: 35, O3: 141 })), clearCtx(mode));
+    ok(g.worst && g.worst.key === 'O3' && g.lvl === 2, 'card follows the red pollutant in ' + mode);
+  }
+  // convertLabel: "סביבה" limits convert too (H2S 45 and 7 -> ppb)
+  const h = S.convertLabel('סביבה ח"ש: 45 (יעד 7)', 'H2S', 'ppb');
+  ok((h.match(/ppb/g) || []).length === 2 && !/: 45\b/.test(h) && !/יעד 7\b/.test(h), 'convertLabel converts סביבה and יעד for H2S: ' + h);
+  ok(S.convertLabel('סביבה ח"ש: 45 (יעד 7)', 'H2S', 'ug') === 'סביבה ח"ש: 45 (יעד 7)', 'µg mode leaves the label as is');
+  const py = fs.readFileSync(path.join(__dirname, '../scripts/fetch_sviva.py'), 'utf8');
+  ok(/def mark_refresh\(history, refresh, failures/.test(py) && /mark_refresh\(history, refresh, failures\)/.test(py) && (py.match(/failures \+= 1/g) || []).length === 3, 'lastRefreshDate only after a run with no Sviva failures');
 }
 
 console.log(`${passes} passed, ${fails} failed`);

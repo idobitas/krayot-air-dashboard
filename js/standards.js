@@ -64,7 +64,7 @@
 
   function convertLabel(label, key, unitMode) {
     if (!label || unitMode !== 'ppb' || !isPpbCapable(key)) return label;
-    return label.replace(/((?:תקן|יעד)[^\d()•]*?)(\d+(?:\.\d+)?)/g, (_, pre, num) => pre + formatGas(parseFloat(num), key, unitMode, 1) + ' ppb');
+    return label.replace(/((?:תקן|יעד|סביבה)[^\d()•]*?)(\d+(?:\.\d+)?)/g, (_, pre, num) => pre + formatGas(parseFloat(num), key, unitMode, 1) + ' ppb');
   }
 
   const api = { GAS_CONVERSION, POLLUTANT_STANDARDS, PLAIN_NAMES, DAILY_WHO_VS_LEGAL, NOW_BANDS_BY_MODE,
