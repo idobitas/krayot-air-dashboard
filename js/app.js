@@ -1920,8 +1920,9 @@
       // 2) Wind direction from eastern/SE village corridor 60-165 deg (up to 30 pts)
       // 3) Weak wind trapping <= 2.5 m/s (up to 30 pts)
       // 4) Nighttime boundary-layer inversion window 20:00-06:00 (15 pts)
-      const pm25 = st.metrics?.PM25?.hourly || st.pm25_max24h || 18;
-      const stationPts = pm25 >= 30 ? 25 : (pm25 >= 20 ? 18 : (pm25 >= 15 ? 10 : 4));
+      const pmRaw = st.metrics?.PM25?.hourly ?? st.pm25_max24h;
+      const pm25 = Number.isFinite(Number(pmRaw)) && pmRaw !== null ? Number(pmRaw) : null; // no particle sensor (e.g. 517) -> 0 points
+      const stationPts = pm25 == null ? 0 : (pm25 >= 30 ? 25 : (pm25 >= 20 ? 18 : (pm25 >= 15 ? 10 : 4)));
 
       const dirPts = (slot.wd >= 60 && slot.wd <= 165) ? 30 : ((slot.wd >= 35 && slot.wd <= 190) ? 15 : 0);
       const speedPts = slot.ws <= 1.5 ? 30 : (slot.ws <= 2.5 ? 20 : (slot.ws <= 3.5 ? 8 : 0));
@@ -2376,25 +2377,6 @@
       });
 
 
-      document.getElementById('btnDownloadStandaloneHtml')?.addEventListener('click', async () => {
-        // the standalone file must carry its scripts inline (they are separate files on the site)
-        let html = document.documentElement.outerHTML;
-        for (const src of ['js/fire_v2b.js', 'js/app.js']) {
-          try {
-            const code = await (await fetch('./' + src)).text();
-            html = html.replace(`<script src="${src}"></script>`, () => '<script>' + code.replace(/<\/script/gi, '<\\/script') + '</script>');
-          } catch (e) { console.warn('standalone export: could not inline ' + src, e); }
-        }
-        const blob = new Blob(['<!DOCTYPE html>\n' + html], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'krayot_air_dashboard.html';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      });
 
       // re-render without moving what the user is reading. Only when a pollutant row is OPEN and the user has
       // scrolled down (scrollY > 20) does that row keep its on-screen position (content above it may grow or
@@ -2554,8 +2536,11 @@
             const st = STATIONS_DATA.find(s => s.id === live.id);
             if (!st) return;
             st.live = live;
+            // every 10-min refresh starts clean: a reading that turned null must not keep its old value
+            st.metrics = {};
+            st.last30m = {};
             const { history24h, ...last30 } = live.last30m || {};
-            st.last30m = Object.assign(st.last30m || {}, Object.fromEntries(Object.entries(last30).filter(([, x]) => x != null)));
+            st.last30m = Object.fromEntries(Object.entries(last30).filter(([, x]) => x != null));
             st.history24h = history24h || [];
             st.daily30d = live.daily30d || [];
             st.stale = !!live.stale;

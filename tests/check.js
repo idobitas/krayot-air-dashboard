@@ -290,5 +290,11 @@ ok(/id: 'kiryat_binyamin',[\s\S]{0,120}shortName: 'קריית אתא',/.test(app
   ok(/def mark_refresh\(history, refresh, failures/.test(py) && /mark_refresh\(history, refresh, failures\)/.test(py) && (py.match(/failures \+= 1/g) || []).length === 3, 'lastRefreshDate only after a run with no Sviva failures');
 }
 
+// v3.5.12 cleanups
+ok(!/btnDownloadStandaloneHtml|הורדת קובץ HTML/.test(appSrc + htmlSrc), 'standalone HTML download removed');
+ok(!/--tw-border-spacing-x/.test(htmlSrc) && /cdn\.tailwindcss\.com/.test(htmlSrc), 'no stale compiled Tailwind block (the CDN generates the classes)');
+ok(/st\.live = live;[\s\S]{0,200}st\.metrics = \{\};[\s\S]{0,40}st\.last30m = \{\};/.test(appSrc), 'loadLiveData starts each refresh with empty metrics / last30m');
+ok(!/st\.pm25_max24h \|\| 18/.test(appSrc), 'no fake PM2.5 = 18 in the wind risk');
+
 console.log(`${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

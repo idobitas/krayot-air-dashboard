@@ -221,6 +221,24 @@ function fontAudit() {
   ok(!lag || lag.liveClean, 'no timestamp on a live reading');
   ok(!lag || lag.pill === 'נתון מ-' + lag.fmt, `stale station pill shows "נתון מ-" (${lag && lag.pill})`);
 
+  // wind risk: no particle sensor -> 0 station points (no fake 18); a live refresh drops values that turned null
+  const risk = await page.evaluate(async () => {
+    const slot = { ws: 1, wd: 100, gust: 0, time: '22:00' };
+    const out = { noPm: computeCombinedHourRisk(slot, { metrics: {} }).score, pm35: computeCombinedHourRisk(slot, { metrics: { PM25: { hourly: 35 } } }).score };
+    const st = STATIONS_DATA.find(o => o.id === APP_STATE.selectedStationId);
+    st.metrics.FAKE_STALE = { hourly: 99 }; st.last30m.FAKE_STALE = 99;
+    // the real 10-min refresh path (the "רענן נתוני אמת" button calls loadLiveData)
+    const btn = document.getElementById('btnRefreshLive'); btn.click();
+    for (let i = 0; i < 100 && !/רוענן|שגיאה/.test(btn.textContent); i++) await new Promise(r => setTimeout(r, 100));
+    out.btn = btn.textContent.trim();
+    out.cleared = out.btn.includes('רוענן') && !st.metrics.FAKE_STALE && !(st.last30m && 'FAKE_STALE' in st.last30m);
+    out.hasLive = Object.keys(st.metrics).length > 0;
+    renderMatrix();
+    return out;
+  });
+  ok(risk.noPm === 75 && risk.pm35 === 100, `wind risk: no PM -> 0 station points (${JSON.stringify(risk)})`);
+  ok(risk.cleared && risk.hasLive, 'live refresh clears stale metrics and reloads fresh ones');
+
   // one "last hour": card / buttons / MOEP summary read rolling.hourly, same as the detector
   const roll = await page.evaluate(() => { const bad = []; let n = 0;
     STATIONS_DATA.forEach(st => { const h = st.live && st.live.rolling && st.live.rolling.hourly; if (!h) return;
