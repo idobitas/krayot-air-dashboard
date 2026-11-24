@@ -241,5 +241,12 @@ ok(!appSrc.includes('פרטים נוספים</summary>'), 'decision card has no 
   ok(!appSrc.includes('now-badge'), 'no "עכשיו:" pill inside expanded rows');
 }
 
+// v3.5.6: plain Hebrew instead of "אינוורסיה" anywhere a neighbour reads (comments are fine)
+{
+  const visible = src => src.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+  ok(!/אינוורסי|אינברסי/.test(visible(appSrc)) && !/אינוורסי|אינברסי/.test(htmlSrc), 'no "אינוורסיה" in neighbour-facing text');
+  ok(appSrc.includes('class="formula-pill'), 'accordion header formula is a pill');
+}
+
 console.log(`${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

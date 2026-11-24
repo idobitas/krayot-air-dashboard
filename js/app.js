@@ -40,7 +40,7 @@
       PM25: {
         short: 'אבק זעיר שחודר עמוק לריאות ולדם',
         what: 'חלקיקים זעירים מעשן, פליטות דיזל, ארובות ואובך.',
-        when: 'בלילות שקטים עם אינוורסיה, ובשריפות גזם כשהרוח מהמזרח.',
+        when: 'בלילות שקטים בלי רוח, שלוכדים זיהום קרוב לקרקע, ובשריפות גזם כשהרוח מהמזרח.',
         simple: 'חלקיקים מיקרוסקופיים (קטנים פי 30 משערה) מפליטות דיזל, ארובות ואובך. בגלל גודלם הם לא נעצרים באף אלא נכנסים לריאות ולמחזור הדם.',
       },
       PM10: {
@@ -684,7 +684,7 @@
         standards: [{ period: 'קריות', target: 'יום: 270°–315°', env: 'לילה: 112.5°', alert: '—' }],
         whatIsIt: 'אזימוט מקור הרוח.', sources: 'טופוגרפיה ובריזה.', health: 'מזהה מי פלט את הזיהום.', haifaContext: 'בסיס לצו סעיף 45 לבז"ן.' },
       { id: 'STABILITY_ZL', nameHe: 'יציבות אטמוספרית (z/L)', nameEn: 'Atmospheric Stability', formula: 'z/L', category: 'meteo', iarc: 'מטאורולוגיה', isCarcinogen: false, unit: 'חסר ממד', averaging: '10 דקות',
-        intuitive: 'האם האוויר מערבב את הזיהום למעלה (יום) או כולא אותו כמו מכסה סיר על הקריות (לילה / אינוורסיה)?',
+        intuitive: 'האם האוויר מערבב את הזיהום למעלה (יום) או כולא אותו כמו מכסה סיר על הקריות (לילות שקטים בלי רוח)?',
         standards: [{ period: 'מצב', target: 'יום: לא יציב (פיזור)', env: 'לילה: יציב (כליאה)', alert: '—' }],
         whatIsIt: 'מדד אובוחוב.', sources: 'שמש מול קירור לילי.', health: 'חריגות בנזן בשיאן ביציבות גבוהה.', haifaContext: 'נחקר ב-Z2 ק. מוצקין ו-C9.' },
       { id: 'TURBULENCE_SIGMA', nameHe: 'טורבולנציה (σu, σv, σw)', nameEn: 'Turbulence', formula: 'σ/u*', category: 'meteo', iarc: 'מודל פיזור', isCarcinogen: false, unit: 'מנורמל', averaging: '10 דקות',
@@ -1167,7 +1167,7 @@
         fire: ['', '', 'עשן מגיע ל' + hot.join(', ') + '.', 'bg-orange-950/60 border-orange-500/60 text-orange-100'],
         smoke: ['', '', 'סימני עשן ב' + hot.join(', ') + '. כדאי לעקוב.', 'bg-amber-950/50 border-amber-500/50 text-amber-100'],
         dust: ['🏜️', 'אובך / אבק באזור', 'האוויר מאובק, לא עשן שריפה.', 'bg-yellow-950/40 border-yellow-500/50 text-yellow-100'],
-        regional: ['🌁', 'אוויר עומד (משוער)', 'החלקיקים עולים יחד בכל הקריות (כנראה אינוורסיה), לא שריפה מקומית.', 'bg-slate-800/80 border-slate-500/60 text-slate-100'],
+        regional: ['🌁', 'אוויר עומד (משוער)', 'החלקיקים עולים יחד בכל הקריות (כנראה לילה שקט בלי רוח שלוכד זיהום קרוב לקרקע), לא שריפה מקומית.', 'bg-slate-800/80 border-slate-500/60 text-slate-100'],
         clear: ['🟢', 'אין חריגה מיוחדת בקריות', 'לא זוהו סימני שריפה, אובך או אוויר עומד, והממוצעים היממתיים בתוך יעדי WHO.', 'bg-emerald-950/40 border-emerald-600/50 text-emerald-100']
       }[v.kind];
       // no smoke/dust but 24 h means above WHO: the card already says so (avg24 line) -> no extra sub-card
@@ -1178,7 +1178,7 @@
         return;
       }
       const extra = (v.kind === 'fire' || v.kind === 'smoke') && v.regional ? '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-800 border border-slate-600 text-slate-200">🌁 גם אוויר עומד באזור</span>' : '';
-      const invHelp = 'אינוורסיה: בלילות שקטים שכבת אוויר חם נמצאת מעל אוויר קר ליד הקרקע וסוגרת עליו כמו מכסה, כך שהזיהום לא מתפזר ומצטבר בכל האזור. זה לא אומר שיש שריפה.';
+      const invHelp = 'אוויר עומד: בלילות שקטים שכבת אוויר חם נמצאת מעל אוויר קר ליד הקרקע וסוגרת עליו כמו מכסה, כך שהזיהום לא מתפזר ומצטבר בכל האזור. זה לא אומר שיש שריפה.';
       const help = v.regional ? `<span class="basis-full text-[11px] sm:text-xs opacity-75">ℹ️ ${invHelp}</span>` : '';
       el.className = 'rounded-2xl border px-4 py-3 shadow-md flex flex-wrap items-center gap-x-3 gap-y-1 ' + V[3];
       el.innerHTML = `<span class="text-2xl leading-none">${V[0]}</span>
@@ -1277,7 +1277,7 @@
           const isNightInversion = (windSpeed !== null && windSpeed < 2.0 && isNight);
           if (inVillageSector && isNightInversion) {
             windPts = 12;
-            matched.push(`רוח כפרים ${windDir}° + אינברסיה`);
+            matched.push(`רוח כפרים ${windDir}° + לילה שקט בלי רוח`);
           } else if (inVillageSector) {
             windPts = 10;
             matched.push(`רוח מזרחית/צפ'-מז' ${windDir}°`);
@@ -1482,7 +1482,7 @@
 
           <div class="bg-slate-950/60 border border-slate-800/90 rounded-xl p-3 text-xs text-slate-300 leading-relaxed">
             <strong class="text-white">סיכום תחנה (${st.shortName}):</strong>
-            שיא <span class="mono">PM2.5</span> יממתי ב-30 יום: <span class="mono text-white">${st.pm25_max24h ?? '—'} µg/m³</span> • ממוצע 30 יום: <span class="mono text-white">${st.pm25_annual ?? '—'} µg/m³</span>. האירועים מחושבים מהארכיון השעתי האמיתי בגלאי v2b (כולל סינון אובך ואינוורסיה).
+            שיא <span class="mono">PM2.5</span> יממתי ב-30 יום: <span class="mono text-white">${st.pm25_max24h ?? '—'} µg/m³</span> • ממוצע 30 יום: <span class="mono text-white">${st.pm25_annual ?? '—'} µg/m³</span>. האירועים מחושבים מהארכיון השעתי האמיתי בגלאי v2b (כולל סינון אובך ולילות שקטים בלי רוח שלוכדים זיהום קרוב לקרקע).
           </div>
         `;
         if (window.lucide) window.lucide.createIcons();
@@ -1612,7 +1612,7 @@
           <summary class="list-none cursor-pointer p-3 flex items-center gap-3">
             <span class="min-w-0 flex-1">
               <span class="text-sm font-extrabold text-white">${std.name}</span>
-              <span class="text-[11px] text-slate-400 ms-1">${std.formula}</span>
+              <span class="formula-pill inline-block align-middle ms-1.5 px-1.5 py-px rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[11px] font-bold mono leading-tight">${std.formula}</span>
               <span class="block h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mt-1.5"><span class="block h-full ${accW[2]} rounded-full" style="width:${nowBarW}%"></span></span>
             </span>
             <span class="text-xs font-extrabold ${accW[1]} shrink-0">${accW[0]}</span>
@@ -1987,7 +1987,7 @@
           sumEl.innerHTML = `
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <strong class="text-white">שקלול משולב (מדד התחנה + תחזית רוח ואינברסיה ל-12 שעות):</strong>
+                <strong class="text-white">שקלול משולב (מדד התחנה + תחזית רוח ולילות שקטים ל-12 שעות):</strong>
                 ${highHours.length ? `<span class="text-orange-300 font-bold"> שעות סיכון גבוה ללכידת עשן: <span class="mono">${highHours.join(', ')}</span></span>` : '<span class="text-emerald-300 font-bold"> לא צפויות שעות לכידה חמורה ב-12 השעות הקרובות</span>'}
               </div>
               <div class="text-[11px] mono text-sky-300 font-bold">

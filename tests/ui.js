@@ -171,10 +171,13 @@ function fontAudit() {
       const tip = d.querySelector('details[data-pol-tip] .tip-lines');
       if (tip) out.tips[d.dataset.pol] = [...tip.querySelectorAll('p')].map(p => p.textContent.replace(/\s+/g, ' ').trim());
     });
+    // force a last-hour value so the check never depends on a live sensor gap
+    const kept = {}; ['PM25', 'PM10'].forEach(k => { if (st.metrics[k]) { kept[k] = st.metrics[k].hourly; st.metrics[k].hourly = 20; } });
     for (const mode of ['env', 'target']) {
       APP_STATE.benchmarkMode = mode; renderMatrix();
       ['PM25', 'PM10'].forEach(k => { const d = document.querySelector(`#pollutantCardsGrid details[data-pol="${k}"]`); if (d) out.pm[mode + k] = d.textContent.replace(/\s+/g, ' '); });
     }
+    Object.entries(kept).forEach(([k, v]) => { st.metrics[k].hourly = v; });
     APP_STATE.benchmarkMode = mode0; renderMatrix();
     return out;
   });
@@ -185,6 +188,13 @@ function fontAudit() {
   ok(tipKeys.length > 0 && tipKeys.every(k => acc.tips[k].length === 3 && acc.tips[k][0].startsWith('🏭 מה זה ומאיפה:') && acc.tips[k][1].startsWith('📈 מתי עולה אצלנו:') && /^📏 מדרגות הייחוס: .*(תקן חוקי|יעד WHO)/.test(acc.tips[k][2])),
     `💡 tips are 3 lines (${JSON.stringify(acc.tips).slice(0, 300)})`);
   ok(!acc.tips.PM25 || acc.tips.PM25[2] === '📏 מדרגות הייחוס: יעד WHO: 15 (שנתי 5) • תקן חוקי: 37.5 (שנתי 25)', 'PM2.5 reference line: ' + (acc.tips.PM25 || [])[2]);
+
+  // formula pill in every collapsed accordion header; no "אינוורסיה" on the page text
+  const pill = await page.evaluate(() => { const rows = [...document.querySelectorAll('#pollutantCardsGrid > details > summary')];
+    return { rows: rows.length, pills: rows.filter(r => { const p = r.querySelector('.formula-pill'); return p && getComputedStyle(p).borderTopWidth !== '0px' && p.textContent.trim(); }).length,
+      inv: /אינוורסי|אינברסי/.test(document.body.innerText) }; });
+  ok(pill.rows > 0 && pill.pills === pill.rows, `formula pill in each accordion header (${pill.pills}/${pill.rows})`);
+  ok(!pill.inv, 'no "אינוורסיה" in visible text');
 
   // one "last hour": card / buttons / MOEP summary read rolling.hourly, same as the detector
   const roll = await page.evaluate(() => { const bad = []; let n = 0;
