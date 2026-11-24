@@ -1424,28 +1424,13 @@
       const retroPanel = document.getElementById('pirateFireRetroPanel');
       if (!panel) return;
 
-      const sig = detectPirateFireSignature(st);
       const retro = runRetrospectiveFireScan(st);
 
-      const badgeStyle = sig.level === 'high'
-        ? 'bg-orange-500/20 text-orange-200 border-orange-500/60'
-        : (sig.level === 'watch' ? 'bg-amber-500/20 text-amber-200 border-amber-500/60'
-          : ((sig.isMineralDust || sig.level === 'dust') ? 'bg-yellow-500/20 text-yellow-200 border-yellow-500/60' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'));
-
-      // plain status + a 2-line explanation; the scientific details live in docs/fire-detector-analysis.md
+      // only the jump button: the status lives in the decision card, the 2-line explanation in "מקרא סימונים"
       panel.innerHTML = `
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="px-2.5 py-1 rounded-full text-xs font-extrabold border ${badgeStyle}">${sig.badgeText}</span>
-          </div>
-          <button type="button" onclick="switchTab('trends'); setTimeout(() => document.getElementById('pirateFireRetroPanel')?.scrollIntoView({behavior:'smooth'}), 150)" class="px-3 py-1.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/50 text-orange-200 text-xs font-extrabold">
-            מתי היו סימני עשן? ↓
-          </button>
-        </div>
-        <p class="text-xs text-slate-300 leading-relaxed">
-          🔥 שריפות גזם ופסולת מסביב מעלות חלקיקים עדינים בתחנה אחת או שתיים, בעיקר בלילה כשהרוח מהמזרח.
-          אבק, או אוויר עומד שמעלה את כל האזור יחד, לא נחשבים עשן שריפה.
-        </p>
+        <button type="button" onclick="switchTab('trends'); setTimeout(() => document.getElementById('pirateFireRetroPanel')?.scrollIntoView({behavior:'smooth'}), 150)" class="w-full px-3 py-2 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/50 text-orange-200 text-[13px] font-extrabold transition">
+          מתי היו סימני עשן? ↓
+        </button>
       `;
 
       if (retroPanel) {

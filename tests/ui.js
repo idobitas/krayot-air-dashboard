@@ -149,6 +149,15 @@ function fontAudit() {
   ok(top.closed.every(v => v === 0) && top.open.every(v => v === 0), `toggles at the top keep scrollY 0 (${JSON.stringify(top)})`);
   ok(top.scrolledNoRow.every(v => Math.abs(v - top.y) <= 1), `toggles with no open row keep scrollY (${top.scrolledNoRow})`);
 
+  // smoke panel = one clean jump button; its 2-line explanation lives in "מקרא סימונים" (🚨, not 🔥)
+  const smoke = await page.evaluate(() => {
+    const p = document.getElementById('pirateFireIntelPanel'), ex = document.querySelector('details .smoke-explainer');
+    return { buttons: p.querySelectorAll('button').length, extra: p.textContent.replace(/\s+/g, ' ').trim(), badges: p.querySelectorAll('.rounded-full').length,
+      ex: !!ex && ex.textContent.startsWith('🚨') && ex.textContent.includes('שריפות גזם ופסולת מסביב'), fire: /🔥 שריפות גזם/.test(document.body.innerHTML) };
+  });
+  ok(smoke.buttons === 1 && smoke.badges === 0 && smoke.extra === 'מתי היו סימני עשן? ↓', `smoke panel is only the jump button (${JSON.stringify(smoke)})`);
+  ok(smoke.ex && !smoke.fire, 'smoke explanation sits in the legend with 🚨');
+
   // one "last hour": card / buttons / MOEP summary read rolling.hourly, same as the detector
   const roll = await page.evaluate(() => { const bad = []; let n = 0;
     STATIONS_DATA.forEach(st => { const h = st.live && st.live.rolling && st.live.rolling.hourly; if (!h) return;
