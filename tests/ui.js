@@ -171,6 +171,18 @@ function fontAudit() {
   ok(!nowBadge.hasPm || (nowBadge.out.length > 0 && nowBadge.out.every(o => /^עכשיו: \S.* \(\d+\.\d µg\/m³ מול \d+(\.\d+)?\)$/.test(o.txt) && o.ltr === 2)),
     `PM "עכשיו:" badge shows value vs limit (${JSON.stringify(nowBadge.out)})`);
 
+  // forced PM2.5 statuses (legal mode): every word carries "(value µg/m³ מול limit)"
+  const forced = await page.evaluate(() => {
+    const st = STATIONS_DATA.find(o => o.id === APP_STATE.selectedStationId); if (!st.metrics.PM25) return null;
+    const keep = st.metrics.PM25.hourly, mode = APP_STATE.benchmarkMode, out = {};
+    APP_STATE.benchmarkMode = 'env';
+    for (const v of [10, 22.3, 40]) { st.metrics.PM25.hourly = v; renderMatrix(); out[v] = document.querySelector('#pollutantCardsGrid details[data-pol="PM25"] .now-badge').textContent.replace(/\s+/g, ' ').trim(); }
+    st.metrics.PM25.hourly = keep; APP_STATE.benchmarkMode = mode; renderMatrix();
+    return out;
+  });
+  ok(!forced || (forced['10'] === 'עכשיו: תקין (10.0 µg/m³ מול 18.5)' && forced['22.3'] === 'עכשיו: בינוני (22.3 µg/m³ מול 18.5)' && forced['40'] === 'עכשיו: חריגה (40.0 µg/m³ מול 37.5)'),
+    `PM2.5 badge for תקין / בינוני / חריגה (${JSON.stringify(forced)})`);
+
   // one "last hour": card / buttons / MOEP summary read rolling.hourly, same as the detector
   const roll = await page.evaluate(() => { const bad = []; let n = 0;
     STATIONS_DATA.forEach(st => { const h = st.live && st.live.rolling && st.live.rolling.hourly; if (!h) return;

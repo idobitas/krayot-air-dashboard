@@ -225,5 +225,12 @@ if (R && R.S) {
 // v3.5.0: the decision card has no '▾ פרטים נוספים' fold (user removed it)
 ok(!appSrc.includes('פרטים נוספים</summary>'), 'decision card has no פרטים נוספים fold');
 
+// v3.5.4: every local <script src="js/..."> carries ?v=<footer version>, so new HTML never runs with a cached app.js
+{
+  const ver = (htmlSrc.match(/id="appVersion"[^>]*>• v([\d.]+)</) || [])[1];
+  const tags = [...htmlSrc.matchAll(/<script src="js\/([\w.-]+\.js)(?:\?v=([\d.]+))?"><\/script>/g)];
+  ok(tags.length === 5 && tags.every(t => t[2] === ver), 'cache-buster ?v=' + ver + ' on all local scripts: ' + tags.map(t => t[1] + '?v=' + t[2]).join(', '));
+}
+
 console.log(`${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);
