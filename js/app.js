@@ -744,6 +744,25 @@
         n.parentNode.replaceChild(frag, n);
       });
     }
+    // lagging / missing data only: when was the last valid reading? live 30-min history first, then the 90-day archive.
+    // key = pollutant (e.g. 'PM25'), or null for "any reading" of the station.
+    function lastReadingAt(st, key) {
+      const has = r => !!r && (key ? (r[key] != null && Number.isFinite(Number(r[key]))) : Object.keys(r).some(k => k !== 't' && r[k] != null));
+      const live = (st.history24h || []).filter(has).pop();
+      if (live && live.t) return live.t;
+      const rows = (window.HISTORY_90D && window.HISTORY_90D[st.id] && window.HISTORY_90D[st.id].rows) || [];
+      for (let i = rows.length - 1; i >= 0; i--) if (has(rows[i])) return rows[i].t;
+      return null;
+    }
+    // "14:30" today (Israel time), "23/11 14:30" on an earlier day
+    function fmtLastAt(t) {
+      const d = new Date(t); if (isNaN(d)) return '';
+      const f = o => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', ...o }).format(d);
+      const day = f({ day: '2-digit', month: '2-digit' }), today = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit' }).format(new Date());
+      const hm = f({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+      return day === today ? hm : day + ' ' + hm;
+    }
+    const lastAtHtml = (t, prefix) => t ? `<span class="last-at text-[12px] font-semibold text-slate-400">${prefix}<bdi dir="ltr">${fmtLastAt(t)}</bdi></span>` : '';
     const isolateStationContent = () => ['decisionCard', 'stationPillsStrip', 'stationInspectorCard', 'pollutantCardsGrid', 'stationAdvanced']
       .forEach(id => isolateLtr(document.getElementById(id)));
 
@@ -834,7 +853,7 @@
                 ${wlv ? `<span class="px-1.5 py-0.5 rounded-md border text-[13px] font-extrabold ${wlv.cls}">${wlv.word}</span>` : `<span class="w-2.5 h-2.5 rounded-full ${dotCls}"></span>`}
               </div>
             </div>
-            ${onlyBz ? '<div class="mt-0.5"><span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300">בנזן בלבד</span></div>' : ''}${st.stale ? '<div class="text-[10px] text-amber-300 mt-0.5">נתון ישן</div>' : ''}
+            ${onlyBz ? '<div class="mt-0.5"><span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300">בנזן בלבד</span></div>' : ''}${st.stale ? `<div class="stale-at text-[12px] text-amber-300 mt-0.5">נתון מ-<bdi dir="ltr">${fmtLastAt((st.live && st.live.measuredAt) || lastReadingAt(st, null)) || '?'}</bdi></div>` : ''}
             <div class="mt-2 flex items-center justify-between gap-1 text-[13px]">
               <span class="text-slate-300">${plbl}:</span>
               <span dir="ltr" class="mono font-extrabold ${wlv ? wlv.txt : 'text-slate-300'}">${ww ? formatGasValue(ww.value, ww.key, ww.key === 'C6H6' ? 2 : 1) + ' ' + getUnitLabel(ww.key) : '—'}</span>
@@ -1576,7 +1595,7 @@
           // no nested parentheses inside the "(…)" wrapper: inner "(יעד WHO: 15)" becomes "• יעד WHO: 15"
           subNote = String(subNote || '').replace(/\s*\(([^()]*)\)/g, ' • $1');
           if (val === null || val === undefined || isNaN(val)) {
-            return `<div class="flex items-center justify-between text-xs"><span class="text-slate-400 font-semibold">${label}</span><span class="text-slate-400">${tfKey === 'monthly' ? 'עוד אין 30 יום מלאים' : 'אין נתון'}</span></div>`;
+            return `<div class="flex items-center justify-between text-xs"><span class="text-slate-400 font-semibold">${label}</span><span class="text-slate-400">${tfKey === 'monthly' ? 'עוד אין 30 יום מלאים' : 'אין נתון' + (tfKey === 'hourly' ? ((t => t ? ` (אחרון: <bdi dir="ltr">${fmtLastAt(t)}</bdi>)` : '')(lastReadingAt(st, key))) : '')}</span></div>`;
           }
           if (tfKey === 'hourly' && std.noHourlyStd) {
             return `<div class="flex flex-wrap items-center justify-between gap-1 text-xs"><span class="text-slate-400 font-semibold">${label} <span class="text-[10px] text-slate-400">(${subNote})</span></span><span class="mono text-slate-200 font-bold">${std.isGas ? formatGasValue(val, key, dec) : Number(val).toFixed(dec)} ${unitLbl}</span></div>`;
@@ -1615,7 +1634,7 @@
               <span class="formula-pill inline-block align-middle ms-1.5 px-1.5 py-px rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[11px] font-bold mono leading-tight">${std.formula}</span>
               <span class="block h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mt-1.5"><span class="block h-full ${accW[2]} rounded-full" style="width:${nowBarW}%"></span></span>
             </span>
-            <span class="text-xs font-extrabold ${accW[1]} shrink-0">${accW[0]}</span>
+            <span class="text-xs font-extrabold ${accW[1]} shrink-0">${accW[0]}${m.hourly == null ? ' ' + lastAtHtml(lastReadingAt(st, key), '(אחרון: ').replace(/<\/span>$/, ')</span>') : ''}</span>
             <span class="text-slate-400 text-xs shrink-0 group-open:rotate-180 transition">▾</span>
           </summary>
           <div class="px-3.5 pb-3.5 flex flex-col justify-between space-y-3">

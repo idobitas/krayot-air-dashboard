@@ -196,6 +196,31 @@ function fontAudit() {
   ok(pill.rows > 0 && pill.pills === pill.rows, `formula pill in each accordion header (${pill.pills}/${pill.rows})`);
   ok(!pill.inv, 'no "אינוורסיה" in visible text');
 
+  // lagging / missing data: last-reading time only where data is missing; never on live readings
+  const lag = await page.evaluate(() => {
+    const st = STATIONS_DATA.find(o => o.id === APP_STATE.selectedStationId), out = {};
+    if (!st.metrics.PM25) return null;
+    const keep = { h: st.metrics.PM25.hourly, hist: st.history24h, stale: st.stale, live: st.live };
+    const t0 = '2026-11-24T14:30:00+02:00';
+    st.history24h = [{ t: '2026-11-24T14:00:00+02:00', PM25: 5 }, { t: t0, PM25: 4 }, { t: '2026-11-24T15:00:00+02:00' }];
+    st.metrics.PM25.hourly = null; renderMatrix();
+    const row = document.querySelector('#pollutantCardsGrid details[data-pol="PM25"]');
+    out.head = row.querySelector(':scope > summary').textContent.replace(/\s+/g, ' ');
+    out.body = row.textContent.replace(/\s+/g, ' ');
+    out.fmt = fmtLastAt(t0); out.ltr = row.querySelectorAll('bdi[dir="ltr"]').length;
+    out.font = Math.min(...[...row.querySelectorAll('.last-at')].map(e => parseFloat(getComputedStyle(e).fontSize)));
+    st.metrics.PM25.hourly = 12; renderMatrix();
+    out.liveClean = !document.querySelector('#pollutantCardsGrid details[data-pol="PM25"] > summary .last-at');
+    st.stale = true; st.live = Object.assign({}, st.live, { measuredAt: t0 }); renderMatrix();
+    out.pill = (document.querySelector(`.station-pill[data-station-id="${st.id}"] .stale-at`) || {}).textContent;
+    Object.assign(st.metrics.PM25, { hourly: keep.h }); st.history24h = keep.hist; st.stale = keep.stale; st.live = keep.live; renderMatrix();
+    return out;
+  });
+  ok(!lag || (lag.head.includes('(אחרון: ' + lag.fmt + ')') && lag.body.includes('אין נתון (אחרון: ' + lag.fmt + ')') && lag.ltr >= 2 && lag.font >= 12),
+    `missing last hour shows the last reading time (${JSON.stringify(lag)})`);
+  ok(!lag || lag.liveClean, 'no timestamp on a live reading');
+  ok(!lag || lag.pill === 'נתון מ-' + lag.fmt, `stale station pill shows "נתון מ-" (${lag && lag.pill})`);
+
   // one "last hour": card / buttons / MOEP summary read rolling.hourly, same as the detector
   const roll = await page.evaluate(() => { const bad = []; let n = 0;
     STATIONS_DATA.forEach(st => { const h = st.live && st.live.rolling && st.live.rolling.hourly; if (!h) return;
