@@ -2392,16 +2392,19 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       });
 
-      // re-render without moving what the user is reading: the first open pollutant row (else the first
-      // visible card) keeps its on-screen position even if content above it grows or shrinks
+      // re-render without moving what the user is reading. Only when a pollutant row is OPEN and the user has
+      // scrolled down (scrollY > 20) does that row keep its on-screen position (content above it may grow or
+      // shrink). At the top of the page, or with no open row, scrollY is restored as is: a mode/unit toggle
+      // never drifts the page.
       const renderKeepingPlace = () => {
-        const anchor = document.querySelector('#pollutantCardsGrid details[data-pol][open]')
-          || [...document.querySelectorAll('.tab-panel:not(.hidden) > *')].find(el => el.getBoundingClientRect().bottom > 0);
-        const key = anchor && anchor.dataset ? anchor.dataset.pol : null;
-        const top0 = anchor ? anchor.getBoundingClientRect().top : null;
+        const y0 = window.scrollY;
+        const open = y0 > 20 ? document.querySelector('#pollutantCardsGrid details[data-pol][open]') : null;
+        const key = open ? open.dataset.pol : null;
+        const top0 = open ? open.getBoundingClientRect().top : null;
         renderMatrix();
-        const again = key ? document.querySelector(`#pollutantCardsGrid details[data-pol="${key}"]`) : anchor;
+        const again = key ? document.querySelector(`#pollutantCardsGrid details[data-pol="${key}"]`) : null;
         if (again && top0 != null) window.scrollBy(0, again.getBoundingClientRect().top - top0);
+        else if (window.scrollY !== y0) window.scrollTo(0, y0);
       };
       const btnBenchEnv = document.getElementById('btnBenchEnv');
       const btnBenchTarget = document.getElementById('btnBenchTarget');

@@ -135,6 +135,20 @@ function fontAudit() {
   ok(keep.dyMode < 2 && keep.dyUnit < 2 && keep.dyBack < 2, `open row does not move on screen (${keep.dyMode}/${keep.dyUnit}/${keep.dyBack}px)`);
   await page.evaluate(() => { document.querySelectorAll('#pollutantCardsGrid details[open]').forEach(d => d.open = false); window.scrollTo(0, 0); });
 
+  // at the top of the page the toggles never drift the page down (with or without an open row)
+  const top = await page.evaluate(async () => {
+    const out = {}, tick = () => new Promise(r => requestAnimationFrame(() => r()));
+    const run = async () => { const ys = []; for (const id of ['btnBenchTarget', 'btnUnitPpb', 'btnUnitUg', 'btnBenchEnv']) { document.getElementById(id).click(); await tick(); ys.push(Math.round(window.scrollY)); } return ys; };
+    window.scrollTo(0, 0); await tick(); out.closed = await run();
+    document.querySelector('#pollutantCardsGrid details[data-pol]').open = true; window.scrollTo(0, 0); await tick(); out.open = await run();
+    document.querySelectorAll('#pollutantCardsGrid details[open]').forEach(d => d.open = false);
+    const y = 400; window.scrollTo(0, y); await tick(); out.scrolledNoRow = await run(); out.y = y;
+    window.scrollTo(0, 0);
+    return out;
+  });
+  ok(top.closed.every(v => v === 0) && top.open.every(v => v === 0), `toggles at the top keep scrollY 0 (${JSON.stringify(top)})`);
+  ok(top.scrolledNoRow.every(v => Math.abs(v - top.y) <= 1), `toggles with no open row keep scrollY (${top.scrolledNoRow})`);
+
   // one "last hour": card / buttons / MOEP summary read rolling.hourly, same as the detector
   const roll = await page.evaluate(() => { const bad = []; let n = 0;
     STATIONS_DATA.forEach(st => { const h = st.live && st.live.rolling && st.live.rolling.hourly; if (!h) return;
