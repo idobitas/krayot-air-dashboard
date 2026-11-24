@@ -1426,12 +1426,8 @@
 
       const retro = runRetrospectiveFireScan(st);
 
-      // only the jump button: the status lives in the decision card, the 2-line explanation in "מקרא סימונים"
-      panel.innerHTML = `
-        <button type="button" onclick="switchTab('trends'); setTimeout(() => document.getElementById('pirateFireRetroPanel')?.scrollIntoView({behavior:'smooth'}), 150)" class="w-full px-3 py-2 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/50 text-orange-200 text-[13px] font-extrabold transition">
-          מתי היו סימני עשן? ↓
-        </button>
-      `;
+      // the Now tab has no smoke panel any more (covered by the "מגמות ואירועים" tab); keep the container empty
+      panel.innerHTML = '';
 
       if (retroPanel) {
         retroPanel.innerHTML = `
@@ -1596,6 +1592,9 @@
         };
 
         const accW = [bar.word, bar.txtCls, bar.barCls];
+        // PM: show what drives the bar right in the "עכשיו:" badge -> last hour vs the band limit it crossed (or the next one)
+        const nb = (key === 'PM25' || key === 'PM10') && m.hourly != null && bar.lvl != null ? AQStd.nowBands(APP_STATE.benchmarkMode)[key] : null;
+        const nowVs = nb ? ` (<bdi dir="ltr">${Number(m.hourly).toFixed(1)} µg/m³</bdi> מול <bdi dir="ltr">${bar.lvl >= 2 ? nb[1] : nb[0]}</bdi>)` : '';
         const nowBarW = bar.width;
         return { pct: maxPct, html: `
           <details data-pol="${key}" class="rounded-2xl border ${borderCol} group">
@@ -1619,7 +1618,7 @@
                   </div>
                   <div class="text-[11px] text-slate-400 mt-0.5">${guide.short}</div>
                 </div>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 bg-black/30 border border-white/10 ${accW[1]}">עכשיו: ${accW[0]}</span>
+                <span class="now-badge px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 max-w-[60%] text-center bg-black/30 border border-white/10 ${accW[1]}">עכשיו: ${accW[0]}${nowVs}</span>
               </div>
 
               <!-- Hourly / Daily / Monthly Bars -->

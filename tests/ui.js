@@ -149,14 +149,27 @@ function fontAudit() {
   ok(top.closed.every(v => v === 0) && top.open.every(v => v === 0), `toggles at the top keep scrollY 0 (${JSON.stringify(top)})`);
   ok(top.scrolledNoRow.every(v => Math.abs(v - top.y) <= 1), `toggles with no open row keep scrollY (${top.scrolledNoRow})`);
 
-  // smoke panel = one clean jump button; its 2-line explanation lives in "מקרא סימונים" (🚨, not 🔥)
+  // Now tab: no smoke jump button (the "מגמות ואירועים" tab covers it); explanation stays in "מקרא סימונים" (🚨)
   const smoke = await page.evaluate(() => {
     const p = document.getElementById('pirateFireIntelPanel'), ex = document.querySelector('details .smoke-explainer');
-    return { buttons: p.querySelectorAll('button').length, extra: p.textContent.replace(/\s+/g, ' ').trim(), badges: p.querySelectorAll('.rounded-full').length,
-      ex: !!ex && ex.textContent.startsWith('🚨') && ex.textContent.includes('שריפות גזם ופסולת מסביב'), fire: /🔥 שריפות גזם/.test(document.body.innerHTML) };
+    const nowTab = document.querySelector('.tab-panel:not(.hidden)');
+    return { empty: !p || (p.innerHTML.trim() === '' && p.classList.contains('hidden')),
+      jump: [...(nowTab ? nowTab.querySelectorAll('button') : [])].some(x => x.textContent.includes('מתי היו סימני עשן')),
+      ex: !!ex && ex.textContent.startsWith('🚨'), fire: /🔥 שריפות גזם/.test(document.body.innerHTML) };
   });
-  ok(smoke.buttons === 1 && smoke.badges === 0 && smoke.extra === 'מתי היו סימני עשן? ↓', `smoke panel is only the jump button (${JSON.stringify(smoke)})`);
+  ok(smoke.empty && !smoke.jump, `Now tab has no smoke jump button (${JSON.stringify(smoke)})`);
   ok(smoke.ex && !smoke.fire, 'smoke explanation sits in the legend with 🚨');
+  // expanded PM rows: the "עכשיו:" badge names the last-hour value and the limit it is compared with
+  const nowBadge = await page.evaluate(() => {
+    const out = [];
+    document.querySelectorAll('#pollutantCardsGrid details[data-pol="PM25"], #pollutantCardsGrid details[data-pol="PM10"]').forEach(d => {
+      const b = d.querySelector('.now-badge'); out.push({ pol: d.dataset.pol, txt: b ? b.textContent.replace(/\s+/g, ' ').trim() : null, ltr: b ? b.querySelectorAll('bdi[dir="ltr"]').length : 0 });
+    });
+    const st = STATIONS_DATA.find(o => o.id === APP_STATE.selectedStationId);
+    return { out, hasPm: !!(st.metrics.PM25 || st.metrics.PM10), bars: document.querySelectorAll('#pollutantCardsGrid details[data-pol="PM25"] .h-2').length };
+  });
+  ok(!nowBadge.hasPm || (nowBadge.out.length > 0 && nowBadge.out.every(o => /^עכשיו: \S.* \(\d+\.\d µg\/m³ מול \d+(\.\d+)?\)$/.test(o.txt) && o.ltr === 2)),
+    `PM "עכשיו:" badge shows value vs limit (${JSON.stringify(nowBadge.out)})`);
 
   // one "last hour": card / buttons / MOEP summary read rolling.hourly, same as the detector
   const roll = await page.evaluate(() => { const bad = []; let n = 0;
