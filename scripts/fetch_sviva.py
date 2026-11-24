@@ -55,6 +55,13 @@ REF_STATIONS = {
 }
 REF_KEYS = ("PM25",)
 
+# Silent archive only (history + monthly archives): never in live_krayot.json, never shown in the UI,
+# not read by js/fire_v2b.js (it only reads its own station ids). Kept for spring calibration.
+# 88 = Kiryat Ata city centre (Rogozin school): wind, CO, O3, SO2, PM, NOx — decided 2026-11-25.
+ARCHIVE_ONLY = {
+    "arc_kiryat_ata_center": (88, "קריית אתא – מרכז העיר (ארכיון בלבד)"),
+}
+
 # Open-Meteo model wind at Krayot stations whose anemometers stall at 0 (stuck-sensor check in fire_v2b.js).
 OPEN_METEO = {
     "om_kiryat_bialik_z4": (380, 32.814143, 35.077715),
@@ -411,7 +418,7 @@ async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
     }
 
 
-async def fetch_reference(client, api_id, hist_rows, backfill):
+async def fetch_reference(client, api_id, hist_rows, backfill, keys=REF_KEYS):
     if backfill:
         avg = await client.get_station_average(
             api_id, from_date=today_il() - timedelta(days=WINDOW_DAYS), to_date=today_il())
@@ -419,7 +426,7 @@ async def fetch_reference(client, api_id, hist_rows, backfill):
         avg = await client.get_station_average(
             api_id, from_date=today_il() - timedelta(days=1), to_date=today_il(), timebase=5)
     pts = points_of(avg)
-    new = {t: {k: v[k] for k in REF_KEYS if v.get(k) is not None}
+    new = {t: {k: v[k] for k in keys if v.get(k) is not None}
            for t, v in hourly_rows(pts).items()}
     return merge_rows(hist_rows, {t: v for t, v in new.items() if v}), rolling_hours(pts)
 
@@ -479,6 +486,16 @@ async def main(force_backfill=False):
                 rows, roll = await fetch_reference(client, api_id, existing, need_backfill)
                 hist_stations[ref_id] = {"apiStationId": api_id, "rows": rows}
                 references.append({"id": ref_id, "apiStationId": api_id, "name": name, "rolling": roll})
+                print(f"OK   {name} ({api_id}) rows={len(rows)}{' [backfill]' if need_backfill else ''}")
+            except Exception as exc:
+                print(f"FAIL {name} ({api_id}): {exc!r}", file=sys.stderr)
+        # silent archive (all channels, history only; not added to `references` / live output)
+        for arc_id, (api_id, name) in ARCHIVE_ONLY.items():
+            existing = hist_stations.get(arc_id, {}).get("rows", [])
+            need_backfill = force_backfill or coverage_days(existing) < WINDOW_DAYS - 5
+            try:
+                rows, _ = await fetch_reference(client, api_id, existing, need_backfill, keys=VALUE_KEYS)
+                hist_stations[arc_id] = {"apiStationId": api_id, "rows": rows}
                 print(f"OK   {name} ({api_id}) rows={len(rows)}{' [backfill]' if need_backfill else ''}")
             except Exception as exc:
                 print(f"FAIL {name} ({api_id}): {exc!r}", file=sys.stderr)

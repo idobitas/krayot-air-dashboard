@@ -251,5 +251,16 @@ ok(!appSrc.includes('פרטים נוספים</summary>'), 'decision card has no 
 // v3.5.8: Kiryat Ata station shows as 'קריית אתא' (subtitle 'קריית בנימין' carries the neighbourhood)
 ok(/id: 'kiryat_binyamin',[\s\S]{0,120}shortName: 'קריית אתא',/.test(appSrc) && !appSrc.includes('קריית אתא (בנימין)'), 'Kiryat Ata short name');
 
+// v3.5.9: station 88 (Kiryat Ata centre) is a silent archive only — history/monthly archives, never live, UI or detector
+{
+  const py = fs.readFileSync(path.join(__dirname, '../scripts/fetch_sviva.py'), 'utf8');
+  const fireSrc = fs.readFileSync(path.join(__dirname, '../js/fire_v2b.js'), 'utf8');
+  const block = (name) => (py.match(new RegExp('^' + name + ' = \\{[\\s\\S]*?^\\}', 'm')) || [''])[0];
+  ok(/"arc_kiryat_ata_center": \(88,/.test(block('ARCHIVE_ONLY')), 'ARCHIVE_ONLY holds station 88');
+  ok(!/\(88,/.test(block('STATIONS')) && !/\(88,/.test(block('REF_STATIONS')), 'station 88 is neither a live nor a reference station');
+  ok(!/arc_kiryat_ata_center/.test(appSrc + htmlSrc + fireSrc), 'UI and detector never read the station-88 archive');
+  ok(/for arc_id, \(api_id, name\) in ARCHIVE_ONLY\.items\(\):[\s\S]{0,600}hist_stations\[arc_id\]/.test(py) && !/references\.append\(\{"id": arc_id/.test(py), 'station 88 goes to history only, not to live references');
+}
+
 console.log(`${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);
