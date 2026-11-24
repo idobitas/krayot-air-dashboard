@@ -27,6 +27,19 @@ ARCHIVE_INDEX = ROOT / "data" / "archives_index.json"
 IL_TZ = ZoneInfo("Asia/Jerusalem")
 
 
+# Each 10-min run re-reads 1 day back (yesterday 00:00 IL -> now). Once a night, the first run after
+# REFRESH_HOUR (Israel time) re-reads REFRESH_DAYS so MoEP's 72-hour QA corrections reach the archive.
+REGULAR_DAYS = 1
+REFRESH_DAYS = 4
+REFRESH_HOUR = 3
+
+
+def refresh_due(history, now=None, force=False):
+    """True once per Israel calendar day, on the first run at/after REFRESH_HOUR (or with --refresh-4d)."""
+    now = now or datetime.now(IL_TZ)
+    return force or (now.hour >= REFRESH_HOUR and history.get("lastRefreshDate") != now.date().isoformat())
+
+
 def today_il():
     """Calendar date in Israel. py-air-sviva-api turns hours_back / missing dates into the
     runner's date.today() (UTC), so between 00:00 and 02:00/03:00 Israel time it asked only for
@@ -246,11 +259,13 @@ def history_text(updated, stations, extra_head=()):
 
 def save_history(doc):
     HISTORY.parent.mkdir(parents=True, exist_ok=True)
-    HISTORY.write_text(history_text(doc["updated"], doc["stations"],
-                                   ['"windowDays": ' + str(WINDOW_DAYS) + ","]), encoding="utf-8")
+    head = ['"windowDays": ' + str(WINDOW_DAYS) + ","]
+    if doc.get("lastRefreshDate"):
+        head.append('"lastRefreshDate": ' + json.dumps(doc["lastRefreshDate"]) + ",")
+    HISTORY.write_text(history_text(doc["updated"], doc["stations"], head), encoding="utf-8")
 
 
-def update_archives(hist_stations):
+def update_archives(hist_stations, purged=None):
     """Copy every hourly row into data/archive_YYYY_MM.json (month of the +02:00 timestamp).
 
     Archives only grow (fresh value wins per timestamp), so hours that fall out of the 90-day
@@ -261,6 +276,10 @@ def update_archives(hist_stations):
     for sid, st in hist_stations.items():
         for r in st["rows"]:
             by_month[r["t"][:7]][sid].append(r)
+    purged = purged or {}
+    for sid, ts_set in purged.items():  # make sure purged months are rewritten even with no fresh rows
+        for t in ts_set:
+            by_month[t[:7]].setdefault(sid, [])
     written = []
     for ym, stations in sorted(by_month.items()):
         path = ARCHIVE_DIR / f"archive_{ym.replace('-', '_')}.json"
@@ -273,6 +292,8 @@ def update_archives(hist_stations):
         merged = {}
         for sid in sorted(set(old) | set(stations)):
             by_t = {r["t"]: r for r in old.get(sid, {}).get("rows", [])}
+            for t in purged.get(sid, ()):  # hours invalidated upstream (nightly refresh)
+                by_t.pop(t, None)
             for r in stations.get(sid, []):
                 by_t[r["t"]] = r
             api = (hist_stations.get(sid) or old.get(sid) or {}).get("apiStationId")
@@ -299,6 +320,36 @@ def update_archives(hist_stations):
     if not ARCHIVE_INDEX.exists() or ARCHIVE_INDEX.read_text(encoding="utf-8") != index:
         ARCHIVE_INDEX.write_text(index, encoding="utf-8")
     return written
+
+
+def covered_hours(avg_resp):
+    """Hour buckets the API really answered for: raw records (valid or not) cover at least half the
+    hour and the hour is complete. Only these hours may be purged; a partial / failed response
+    covers nothing, so it can never wipe stored data."""
+    stamps = defaultdict(set)
+    times = []
+    for p in (getattr(avg_resp, "data", None) or []):
+        if not p.datetime:
+            continue
+        t = parse_dt(p.datetime)
+        times.append(t)
+        stamps[t.replace(minute=0, second=0, microsecond=0)].add(t)
+    if not times:
+        return set()
+    times.sort()
+    latest = times[-1]
+    gaps = sorted((times[i + 1] - times[i]).total_seconds() / 60 for i in range(len(times) - 1))
+    step = max(1.0, gaps[len(gaps) // 2]) if gaps else 5.0
+    need = max(1, math.ceil(30 / step))
+    return {b.isoformat() for b, st in stamps.items() if len(st) >= need and latest >= b + timedelta(minutes=55)}
+
+
+def refresh_rows(existing, new_rows, covered):
+    """merge_rows + purge: an existing hour the API covered (see covered_hours) but that no longer
+    yields a valid row was invalidated upstream (QA/QC) -> removed. Returns (rows, purged_ts)."""
+    purged = {r["t"] for r in existing if r["t"] in covered and r["t"] not in new_rows}
+    rows = merge_rows([r for r in existing if r["t"] not in purged], new_rows)
+    return rows, purged
 
 
 def merge_rows(existing, new_rows):
@@ -371,20 +422,22 @@ def ozone_8h(points, latest_t):
     return {"hourly": now, "daily": max(vals) if vals else None, "window": "8h"}
 
 
-async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
+async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill, days_back=REGULAR_DAYS, purged_out=None):
     if backfill:
         avg = await client.get_station_average(
             api_id, from_date=today_il() - timedelta(days=WINDOW_DAYS), to_date=today_il())
     else:
         avg = await client.get_station_average(
-            api_id, from_date=today_il() - timedelta(days=1), to_date=today_il(), timebase=5)
+            api_id, from_date=today_il() - timedelta(days=days_back), to_date=today_il(), timebase=5)
     all_pts = points_of(avg)
     if not all_pts:
         raise RuntimeError("no valid data points")
     latest_t = all_pts[-1][0]
     pts = [p for p in all_pts if p[0] > latest_t - timedelta(hours=24)]
 
-    rows = merge_rows(hist_rows, hourly_rows(all_pts))
+    rows, purged = refresh_rows(hist_rows, hourly_rows(all_pts), covered_hours(avg))
+    if purged_out is not None:
+        purged_out.update(purged)
 
     last5 = dict(pts[-1][1])
     last30 = window_mean(pts, latest_t - timedelta(minutes=30))
@@ -418,17 +471,20 @@ async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill):
     }
 
 
-async def fetch_reference(client, api_id, hist_rows, backfill, keys=REF_KEYS):
+async def fetch_reference(client, api_id, hist_rows, backfill, keys=REF_KEYS, days_back=REGULAR_DAYS, purged_out=None):
     if backfill:
         avg = await client.get_station_average(
             api_id, from_date=today_il() - timedelta(days=WINDOW_DAYS), to_date=today_il())
     else:
         avg = await client.get_station_average(
-            api_id, from_date=today_il() - timedelta(days=1), to_date=today_il(), timebase=5)
+            api_id, from_date=today_il() - timedelta(days=days_back), to_date=today_il(), timebase=5)
     pts = points_of(avg)
     new = {t: {k: v[k] for k in keys if v.get(k) is not None}
            for t, v in hourly_rows(pts).items()}
-    return merge_rows(hist_rows, {t: v for t, v in new.items() if v}), rolling_hours(pts)
+    rows, purged = refresh_rows(hist_rows, {t: v for t, v in new.items() if v}, covered_hours(avg))
+    if purged_out is not None:
+        purged_out.update(purged)
+    return rows, rolling_hours(pts)
 
 
 async def fetch_open_meteo(session, lat, lon, hist_rows, backfill):
@@ -458,10 +514,15 @@ async def fetch_open_meteo(session, lat, lon, hist_rows, backfill):
     return merge_rows(hist_rows, new)
 
 
-async def main(force_backfill=False):
+async def main(force_backfill=False, force_refresh=False):
     history = load_history()
     hist_stations = history.setdefault("stations", {})
     stations, times = [], []
+    refresh = refresh_due(history, force=force_refresh)
+    days_back = REFRESH_DAYS if refresh else REGULAR_DAYS
+    purged = defaultdict(set)
+    if refresh:
+        print(f"Nightly refresh: re-reading {REFRESH_DAYS} days (QA/QC corrections)")
     async with aiohttp.ClientSession() as session:
         client = SvivaAirClient(session)
         await client.generate_token()
@@ -469,7 +530,8 @@ async def main(force_backfill=False):
             existing = hist_stations.get(dash_id, {}).get("rows", [])
             need_backfill = force_backfill or coverage_days(existing) < WINDOW_DAYS - 5
             try:
-                rows, st = await fetch_station(client, dash_id, api_id, name, existing, need_backfill)
+                rows, st = await fetch_station(client, dash_id, api_id, name, existing, need_backfill,
+                                               days_back=days_back, purged_out=purged[dash_id])
                 hist_stations[dash_id] = {"apiStationId": api_id, "rows": rows}
                 stations.append(st)
                 times.append(parse_dt(st["measuredAt"]))
@@ -483,7 +545,8 @@ async def main(force_backfill=False):
             existing = hist_stations.get(ref_id, {}).get("rows", [])
             need_backfill = force_backfill or coverage_days(existing) < WINDOW_DAYS - 5
             try:
-                rows, roll = await fetch_reference(client, api_id, existing, need_backfill)
+                rows, roll = await fetch_reference(client, api_id, existing, need_backfill,
+                                                   days_back=days_back, purged_out=purged[ref_id])
                 hist_stations[ref_id] = {"apiStationId": api_id, "rows": rows}
                 references.append({"id": ref_id, "apiStationId": api_id, "name": name, "rolling": roll})
                 print(f"OK   {name} ({api_id}) rows={len(rows)}{' [backfill]' if need_backfill else ''}")
@@ -494,7 +557,8 @@ async def main(force_backfill=False):
             existing = hist_stations.get(arc_id, {}).get("rows", [])
             need_backfill = force_backfill or coverage_days(existing) < WINDOW_DAYS - 5
             try:
-                rows, _ = await fetch_reference(client, api_id, existing, need_backfill, keys=VALUE_KEYS)
+                rows, _ = await fetch_reference(client, api_id, existing, need_backfill, keys=VALUE_KEYS,
+                                                days_back=days_back, purged_out=purged[arc_id])
                 hist_stations[arc_id] = {"apiStationId": api_id, "rows": rows}
                 print(f"OK   {name} ({api_id}) rows={len(rows)}{' [backfill]' if need_backfill else ''}")
             except Exception as exc:
@@ -514,10 +578,15 @@ async def main(force_backfill=False):
     ts = max(times).isoformat()
     history["updated"] = max((r["t"] for k, s in hist_stations.items() if k in STATIONS for r in s["rows"][-1:]),
                              default=ts)
+    if refresh:
+        history["lastRefreshDate"] = datetime.now(IL_TZ).date().isoformat()
+        n = sum(len(v) for v in purged.values())
+        print(f"Nightly refresh done; purged {n} invalidated hour(s)" + (": " + ", ".join(
+            f"{k}×{len(v)}" for k, v in purged.items() if v) if n else ""))
     save_history(history)
     # archive before anything is trimmed on the next run (merge_rows already cut >90 d, but those
     # hours were archived on earlier runs while they were still inside the window)
-    written = update_archives(hist_stations)
+    written = update_archives(hist_stations, {k: v for k, v in purged.items() if v})
     if written:
         print("Archive updated: " + ", ".join(written))
     # keep the previous record of any station that failed this run instead of dropping it
@@ -541,4 +610,4 @@ async def main(force_backfill=False):
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main(force_backfill="--backfill" in sys.argv)))
+    sys.exit(asyncio.run(main(force_backfill="--backfill" in sys.argv, force_refresh="--refresh-4d" in sys.argv)))

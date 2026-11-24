@@ -262,5 +262,13 @@ ok(/id: 'kiryat_binyamin',[\s\S]{0,120}shortName: 'קריית אתא',/.test(app
   ok(/for arc_id, \(api_id, name\) in ARCHIVE_ONLY\.items\(\):[\s\S]{0,600}hist_stations\[arc_id\]/.test(py) && !/references\.append\(\{"id": arc_id/.test(py), 'station 88 goes to history only, not to live references');
 }
 
+// v3.5.10: nightly 4-day refresh lives in fetch_sviva.py with mock tests; the UI always re-reads history / archives
+{
+  const py = fs.readFileSync(path.join(__dirname, '../scripts/fetch_sviva.py'), 'utf8');
+  ok(/REGULAR_DAYS = 1/.test(py) && /REFRESH_DAYS = 4/.test(py) && /REFRESH_HOUR = 3/.test(py) && py.includes('"--refresh-4d"') && py.includes('lastRefreshDate'), 'fetch_sviva.py: nightly 4-day refresh wired');
+  ok(fs.existsSync(path.join(__dirname, 'refresh_test.py')), 'tests/refresh_test.py exists');
+  ok(/fetch\(`\$\{url\}\?t=\$\{Date\.now\(\)\}`, \{ cache: 'no-store' \}\)/.test(appSrc) && /fetchJson\('\.\/data\/history_90d\.json'\)/.test(appSrc) && /fetchJson\('\.\/' \+ opt\.dataset\.file\)/.test(appSrc), 'history and monthly archives are fetched no-store with a cache-buster');
+}
+
 console.log(`${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);
