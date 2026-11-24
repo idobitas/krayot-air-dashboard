@@ -248,5 +248,8 @@ ok(!appSrc.includes('פרטים נוספים</summary>'), 'decision card has no 
   ok(appSrc.includes('class="formula-pill'), 'accordion header formula is a pill');
 }
 
+// v3.5.8: Kiryat Ata station shows as 'קריית אתא' (subtitle 'קריית בנימין' carries the neighbourhood)
+ok(/id: 'kiryat_binyamin',[\s\S]{0,120}shortName: 'קריית אתא',/.test(appSrc) && !appSrc.includes('קריית אתא (בנימין)'), 'Kiryat Ata short name');
+
 console.log(`${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

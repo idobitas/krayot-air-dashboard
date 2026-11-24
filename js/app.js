@@ -191,7 +191,7 @@
       {
         id: 'kiryat_binyamin',
         name: 'קריית אתא – קריית בנימין',
-        shortName: 'קריית אתא (בנימין)',
+        shortName: 'קריית אתא',
         code: 'HBUA-KB',
         group: 'krayot',
         location: 'שכונת קריית בנימין, קריית אתא (סמוך לבז"ן)',
