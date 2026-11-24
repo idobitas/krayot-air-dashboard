@@ -20,51 +20,64 @@
     const { GAS_CONVERSION, POLLUTANT_STANDARDS, PLAIN_NAMES } = window.AQStd;
 
     // Intuitive explanations shown directly inside each pollutant card on mobile & desktop
+    // 💡 tip line 3: legal vs WHO reference steps, read from AQStd.limit (µg/m³)
+    function guideRefs(key) {
+      const L = (tf, m) => AQStd.limit(key, tf, m);
+      if (key === 'PM25' || key === 'PM10') return `יעד WHO: ${L('d', 'target')} (שנתי ${L('m', 'target')}) • תקן חוקי: ${L('d', 'env')} (שנתי ${L('m', 'env')})`;
+      if (key === 'NO2') return `יעד WHO: ${L('d', 'target')} יממתי (שנתי ${L('m', 'target')}) • תקן חוקי: ${L('h', 'env')} שעתי, ${AQStd.DAILY_WHO_VS_LEGAL.NO2.legal} יממתי (שנתי ${L('m', 'env')})`;
+      if (key === 'O3') return `יעד WHO: ${L('h', 'target')} • תקן חוקי: ${L('h', 'env')} (ממוצע 8 שעות)`;
+      if (key === 'C6H6') return `תקן חוקי: ${L('d', 'env')} יממתי (שנתי ${L('m', 'env')}) • ל-WHO אין רמה בטוחה (מסרטן)`;
+      if (key === 'SO2') return `יעד WHO: ${L('d', 'target')} יממתי • תקן חוקי: ${L('h', 'env')} שעתי, ${L('d', 'env')} יממתי`;
+      return '';
+    }
     const INTUITIVE_GUIDE = {
       C6H6: {
         short: 'גז מסרטן ודאי (לוקמיה) מדלקים ובז"ן',
+        what: 'חומר נדיף ומסרטן מבתי הזיקוק, חוות המכלים ורכבים.',
+        when: 'כשהרוח נושבת מכיוון המפרץ ואזור התעשייה.',
         simple: 'חומר כימי נדיף שמגיע מבתי הזיקוק (בז"ן), חוות המכלים (תש"ן) ורכבים. אין לו ריח חזק ברמות נמוכות, אבל חשיפה אליו פוגעת במח העצם ומעלה סיכון לסרטן הדם.',
-        action: 'מעל 3.9 µg/m³ (יממתי): חריגה מתקן הסביבה. ריכוזים גבוהים נמדדים בעיקר כשהרוח מגיעה מכיוון המפרץ.'
       },
       PM25: {
         short: 'אבק זעיר שחודר עמוק לריאות ולדם',
+        what: 'חלקיקים זעירים מעשן, פליטות דיזל, ארובות ואובך.',
+        when: 'בלילות שקטים עם אינוורסיה, ובשריפות גזם כשהרוח מהמזרח.',
         simple: 'חלקיקים מיקרוסקופיים (קטנים פי 30 משערה) מפליטות דיזל, ארובות ואובך. בגלל גודלם הם לא נעצרים באף אלא נכנסים לריאות ולמחזור הדם.',
-        action: 'מעל 15 (יעד WHO 2021 יומי; שנתי 5) / 37.5 (תקן יומי): רגישים ואסתמטיים צריכים להפחית מאמץ גופני בחוץ.'
       },
       PM10: {
         short: 'אבק נשימתי מאובך, רסס ים וכבישים',
+        what: 'אבק גס יותר מסופות חול, רסס ים ושחיקת כבישים.',
+        when: 'בימי אובך ורוח חזקה מדרום או ממזרח.',
         simple: 'חלקיקי אבק גסים יותר (עד 10 מיקרון) שמגיעים מסופות חול, מלח מהים התיכון ושחיקת כבישים. גורמים לגירוי בגרון, שיעול והחמרת אסתמה.',
-        action: 'מעל 45 (יעד WHO 2021 יומי; שנתי 15) / 130 (תקן יומי): יום אובך – מומלץ להפעיל מזגן במצב סירקולציה פנימית.'
       },
       CH2O: {
         short: 'גז מגרה ומסרטן מפליטות ושמש',
         simple: 'גז חריף שגורם לצריבה בעיניים ובגרון, ונפלט מתעשייה או נוצר באוויר מפירוק של גזים אחרים בשמש. בישראל הוחמר התקן השעתי שלו ל-15 µg/m³.',
-        action: 'מעל 0.8 (יעד יומי) / 15 (תקן שעתי): אוורור מופחת בשעות הצהריים החמות.'
       },
       NO2: {
         short: 'גז חום-אדמדם ממנועי רכבים ואוטובוסים',
+        what: 'גז שנפלט ממנועי רכבים, אוטובוסים ומשאיות דיזל.',
+        when: 'בשעות העומס בבוקר ובערב, ובלילות שקטים.',
         simple: 'המדד הכי מדויק לזיהום מתחבורה (כביש 4, עכו-חיפה, משאיות דיזל). גורם לדלקות בסימפונות ומחמיר התקפי אסתמה בילדים.',
-        action: 'מעל 40 (שנתי) / 200 (שעתי): להימנע מהליכה או ריצה צמוד לצירים ראשיים בשעות העומס.'
       },
       O3: {
         short: 'אוזון בגובה הקרקע – "כוויה" לריאות בשמש',
+        what: 'גז שנוצר באוויר כשאור שמש חזק פוגש גזי פליטה.',
+        when: 'בצהריים ואחר הצהריים בימים שמשיים וחמים.',
         simple: 'נוצר רק כשיש שמש חזקה שמבשלת גזי פליטה. הוא צורב את רקמת הריאה כמו כווייה קלה ומקשה על נשימה עמוקה, במיוחד אחה"צ.',
-        action: 'מעל 100 (יעד) / 140 (תקן 8-שעתי): להעביר פעילות ספורטיבית לשעות הבוקר המוקדמות או הערב.'
       },
       SO2: {
         short: 'גז צורב משריפת דלקים גופריתיים במפרץ',
+        what: 'גז מתעשייה ומאוניות ששורפות דלק כבד.',
+        when: 'כשהרוח מביאה פליטות מאזור התעשייה והנמל.',
         simple: 'נפלט משריפת מזוט ודלקים כבדים בתעשייה ובאוניות. גורם להתכווצות מהירה של דרכי הנשימה אצל חולי אסתמה.',
-        action: 'מעל 40 (יעד WHO 2021 יומי; שנתי 20) / 50 (תקן יומי) / 350 (שעתי): להישאר במבנה סגור בזמן גל ריח.'
       },
       H2S: {
         short: 'גז "ביצים סרוחות" ממפעלים וביוב',
         simple: 'הגורם המרכזי למפגעי ריח חריפים בקריות ובנשר. גם בריכוז נמוך הוא גורם לכאבי ראש, בחילות ותחושת חנק.',
-        action: 'מעל 7 (יעד חצי-שעתי) / 15 (תקן יומי): לדווח למוקד איגוד ערים (*6911 / envihaifa).'
       },
       BaP: {
         short: 'חומר מסרטן שנדבק לחלקיקי פיח ודיזל',
         simple: 'נפלט ממנועי דיזל כבדים, שריפות ומפעלים ונצמד לאבק שאנחנו נושמים. מוגדר כמסרטן ודאי לאדם.',
-        action: 'כל עלייה מעל 0.00011 µg/m³ היא חריגה מערך היעד הבריאותי.'
       }
     };
 
@@ -1592,10 +1605,8 @@
         };
 
         const accW = [bar.word, bar.txtCls, bar.barCls];
-        // PM: show what drives the bar right in the "עכשיו:" badge -> last hour vs the band limit it crossed (or the next one)
-        const nb = (key === 'PM25' || key === 'PM10') && m.hourly != null && bar.lvl != null ? AQStd.nowBands(APP_STATE.benchmarkMode)[key] : null;
-        const nowVs = nb ? ` (<bdi dir="ltr">${Number(m.hourly).toFixed(1)} µg/m³</bdi> מול <bdi dir="ltr">${bar.lvl >= 2 ? nb[1] : nb[0]}</bdi>)` : '';
         const nowBarW = bar.width;
+        const isPM = key === 'PM25' || key === 'PM10';
         return { pct: maxPct, html: `
           <details data-pol="${key}" class="rounded-2xl border ${borderCol} group">
           <summary class="list-none cursor-pointer p-3 flex items-center gap-3">
@@ -1609,21 +1620,11 @@
           </summary>
           <div class="px-3.5 pb-3.5 flex flex-col justify-between space-y-3">
             <div class="space-y-2.5">
-              <div class="flex items-start justify-between gap-2">
-                <div>
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    <span class="text-sm font-extrabold text-white">${std.name}</span>
-                    <span class="px-1.5 py-0.5 rounded bg-slate-800 text-sky-300 mono text-[11px] font-bold">${std.formula}</span>
-                    ${detectPirateFireSignature(st).isMineralDust && key === 'PM25' ? '<span class="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 text-[10px] font-bold">🏜️ אובך מינרלי</span>' : ''}
-                  </div>
-                  <div class="text-[11px] text-slate-400 mt-0.5">${guide.short}</div>
-                </div>
-                <span class="now-badge px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 max-w-[60%] text-center bg-black/30 border border-white/10 ${accW[1]}">עכשיו: ${accW[0]}${nowVs}</span>
-              </div>
+              <div class="text-[12px] text-slate-400">${guide.short}</div>
 
               <!-- Hourly / Daily / Monthly Bars -->
               <div class="space-y-2 pt-1">
-                ${renderTimeRow('hourly', key === 'O3' && m.window === '8h' ? 'עכשיו (8 שעות)' : 'שעתי', m.hourly, hLimit, hPct, std.noHourlyStd ? 'ללא תקן שעתי' : std.hLabel, std.hTarget)}
+                ${renderTimeRow('hourly', key === 'O3' && m.window === '8h' ? 'עכשיו (8 שעות)' : (isPM ? 'שעה אחרונה' : 'שעתי'), m.hourly, hLimit, hPct, isPM ? `ללא תקן שעתי • מושווה לסף יממתי: ${dLimit}` : (std.noHourlyStd ? 'ללא תקן שעתי' : std.hLabel), std.hTarget)}
                 ${renderTimeRow('daily', key === 'O3' && m.window === '8h' ? 'שיא יומי (8 שעות)' : 'יומי (24ש\')', m.daily, dLimit, dPct, key === 'NO2' && !isTarget ? 'תקן יממתי: 80 (יעד WHO: 25)' : std.dLabel, std.dTarget)}
                 ${renderTimeRow('monthly', 'מגמת 30 יום (מול תקן שנתי)', m.monthlyReal ? m.monthly : null, mLimit, mPct, std.mLabel, std.mTarget)}
               </div>
@@ -1635,9 +1636,10 @@
                 <span>💡 מה זה אומר בשבילי? (הסבר פשוט)</span>
                 <span class="text-[10px] text-slate-400">פתח ▾</span>
               </summary>
-              <div class="mt-2 space-y-1.5 text-slate-300 leading-relaxed">
-                <p>${guide.simple}</p>
-                <p class="text-amber-300 font-semibold">${guide.action}</p>
+              <div class="tip-lines mt-2 divide-y divide-slate-800 text-[12px] text-slate-300 leading-relaxed">
+                ${guide.what ? `<p class="py-1.5"><strong class="text-slate-100">🏭 מה זה ומאיפה:</strong> ${guide.what}</p>
+                <p class="py-1.5"><strong class="text-slate-100">📈 מתי עולה אצלנו:</strong> ${guide.when}</p>
+                <p class="py-1.5"><strong class="text-slate-100">📏 מדרגות הייחוס:</strong> ${guideRefs(key)}</p>` : `<p class="py-1.5">${guide.simple}</p>`}
               </div>
             </details>
           </div>

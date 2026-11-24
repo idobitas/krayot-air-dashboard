@@ -159,29 +159,32 @@ function fontAudit() {
   });
   ok(smoke.empty && !smoke.jump, `Now tab has no smoke jump button (${JSON.stringify(smoke)})`);
   ok(smoke.ex && !smoke.fire, 'smoke explanation sits in the legend with 🚨');
-  // expanded PM rows: the "עכשיו:" badge names the last-hour value and the limit it is compared with
-  const nowBadge = await page.evaluate(() => {
-    const out = [];
-    document.querySelectorAll('#pollutantCardsGrid details[data-pol="PM25"], #pollutantCardsGrid details[data-pol="PM10"]').forEach(d => {
-      const b = d.querySelector('.now-badge'); out.push({ pol: d.dataset.pol, txt: b ? b.textContent.replace(/\s+/g, ' ').trim() : null, ltr: b ? b.querySelectorAll('bdi[dir="ltr"]').length : 0 });
+  // expanded pollutant rows: no inner header / "עכשיו:" pill; PM hourly row names the daily threshold; 💡 tips = 3 short lines
+  const acc = await page.evaluate(() => {
+    const out = { pills: document.querySelectorAll('#pollutantCardsGrid .now-badge').length, inner: [], pm: {}, tips: {} };
+    const st = STATIONS_DATA.find(o => o.id === APP_STATE.selectedStationId), mode0 = APP_STATE.benchmarkMode;
+    document.querySelectorAll('#pollutantCardsGrid details[data-pol]').forEach(d => {
+      const name = d.querySelector(':scope > summary .font-extrabold').textContent.trim();
+      const body = [...d.children].filter(x => x.tagName !== 'SUMMARY').map(x => x.textContent).join(' ');
+      const hdr = [...d.querySelectorAll(':scope > div span.font-extrabold')].some(x => x.textContent.trim() === name);
+      if (hdr || body.includes('עכשיו:')) out.inner.push(d.dataset.pol);
+      const tip = d.querySelector('details[data-pol-tip] .tip-lines');
+      if (tip) out.tips[d.dataset.pol] = [...tip.querySelectorAll('p')].map(p => p.textContent.replace(/\s+/g, ' ').trim());
     });
-    const st = STATIONS_DATA.find(o => o.id === APP_STATE.selectedStationId);
-    return { out, hasPm: !!(st.metrics.PM25 || st.metrics.PM10), bars: document.querySelectorAll('#pollutantCardsGrid details[data-pol="PM25"] .h-2').length };
-  });
-  ok(!nowBadge.hasPm || (nowBadge.out.length > 0 && nowBadge.out.every(o => /^עכשיו: \S.* \(\d+\.\d µg\/m³ מול \d+(\.\d+)?\)$/.test(o.txt) && o.ltr === 2)),
-    `PM "עכשיו:" badge shows value vs limit (${JSON.stringify(nowBadge.out)})`);
-
-  // forced PM2.5 statuses (legal mode): every word carries "(value µg/m³ מול limit)"
-  const forced = await page.evaluate(() => {
-    const st = STATIONS_DATA.find(o => o.id === APP_STATE.selectedStationId); if (!st.metrics.PM25) return null;
-    const keep = st.metrics.PM25.hourly, mode = APP_STATE.benchmarkMode, out = {};
-    APP_STATE.benchmarkMode = 'env';
-    for (const v of [10, 22.3, 40]) { st.metrics.PM25.hourly = v; renderMatrix(); out[v] = document.querySelector('#pollutantCardsGrid details[data-pol="PM25"] .now-badge').textContent.replace(/\s+/g, ' ').trim(); }
-    st.metrics.PM25.hourly = keep; APP_STATE.benchmarkMode = mode; renderMatrix();
+    for (const mode of ['env', 'target']) {
+      APP_STATE.benchmarkMode = mode; renderMatrix();
+      ['PM25', 'PM10'].forEach(k => { const d = document.querySelector(`#pollutantCardsGrid details[data-pol="${k}"]`); if (d) out.pm[mode + k] = d.textContent.replace(/\s+/g, ' '); });
+    }
+    APP_STATE.benchmarkMode = mode0; renderMatrix();
     return out;
   });
-  ok(!forced || (forced['10'] === 'עכשיו: תקין (10.0 µg/m³ מול 18.5)' && forced['22.3'] === 'עכשיו: בינוני (22.3 µg/m³ מול 18.5)' && forced['40'] === 'עכשיו: חריגה (40.0 µg/m³ מול 37.5)'),
-    `PM2.5 badge for תקין / בינוני / חריגה (${JSON.stringify(forced)})`);
+  ok(acc.pills === 0 && !acc.inner.length, `no inner header or "עכשיו:" pill in expanded rows (${acc.pills} / ${acc.inner})`);
+  const pmOk = (txt, lim) => !txt || (txt.includes('שעה אחרונה') && txt.includes('ללא תקן שעתי • מושווה לסף יממתי: ' + lim));
+  ok(pmOk(acc.pm.envPM25, 37.5) && pmOk(acc.pm.targetPM25, 15) && pmOk(acc.pm.envPM10, 130) && pmOk(acc.pm.targetPM10, 45), 'PM hourly row shows the active daily threshold');
+  const tipKeys = Object.keys(acc.tips);
+  ok(tipKeys.length > 0 && tipKeys.every(k => acc.tips[k].length === 3 && acc.tips[k][0].startsWith('🏭 מה זה ומאיפה:') && acc.tips[k][1].startsWith('📈 מתי עולה אצלנו:') && /^📏 מדרגות הייחוס: .*(תקן חוקי|יעד WHO)/.test(acc.tips[k][2])),
+    `💡 tips are 3 lines (${JSON.stringify(acc.tips).slice(0, 300)})`);
+  ok(!acc.tips.PM25 || acc.tips.PM25[2] === '📏 מדרגות הייחוס: יעד WHO: 15 (שנתי 5) • תקן חוקי: 37.5 (שנתי 25)', 'PM2.5 reference line: ' + (acc.tips.PM25 || [])[2]);
 
   // one "last hour": card / buttons / MOEP summary read rolling.hourly, same as the detector
   const roll = await page.evaluate(() => { const bad = []; let n = 0;

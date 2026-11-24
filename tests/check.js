@@ -232,5 +232,14 @@ ok(!appSrc.includes('פרטים נוספים</summary>'), 'decision card has no 
   ok(tags.length === 5 && tags.every(t => t[2] === ver), 'cache-buster ?v=' + ver + ' on all local scripts: ' + tags.map(t => t[1] + '?v=' + t[2]).join(', '));
 }
 
+// v3.5.5: pollutant guide has no behavioural advice and no old "action" lines; tips are what / when / refs
+{
+  const g = appSrc.slice(appSrc.indexOf('const INTUITIVE_GUIDE = {'), appSrc.indexOf('};', appSrc.indexOf('const INTUITIVE_GUIDE = {')));
+  ok(!/\baction: '/.test(g), 'INTUITIVE_GUIDE has no action lines');
+  ok(!/להימנע|ספורטיבית|מזגן|מאמץ|מומלץ|צריכים|להפחית/.test(g), 'INTUITIVE_GUIDE carries no directives');
+  ['C6H6', 'PM25', 'PM10', 'NO2', 'O3', 'SO2'].forEach(k => ok(new RegExp(k + ": \\{[^}]*what: '[^']+',[^}]*when: '[^']+'").test(g), 'guide what/when for ' + k));
+  ok(!appSrc.includes('now-badge'), 'no "עכשיו:" pill inside expanded rows');
+}
+
 console.log(`${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);
