@@ -1,6 +1,7 @@
 {
 "updated": "2026-11-25T01:00:00+02:00",
 "windowDays": 90,
+"lastRefreshDate": "2026-11-25",
 "resolution": "hourly (complete hours only)",
 "units": "ug/m3 (CO ppm), wind m/s & deg",
 "stations": {
