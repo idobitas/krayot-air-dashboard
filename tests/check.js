@@ -296,5 +296,24 @@ ok(!/--tw-border-spacing-x/.test(htmlSrc) && /cdn\.tailwindcss\.com/.test(htmlSr
 ok(/st\.live = live;[\s\S]{0,200}st\.metrics = \{\};[\s\S]{0,40}st\.last30m = \{\};/.test(appSrc), 'loadLiveData starts each refresh with empty metrics / last30m');
 ok(!/st\.pm25_max24h \|\| 18/.test(appSrc), 'no fake PM2.5 = 18 in the wind risk');
 
+// v3.5.13: data / pipeline reliability
+{
+  const py = fs.readFileSync(path.join(__dirname, '../scripts/fetch_sviva.py'), 'utf8');
+  const fire = fs.readFileSync(path.join(__dirname, '../js/fire_v2b.js'), 'utf8').replace(/\r\n/g, '\n');
+  // fire_v2b C-A weights / thresholds / bounds are byte-identical (header hash), only live alignment changed
+  const head = fire.slice(0, fire.indexOf('function win('));
+  ok(require('crypto').createHash('sha1').update(head).digest('hex').slice(0, 12) === 'a3a111254f4a', 'fire_v2b weights, thresholds and bounds unchanged');
+  ok(/var W = \{ lvl: 10, anom: 14, rise: 12, ratio: 16, nox: 10, bz: 10, east: 8, lx: 20 \};/.test(fire) && /var HIGH = 70, WATCH = 55, REGIONAL = 8;/.test(fire), 'C-A weights 10/14/12/16/10/10/8/20, HIGH 70, WATCH 55');
+  ok(/reason: 'misaligned'/.test(fire) && /liveStatus/.test(fire) && /tEnd <= archEnd/.test(fire), 'evaluateLive: common end, no archive overlap, explicit status');
+  // fetch_sviva: per-pollutant coverage on the station timebase, ozone, stale, empty refs, aligned live windows
+  ok(/def need_for\(times, minutes, frac=0\.5\)/.test(py) && /min\(cap, max\(5\.0, step\)\)/.test(py), 'coverage uses a 5-min baseline, step capped at 60 min');
+  ok(/len\(v\) >= need\}/.test(py) && /len\(xs\) >= need\}/.test(py) && /len\(v\) >= MIN_HOURS_PER_DAY\}/.test(py), 'hourly_rows / rolling_hours / daily_series judge coverage per pollutant');
+  ok(/"n": \{k: len\(xs\)/.test(py) && /"n": \{k: len\(v\)/.test(py), 'sample counts stored in rolling windows and daily series');
+  ok(/need_for\(\[t for t, _ in points\], 8 \* 60, frac=0\.75\)/.test(py) && /o3 or \{"hourly": None, "daily": None, "window": "8h"\}/.test(py), 'ozone 8-h: station timebase; no valid window -> O3 hourly/daily null');
+  ok(/STALE_AFTER = timedelta\(hours=2\)/.test(py) && /"stale": age > STALE_AFTER/.test(py) && /"ageMinutes"/.test(py), 'stale when the latest reading is > 2 h old');
+  ok(/pts = points_of\(avg\)\n    if not pts:\n        raise RuntimeError/.test(py.replace(/\r\n/g, '\n')), 'fetch_reference raises on an empty answer');
+  ok(/live_end = align_rolling\(stations, references\)/.test(py) && /ALIGN_WITHIN = timedelta\(minutes=30\)/.test(py), 'live windows aligned to one end before writing');
+}
+
 console.log(`${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

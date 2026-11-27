@@ -80,13 +80,15 @@ try:
 except RuntimeError:
     ok(True, "API failure propagates (main keeps the old rows)")
 purged = set()
-rows, _ = run(fs.fetch_reference(Fake([]), 1, existing, False, days_back=4, purged_out=purged))
-ok(not purged and len(rows) == 3, "empty response purges nothing")
+try:  # v3.5.13: an empty answer is an error (like fetch_station), so main keeps the old rows untouched
+    run(fs.fetch_reference(Fake([]), 1, existing, False, days_back=4, purged_out=purged)); ok(False, "empty response must raise")
+except RuntimeError:
+    ok(not purged, "empty reference response raises and purges nothing")
 
 # 6) days_back reaches the API call
 seen = {}
 class Spy(Fake):
-    async def get_station_average(self, api_id, **kw): seen.update(kw); return NS(data=[])
+    async def get_station_average(self, api_id, **kw): seen.update(kw); return NS(data=recs(H1, 12))
 run(fs.fetch_reference(Spy([]), 1, [], False, days_back=4))
 ok((fs.today_il() - seen["from_date"]).days == 4, f"4-day window requested ({seen.get('from_date')})")
 run(fs.fetch_reference(Spy([]), 1, [], False))
@@ -127,6 +129,69 @@ ok(fs.refresh_due(h, now=now + timedelta(minutes=10)), "so the next run refreshe
 ok(not fs.mark_refresh(h, False, 0, now=now) and h["lastRefreshDate"] == "2026-11-24", "no refresh -> nothing marked")
 ok(fs.mark_refresh(h, True, 0, now=now) and h["lastRefreshDate"] == "2026-11-25", "all stations OK -> today's date")
 ok(not fs.refresh_due(h, now=now + timedelta(minutes=10)), "and no second refresh today")
+
+# 10) v3.5.13 coverage is judged PER POLLUTANT and sample counts are stored
+def mpts(start, n, step=5, **chans):
+    """n points from start; chans = {key: value or callable(i) -> value|None}"""
+    out = []
+    for i in range(n):
+        v = {}
+        for k, x in chans.items():
+            y = x(i) if callable(x) else x
+            if y is not None:
+                v[k] = y
+        out.append((start + timedelta(minutes=step * i), v))
+    return out
+# PM2.5 every 5 min, NOX only twice in the hour -> hour row keeps PM2.5, drops NOX
+pts = mpts(H1, 24, PM25=10.0, NOX=lambda i: 40.0 if i in (0, 1, 13) else None)
+hr = fs.hourly_rows(pts)
+ok(hr.get(iso(H1), {}).get("PM25") == 10.0 and "NOX" not in hr.get(iso(H1), {}), f"hourly_rows: thin NOX dropped, PM2.5 kept ({hr.get(iso(H1))})")
+roll = fs.rolling_hours(pts)
+ok(roll["hourly"] and "PM25" in roll["hourly"] and "NOX" not in roll["hourly"] and roll["hourly"]["n"]["PM25"] == 12 and roll["hourly"]["n"].get("NOX") == 1,
+   f"rolling_hours: per-pollutant coverage + counts ({roll['hourly']})")
+rows = [{"t": (H1 + timedelta(hours=h)).isoformat(), "PM25": 10.0, **({"NOX": 30.0} if h < 5 else {})} for h in range(14)]
+ds = fs.daily_series(rows)
+ok(ds and ds[-1].get("PM25") == 10.0 and "NOX" not in ds[-1] and ds[-1]["n"] == {"NOX": 5, "PM25": 14}, f"daily_series: per pollutant MIN_HOURS_PER_DAY + counts ({ds[-1] if ds else None})")
+
+# 11) ozone 8-h mean: 2 readings 10 h apart never pass; a dense 8 h does
+sparse = [(H1, {"O3": 80.0}), (H1 + timedelta(hours=10), {"O3": 90.0})]
+ok(fs.ozone_8h(sparse, sparse[-1][0]) is None, "ozone_8h: two readings 10 h apart are not an 8-h mean")
+dense = mpts(H1, 8 * 12, O3=60.0)
+o = fs.ozone_8h(dense, dense[-1][0])
+ok(o and o["hourly"] == 60.0 and o["window"] == "8h", f"ozone_8h: dense 8 h passes ({o})")
+
+# 12) fetch_station: O3 nulled when no valid 8-h window; age-based stale
+class FakeSt:
+    def __init__(self, data): self.data = data
+    async def get_station_average(self, api_id, **kw): return NS(data=self.data)
+def chrecs(start, n, step=5, **vals):
+    return [NS(datetime=(start + timedelta(minutes=step * i)).isoformat(),
+               channels=[NS(name=k, value=v, units="µg/m³", valid=True) for k, v in vals.items()]) for i in range(n)]
+data = chrecs(H1, 24, **{"PM2.5": 12.0, "O3": 70.0})  # only 2 h of ozone
+now_fresh = H1 + timedelta(hours=2, minutes=10)
+_, st = run(fs.fetch_station(FakeSt(data), "kiryat_motzkin_z2", 382, "x", [], False, now=now_fresh))
+ok(st["metrics"]["O3"]["hourly"] is None and st["metrics"]["O3"]["daily"] is None and st["metrics"]["O3"]["window"] == "8h",
+   f"O3 nulled without a valid 8-h window ({st['metrics']['O3']})")
+ok(st["stale"] is False and st["ageMinutes"] == 15, f"fresh station not stale ({st['stale']}, {st['ageMinutes']})")
+_, st2 = run(fs.fetch_station(FakeSt(data), "kiryat_motzkin_z2", 382, "x", [], False, now=H1 + timedelta(hours=5)))
+ok(st2["stale"] is True and st2["ageMinutes"] > 120, f"latest reading > 2 h old -> stale ({st2['ageMinutes']} min)")
+
+# 13) live windows of all fresh stations end at ONE time (no 12:20 / 12:30 mix), nobody dropped
+e1 = H1 + timedelta(hours=2, minutes=20); e2 = e1 + timedelta(minutes=10); far = e1 - timedelta(minutes=50)
+ok(fs.common_live_end([e1, e2]) == e1 and fs.common_live_end([e1, e2, far]) == e1 and fs.common_live_end([]) is None,
+   "common end = earliest end within 30 min of the newest")
+def mk(end, sid, stale=False):
+    pts = mpts(end - timedelta(hours=3) + timedelta(minutes=5), 36, PM25=10.0)
+    return {"id": sid, "measuredAt": end.isoformat(), "stale": stale, "rolling": fs.rolling_hours(pts), "_pts": pts}
+sts = [mk(e1, "a"), mk(e2, "b"), mk(far, "c"), mk(e2, "d", stale=True)]
+refs = [{"id": "r", "rolling": None, "_pts": mpts(e2 - timedelta(hours=3) + timedelta(minutes=5), 36, PM25=5.0)}]
+end = fs.align_rolling(sts, refs)
+ok(end == e1, f"aligned end ({end})")
+ok(sts[0]["rolling"]["latest"] == e1.isoformat() and sts[1]["rolling"]["latest"] == e1.isoformat() and refs[0]["rolling"]["latest"] == e1.isoformat(),
+   "newer station and reference recomputed to the common end")
+ok(sts[1]["rolling"]["hourly"]["to"] == e1.isoformat() and sts[1]["rolling"]["hourly"]["n"]["PM25"] == 12, "the aligned window really ends at the common time")
+ok(sts[2]["rolling"]["latest"] == far.isoformat(), "a station lagging > 30 min keeps its own end (flagged by the detector)")
+ok(all("_pts" not in x for x in sts + refs), "private _pts never reach live_krayot.json")
 
 print(f"refresh: {passes} passed, {fails} failed")
 sys.exit(1 if fails else 0)

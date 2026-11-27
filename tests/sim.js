@@ -158,5 +158,41 @@ for (let n = 0; n < 250; n++) {
   if (fails > before) console.error('  input:', JSON.stringify(input));
 }
 
+// ---- v3.5.13: evaluateLive window alignment (no weight / threshold changes) ----
+{
+  const FX = require('./fire_fixture.js');
+  const hist = JSON.parse(JSON.stringify(FX.build()));
+  const base = F.compute(hist);
+  const lastArch = base.axis[base.axis.length - 1], H = 3600000;
+  const iso = ms => new Date(ms + 2 * H).toISOString().slice(0, 19) + '+02:00';
+  const win = v => ({ PM25: v, PM10: v * 2, NOX: 10, windDir: 270, windSpeed: 2, n: { PM25: 12 } });
+  const doc = (ends, opts = {}) => ({ stations: Object.entries(ends).map(([id, t]) => ({ id, stale: false,
+    rolling: { latest: iso(t), hourly: opts.noPm && opts.noPm.includes(id) ? { NOX: 10 } : win(12), prevHourly: win(11) } })) });
+  const ids = F.IDS;
+  const allAt = t => Object.fromEntries(ids.map(id => [id, t]));
+  const ok2 = (c, m) => { if (c) passes++; else { fails++; console.error('FAIL: ' + m); } };
+  const strictly = ax => ax.every((t, i) => i === 0 || t > ax[i - 1]);
+
+  // 1) live window that the archive already covers -> no live result, explicit status (no "11:00, 11:00")
+  const b1 = F.compute(hist), r1 = F.evaluateLive(b1, doc(allAt(lastArch + H)));
+  ok2(r1 === null && b1.liveStatus && b1.liveStatus.mode === 'archive', 'live window inside the archive -> archive status: ' + JSON.stringify(b1.liveStatus && b1.liveStatus.mode));
+  // 2) 20 min past the archive's last hour -> ONE new slot, axis strictly increasing, no duplicate hour
+  const r2 = F.evaluateLive(F.compute(hist), doc(allAt(lastArch + H + 20 * 60000)));
+  ok2(r2 && r2.liveSlots === 1 && strictly(r2.axis) && r2.axis.length === base.axis.length + 1, 'one live slot after the archive, strictly increasing axis');
+  // 3) the previous rolling hour is used only when it lies fully after the archive
+  const r3 = F.evaluateLive(F.compute(hist), doc(allAt(lastArch + 2 * H + 30 * 60000)));
+  ok2(r3 && r3.liveSlots === 2 && strictly(r3.axis), 'two live slots when both windows are new');
+  // 4) stations ending at different times are not mixed: majority end wins, the others are flagged
+  const mixed = allAt(lastArch + H + 20 * 60000); mixed[ids[0]] = lastArch + H + 10 * 60000;
+  const r4 = F.evaluateLive(F.compute(hist), doc(mixed));
+  ok2(r4 && r4.liveStatus.included.length === ids.length - 1 && r4.liveStatus.excluded.some(e => e.id === ids[0] && e.reason === 'misaligned'), 'misaligned station excluded and flagged');
+  ok2(r4 && r4.S[ids[0]].PM25[r4.axis.length - 1] === null, 'misaligned station has no value in the live slot');
+  // 5) fewer than 3 live PM2.5 stations -> explicit partial / archive-fallback flag, never silent
+  const r5 = F.evaluateLive(F.compute(hist), doc(allAt(lastArch + H + 20 * 60000), { noPm: ids.slice(0, ids.length - 2) }));
+  ok2(r5 && r5.liveStatus && (r5.liveStatus.partial || r5.liveStatus.fallback) && r5.liveStatus.mode !== 'live', 'under 3 live PM2.5 stations is flagged: ' + JSON.stringify(r5 && r5.liveStatus && r5.liveStatus.mode));
+  // 6) archive scores are untouched by live evaluation
+  ok2(JSON.stringify(r2.S[ids[2]].S.slice(0, base.axis.length)) === JSON.stringify(base.S[ids[2]].S), 'archive hours score the same with or without live');
+}
+
 console.log(`sim: ${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

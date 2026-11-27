@@ -34,6 +34,31 @@ REFRESH_DAYS = 4
 REFRESH_HOUR = 3
 
 
+def common_live_end(ends):
+    """One end time for every station's live windows: the earliest end among stations within
+    ALIGN_WITHIN of the newest (stations lagging more keep their own end and are flagged downstream)."""
+    if not ends:
+        return None
+    newest = max(ends)
+    return min(t for t in ends if newest - t <= ALIGN_WITHIN)
+
+
+def align_rolling(stations, references):
+    """Recompute every fresh station's / reference's live windows to the common end, so the detector
+    never mixes 12:20 and 12:30 windows in one hour. Drops the private `_pts` keys."""
+    fresh = [parse_dt(st["measuredAt"]) for st in stations if not st.get("stale") and st.get("_pts")]
+    end = common_live_end(fresh)
+    for st in stations:
+        pts = st.pop("_pts", None)
+        if end and pts and not st.get("stale") and parse_dt(st["measuredAt"]) >= end:
+            st["rolling"] = rolling_hours(pts, end=end)
+    for ref in references:
+        pts = ref.pop("_pts", None)
+        if end and pts and pts[-1][0] >= end:
+            ref["rolling"] = rolling_hours(pts, end=end)
+    return end
+
+
 def refresh_due(history, now=None, force=False):
     """True once per Israel calendar day, on the first run at/after REFRESH_HOUR (or with --refresh-4d)."""
     now = now or datetime.now(IL_TZ)
@@ -167,33 +192,52 @@ def points_of(avg_resp):
 
 
 ROLL_KEYS = ("PM25", "PM10", "NOX", "C6H6", "windDir", "windSpeed")
+STALE_AFTER = timedelta(hours=2)
+ALIGN_WITHIN = timedelta(minutes=30)  # live windows of stations ending within this of the newest share one end  # a station whose latest reading is older than this is "stale" even on HTTP 200
 
 
-def rolling_hours(points):
+def sample_step(times, cap=60.0):
+    """Typical spacing (minutes) between readings: the median gap on a 5-min baseline, capped at
+    `cap` so a couple of readings hours apart can never pose as a dense series."""
+    ts = sorted(times)
+    gaps = sorted((ts[i + 1] - ts[i]).total_seconds() / 60 for i in range(len(ts) - 1))
+    step = gaps[len(gaps) // 2] if gaps else 5.0
+    return min(cap, max(5.0, step))
+
+
+def need_for(times, minutes, frac=0.5):
+    """Readings needed to cover `frac` of a `minutes` window. `times` = ALL the station's reading
+    timestamps (its timebase), not one pollutant's: a sparse channel must not lower its own bar."""
+    return max(1, math.ceil(frac * minutes / sample_step(times)))
+
+
+
+def rolling_hours(points, end=None):
     """Live rolling windows for the fire detector's "now" view (the archive stays on whole hours):
     hourly = (latest-60 min, latest], prevHourly = (latest-120, latest-60]. Each window needs readings
     covering at least half of it; PM zeros are sensor gaps; wind direction is a circular mean."""
     if not points:
         return None
-    latest = points[-1][0]
-    gaps = sorted((points[i + 1][0] - points[i][0]).total_seconds() / 60 for i in range(len(points) - 1))
-    step = max(1.0, gaps[len(gaps) // 2]) if gaps else 5.0
-    need = max(1, math.ceil(30 / step))
+    latest = points[-1][0] if end is None else min(end, points[-1][0])
+    need = need_for([t for t, _ in points], 60)  # station timebase; counted per pollutant below
     out = {"latest": latest.isoformat()}
     for name, (a, b) in (("hourly", (60, 0)), ("prevHourly", (120, 60))):
         start, end = latest - timedelta(minutes=a), latest - timedelta(minutes=b)
-        sel = [(t, v) for t, v in points if start < t <= end]
-        if len({t for t, _ in sel}) < need:
-            out[name] = None
-            continue
         acc = defaultdict(list)
-        for _, v in sel:
+        for t, v in points:
+            if not (start < t <= end):
+                continue
             for k in ROLL_KEYS:
                 x = v.get(k)
                 if x is None or (k in ("PM25", "PM10") and x <= 0):
                     continue
                 acc[k].append(x)
-        out[name] = {"from": start.isoformat(), "to": end.isoformat(), **{k: agg(k, xs) for k, xs in acc.items()}}
+        ok = {k: xs for k, xs in acc.items() if len(xs) >= need}  # each pollutant on its own readings
+        if not ok:
+            out[name] = None
+            continue
+        out[name] = {"from": start.isoformat(), "to": end.isoformat(), **{k: agg(k, xs) for k, xs in ok.items()},
+                     "n": {k: len(xs) for k, xs in sorted(acc.items())}}
     return out
 
 
@@ -223,23 +267,21 @@ def hourly_rows(points):
     if not points:
         return {}
     latest = points[-1][0]
-    # a bucket needs readings covering at least half the hour (6 x 5-min); the step is measured
-    # from the data so coarser API timebases still work
-    gaps = sorted((points[i + 1][0] - points[i][0]).total_seconds() / 60 for i in range(len(points) - 1))
-    step = max(1.0, gaps[len(gaps) // 2]) if gaps else 5.0
-    need = max(1, math.ceil(30 / step))
+    # each pollutant needs its OWN readings covering at least half the hour (6 x 5-min at its own
+    # step), so a channel with 1 reading never rides on another channel's full coverage
+    need = need_for([t for t, _ in points], 60)
     buckets = defaultdict(lambda: defaultdict(list))
-    stamps = defaultdict(set)
     for t, vals in points:
         b = t.replace(minute=0, second=0, microsecond=0)
-        stamps[b].add(t)
         for k, v in vals.items():
             buckets[b][k].append(v)
     rows = {}
     for b, vals in buckets.items():
-        if latest < b + timedelta(minutes=55) or len(stamps[b]) < need:
+        if latest < b + timedelta(minutes=55):
             continue
-        rows[b.isoformat()] = {k: agg(k, v) for k, v in vals.items() if k in VALUE_KEYS}
+        row = {k: agg(k, v) for k, v in vals.items() if k in VALUE_KEYS and len(v) >= need}
+        if row:
+            rows[b.isoformat()] = row
     return rows
 
 
@@ -381,18 +423,18 @@ def coverage_days(rows):
 
 def daily_series(rows, days=30):
     by_day = defaultdict(lambda: defaultdict(list))
-    n_rows = defaultdict(int)
     for r in rows:
         d = r["t"][:10]
-        n_rows[d] += 1
         for k in VALUE_KEYS:
             if r.get(k) is not None:
                 by_day[d][k].append(r[k])
     out = []
     for d in sorted(by_day)[-days:]:
-        if n_rows[d] < MIN_HOURS_PER_DAY:
+        ok = {k: v for k, v in by_day[d].items() if len(v) >= MIN_HOURS_PER_DAY}  # per pollutant
+        if not ok:
             continue
-        out.append({"d": d, **{k: agg(k, v) for k, v in sorted(by_day[d].items())}})
+        out.append({"d": d, **{k: agg(k, v) for k, v in sorted(ok.items())},
+                    "n": {k: len(v) for k, v in sorted(by_day[d].items())}})
     return out
 
 
@@ -415,9 +457,8 @@ def ozone_8h(points, latest_t):
     o3 = [(t, v["O3"]) for t, v in points if v.get("O3") is not None]
     if not o3:
         return None
-    gaps = sorted((o3[i + 1][0] - o3[i][0]).total_seconds() / 60 for i in range(len(o3) - 1))
-    step = max(1.0, gaps[len(gaps) // 2]) if gaps else 5.0
-    need = math.ceil(0.75 * 8 * 60 / step)
+    # 5-min baseline, step capped at 60 min: two readings 10 h apart can never pass as an 8-h mean
+    need = need_for([t for t, _ in points], 8 * 60, frac=0.75)
 
     def win_mean(end):
         xs = [v for t, v in o3 if end - timedelta(hours=8) < t <= end]
@@ -431,7 +472,7 @@ def ozone_8h(points, latest_t):
     return {"hourly": now, "daily": max(vals) if vals else None, "window": "8h"}
 
 
-async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill, days_back=REGULAR_DAYS, purged_out=None):
+async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill, days_back=REGULAR_DAYS, purged_out=None, now=None):
     if backfill:
         avg = await client.get_station_average(
             api_id, from_date=today_il() - timedelta(days=WINDOW_DAYS), to_date=today_il())
@@ -464,23 +505,28 @@ async def fetch_station(client, dash_id, api_id, name, hist_rows, backfill, days
     # ozone is assessed on 8-hour running means (Israeli limit 140, WHO 100): "hourly" = mean of the
     # last 8 h, "daily" = highest 8-h mean among windows ending in the last 24 h
     o3 = ozone_8h(all_pts, latest_t)
-    if o3 and "O3" in metrics:
-        metrics["O3"].update(o3)
+    if "O3" in metrics:
+        # no valid 8-h window -> no ozone "now"/"daily" at all (never leave a 1-h / 24-h value under the 8-h label)
+        metrics["O3"].update(o3 or {"hourly": None, "daily": None, "window": "8h"})
+    age = (now or datetime.now(IL_TZ)) - latest_t
     return rows, {
         "id": dash_id,
         "apiStationId": api_id,
         "name": name,
         "measuredAt": latest_t.isoformat(),
+        "ageMinutes": round(age.total_seconds() / 60),
+        "stale": age > STALE_AFTER,
         "metrics": metrics,
         "last5m": last5,
         "last30m": {**{k: last30.get(k) for k in VALUE_KEYS}, "history24h": history_30min(pts)},
         "daily30d": daily_series(rows),
         "historyDays": coverage_days(rows),
         "rolling": rolling_hours(all_pts),
+        "_pts": all_pts,  # private: removed by align_rolling() before writing
     }
 
 
-async def fetch_reference(client, api_id, hist_rows, backfill, keys=REF_KEYS, days_back=REGULAR_DAYS, purged_out=None):
+async def fetch_reference(client, api_id, hist_rows, backfill, keys=REF_KEYS, days_back=REGULAR_DAYS, purged_out=None, pts_out=None):
     if backfill:
         avg = await client.get_station_average(
             api_id, from_date=today_il() - timedelta(days=WINDOW_DAYS), to_date=today_il())
@@ -488,11 +534,15 @@ async def fetch_reference(client, api_id, hist_rows, backfill, keys=REF_KEYS, da
         avg = await client.get_station_average(
             api_id, from_date=today_il() - timedelta(days=days_back), to_date=today_il(), timebase=5)
     pts = points_of(avg)
+    if not pts:
+        raise RuntimeError("no valid data points")  # like fetch_station: never treat an empty answer as data
     new = {t: {k: v[k] for k in keys if v.get(k) is not None}
            for t, v in hourly_rows(pts).items()}
     rows, purged = refresh_rows(hist_rows, {t: v for t, v in new.items() if v}, covered_hours(avg))
     if purged_out is not None:
         purged_out.update(purged)
+    if pts_out is not None:
+        pts_out.extend(pts)
     return rows, rolling_hours(pts)
 
 
@@ -556,10 +606,11 @@ async def main(force_backfill=False, force_refresh=False):
             existing = hist_stations.get(ref_id, {}).get("rows", [])
             need_backfill = force_backfill or coverage_days(existing) < WINDOW_DAYS - 5
             try:
+                ref_pts = []
                 rows, roll = await fetch_reference(client, api_id, existing, need_backfill,
-                                                   days_back=days_back, purged_out=purged[ref_id])
+                                                   days_back=days_back, purged_out=purged[ref_id], pts_out=ref_pts)
                 hist_stations[ref_id] = {"apiStationId": api_id, "rows": rows}
-                references.append({"id": ref_id, "apiStationId": api_id, "name": name, "rolling": roll})
+                references.append({"id": ref_id, "apiStationId": api_id, "name": name, "rolling": roll, "_pts": ref_pts})
                 print(f"OK   {name} ({api_id}) rows={len(rows)}{' [backfill]' if need_backfill else ''}")
             except Exception as exc:
                 failures += 1
@@ -614,6 +665,11 @@ async def main(force_backfill=False, force_refresh=False):
             old["stale"] = True
             stations.append(old)
             print(f"KEEP {old['id']}: previous record kept (measuredAt {old.get('measuredAt')})")
+    live_end = align_rolling(stations, references)
+    if live_end:
+        print(f"Live windows aligned to {live_end.isoformat()}")
+    for st in stations:  # previous-run records kept above carry no private keys, but be safe
+        st.pop("_pts", None)
     order = list(STATIONS)
     stations.sort(key=lambda st: order.index(st["id"]) if st["id"] in order else len(order))
     doc = {"timestamp": ts, "source": "air.sviva.gov.il", "units": "ug/m3 (CO ppm), wind m/s & deg",

@@ -92,7 +92,8 @@
     // live mode: two virtual hours (previous and current rolling hour) appended after the archive.
     // Baselines (hour-of-day medians, ratio median, P90/P99 scales) use the archive only (NB).
     var NB = N, LV = opts.live || null;
-    if (LV) { axis.push(LV.tPrev, LV.tCur); hours.push(LV.hPrev, LV.hCur); N = axis.length; }
+    var SLOTS = !LV ? [] : (LV.slots || [{ t: LV.tPrev, h: LV.hPrev, key: 'prev' }, { t: LV.tCur, h: LV.hCur, key: 'cur' }]);
+    if (LV) { SLOTS.forEach(function (sl) { axis.push(sl.t); hours.push(sl.h); }); N = axis.length; }
     function liveVal(src, key) { var v = num((src || {})[key]); return v; }
     function aligned(hid, key) { // one channel of an auxiliary history series on the Krayot axis
       var a = [];
@@ -102,10 +103,10 @@
         if (i !== undefined) a[i] = num(r[key]);
       });
       if (LV) {
-        if (REF_IDS.indexOf(hid) >= 0) { var lr = (LV.ref || {})[hid]; a[NB] = lr ? liveVal(lr.prev, key) : null; a[NB + 1] = lr ? liveVal(lr.cur, key) : null; }
+        if (REF_IDS.indexOf(hid) >= 0) { var lr = (LV.ref || {})[hid]; SLOTS.forEach(function (sl, j) { a[NB + j] = lr ? liveVal(lr[sl.key], key) : null; }); }
         else { // auxiliary model series (Open-Meteo): carry the latest archived value into the live hours
           var last = null; for (var j = NB - 1; j >= 0 && last === null; j--) last = a[j];
-          a[NB] = last; a[NB + 1] = last;
+          SLOTS.forEach(function (_, k) { a[NB + k] = last; });
         }
       }
       return a;
@@ -126,10 +127,10 @@
         ch.WD[i] = num(r.windDir); ch.WS[i] = num(r.windSpeed);
       });
       if (LV && LV.st && LV.st[id]) {
-        [['prev', NB], ['cur', NB + 1]].forEach(function (pv) {
-          var src = LV.st[id][pv[0]];
+        SLOTS.forEach(function (sl, j) {
+          var src = LV.st[id][sl.key];
           if (!src) return;
-          var i = pv[1], pm = liveVal(src, 'PM25'), p10 = liveVal(src, 'PM10');
+          var i = NB + j, pm = liveVal(src, 'PM25'), p10 = liveVal(src, 'PM10');
           ch.PM25[i] = pm !== null && pm > 0 ? pm : null;
           ch.PM10[i] = p10 !== null && p10 > 0 ? p10 : null;
           ch.NOX[i] = liveVal(src, 'NOX'); ch.C6H6[i] = liveVal(src, 'C6H6');
@@ -316,7 +317,13 @@
     while (li > 0 && IDS.filter(function (id) { return S[id].PM25[li] !== null; }).length < 3) li--;
 
     return {
-      live: !!LV, liveAt: LV ? LV.tCur : null, _hist: histStations,
+      live: !!LV, liveAt: LV ? SLOTS[SLOTS.length - 1].t : null, archiveN: NB, liveSlots: SLOTS.length, _hist: histStations,
+      // live mode: is the "latest" hour really live (>= 3 stations with PM2.5), or did it fall back to the archive?
+      liveStatus: LV ? (function () {
+        var nLive = IDS.filter(function (id) { return S[id].PM25[N - 1] !== null; }).length;
+        return Object.assign({}, LV.meta || {}, { mode: li >= NB ? (nLive >= 3 ? 'live' : 'partial') : 'archive-fallback',
+          livePm25Stations: nLive, partial: nLive < 3, fallback: li < NB });
+      })() : null,
       axis: axis, hours: hours, S: S, netmed: netmed, refmed: refmed, verdicts: verdicts, latestIndex: li, latest: verdicts[li],
       level: level, stationScore: function (id, i) { return S[id] ? S[id].S[i === undefined ? li : i] : null; }
     };
@@ -327,22 +334,44 @@
   // hours before them and all hour-of-day / percentile baselines frozen on the archive.
   function evaluateLive(res, liveDoc) {
     if (!res || !res._hist || !liveDoc) return null;
-    var st = {}, ref = {}, latest = null;
+    var ref = {}, cand = [], skipped = [];
     (liveDoc.stations || []).forEach(function (s) {
-      if (!STATIONS[s.id] || s.stale || !s.rolling || !s.rolling.hourly) return;
-      st[s.id] = { prev: s.rolling.prevHourly, cur: s.rolling.hourly };
+      if (!STATIONS[s.id]) return;
+      if (s.stale || !s.rolling || !s.rolling.hourly) { skipped.push({ id: s.id, reason: s.stale ? 'stale' : 'no-rolling' }); return; }
       var t = Date.parse(s.rolling.latest);
-      if (!isNaN(t) && (latest === null || t > latest)) latest = t;
+      if (isNaN(t)) { skipped.push({ id: s.id, reason: 'no-time' }); return; }
+      cand.push({ id: s.id, t: t, prev: s.rolling.prevHourly, cur: s.rolling.hourly });
     });
     (liveDoc.references || []).forEach(function (r) {
       if (REF_IDS.indexOf(r.id) >= 0 && r.rolling && r.rolling.hourly) ref[r.id] = { prev: r.rolling.prevHourly, cur: r.rolling.hourly };
     });
-    if (latest === null || latest <= res.axis[res.live ? res.axis.length - 3 : res.axis.length - 1]) return null;
-    return compute(res._hist, { live: {
-      tPrev: latest - 3600000, tCur: latest,
-      hPrev: localHour(latest - 90 * 60000), hCur: localHour(latest - 30 * 60000),
-      st: st, ref: ref
-    } });
+    // one common end time: the timestamp shared by most stations (ties -> newest); stations ending
+    // elsewhere (e.g. 11:50 vs 12:00) are left out instead of being mixed into the same hour
+    var byT = {};
+    cand.forEach(function (c) { (byT[c.t] = byT[c.t] || []).push(c); });
+    var tEnd = null;
+    Object.keys(byT).map(Number).forEach(function (t) {
+      if (tEnd === null || byT[t].length > byT[tEnd].length || (byT[t].length === byT[tEnd].length && t > tEnd)) tEnd = t;
+    });
+    var nArch = res.archiveN || res.axis.length, lastArch = res.axis[nArch - 1], archEnd = lastArch + 3600000;
+    var meta = { tEnd: tEnd, archiveLast: lastArch,
+      included: tEnd === null ? [] : byT[tEnd].map(function (c) { return c.id; }),
+      excluded: skipped.concat(cand.filter(function (c) { return c.t !== tEnd; }).map(function (c) { return { id: c.id, reason: 'misaligned', t: c.t }; })) };
+    // an archive row labelled H covers H..H+1h: a live window is new only if it ENDS after that
+    if (tEnd === null || tEnd <= archEnd) {
+      res.liveStatus = Object.assign(meta, { mode: 'archive', reason: tEnd === null ? 'no live stations' : 'live window already in the archive' });
+      return null;
+    }
+    var st = {};
+    byT[tEnd].forEach(function (c) { st[c.id] = { prev: c.prev, cur: c.cur }; });
+    // previous rolling hour only if it lies entirely after the archive; otherwise the archive's last
+    // hour is the previous hour (no duplicate / overlapping hour such as "11:00, 11:00")
+    var slots = [];
+    if (tEnd - 3600000 > archEnd) slots.push({ t: tEnd - 3600000, h: localHour(tEnd - 90 * 60000), key: 'prev' });
+    slots.push({ t: tEnd, h: localHour(tEnd - 30 * 60000), key: 'cur' });
+    var out = compute(res._hist, { live: { slots: slots, st: st, ref: ref, meta: meta } });
+    if (out && out.liveStatus) res.liveStatus = out.liveStatus;
+    return out;
   }
 
   // merge consecutive flagged hours (gap <= 1h) into episodes for one station or the network
