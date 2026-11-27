@@ -66,6 +66,13 @@
     const isDust = !!(sig.isMineralDust || sig.level === 'dust');
     // station level: last-hour bands + this station's live detector
     const worst = stationWorst(st, mode);
+    // no valid last-hour reading, or the station's latest reading is stale (> 2 h): neutral, never a default green
+    const stale = !!(ctx.stale || st.stale);
+    if (stale || (!worst && sig.level !== 'high' && sig.level !== 'watch' && !isDust)) {
+      return { sig, pm25, c6, isDust, kind, worst: null, stationLvl: null, lvl: null, noData: true, stale,
+        smoke: null, area: '', because: '', reason: 'אין מספיק נתונים עדכניים', avg24: '', goodWindow: null, trapped: false, wink: '',
+        highRisk: false, modRisk: false };
+    }
     let stationLvl = worst ? worst.lvl : 0;
     if (sig.level === 'high') stationLvl = 2;
     else if (sig.level === 'watch' || isDust) stationLvl = Math.max(stationLvl, 1);

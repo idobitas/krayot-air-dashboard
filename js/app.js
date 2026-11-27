@@ -728,6 +728,8 @@
     // so "14.0 µg/m³" or "PM2.5" never flip inside Hebrew text. Applied to rendered station content.
     const LTR_TOKEN = /PM2\.5|PM10|µg\/m³|NO₂|O₃|SO₂|C₆H₆|ppb|WHO|IARC|\d°|m\/s/;
     const LTR_RUN = /((?:\d+(?:\.\d+)?\s?)?(?:PM2\.5|PM10|NO₂|O₃|SO₂|C₆H₆)(?:\s\d+(?:\.\d+)?)?(?:\s?(?:µg\/m³|ppb))?|\d+(?:\.\d+)?\s?(?:µg\/m³|ppb)|µg\/m³|ppb|(?:WHO|IARC)(?::?\s?\d+(?:\.\d+)?)?|\d+(?:\.\d+)?°C?|\d+(?:\.\d+)?\s?m\/s|m\/s)/g;
+    // HTML-escape text that came from a file / user input before it goes into an innerHTML template
+    const escHtml = v => String(v == null ? '' : v).replace(/[&<>"'`]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]));
     function isolateLtr(root) {
       if (!root) return;
       const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), nodes = [];
@@ -839,7 +841,8 @@
         const ww = stationWorst(st);
         const onlyBz = Object.keys(st.metrics || {}).every(k => k === 'C6H6' || k === 'Toluene') && Object.keys(st.metrics || {}).length > 0;
         const plbl = ww ? ww.code : 'ממתין לנתונים';
-        const wl = stationLevel(st), wlv = wl == null ? null : WORD_LEVELS[wl];
+        const g0 = computeGuidance(st), wl = g0 ? g0.stationLvl : null;
+        const wlv = wl == null ? (g0 && g0.noData ? NO_DATA_WORD : null) : WORD_LEVELS[wl];
         return `
           <button type="button" data-station-id="${st.id}" class="station-pill snap-start shrink-0 lg:shrink lg:flex-1 lg:min-w-0 text-right rounded-2xl p-3 min-w-[175px] sm:min-w-[195px] border transition ${
             active
@@ -974,8 +977,9 @@
           };
         }
       }
-      if (typeof WIND_FORECAST_CACHE !== 'undefined' && Array.isArray(WIND_FORECAST_CACHE) && WIND_FORECAST_CACHE.length) {
-        const f0 = WIND_FORECAST_CACHE[0];
+      const fcSt = fcFor(st.id);
+      if (Array.isArray(fcSt) && fcSt.length) {
+        const f0 = fcSt[0];
         if (f0.wd != null) return { windDir: Number(f0.wd), windSpeed: f0.ws == null ? null : Number(f0.ws), source: 'open-meteo' };
       }
       return { windDir: null, windSpeed: null, source: 'none' };
@@ -1004,10 +1008,15 @@
         return { score: 0, level: 'none', detected: false, isMineralDust: false, matched: [], sensorCount: 0, lowConfidence: true,
           badgeText: '— אין חיישן חלקיקים בתחנה (הגלאי לא רלוונטי)', shortBadge: '', summary: 'נמדד כאן: בנזן וטולואן בלבד', windowLabel: '', engine: 'none' };
       }
+      if (window.__histPending && !window.FIRE_V2B) {
+        return { score: 0, level: 'none', detected: false, isMineralDust: false, matched: [], sensorCount: 0, lowConfidence: true,
+          badgeText: '', shortBadge: '', summary: '', windowLabel: '', engine: 'pending' };
+      }
       return v2bSignature(st) || detectPirateFireSignatureLegacy(st, allStations, opts);
     }
 
     // one word per station from live values vs. WHO 2021 24 h guidelines (benzene vs. its daily limit)
+    const NO_DATA_WORD = { word: 'אין נתונים', cls: 'bg-slate-800 text-slate-300 border-slate-600', txt: 'text-slate-400' };
     const WORD_LEVELS = [
       { word: 'טוב', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40', txt: 'text-emerald-300' },
       { word: 'בינוני', cls: 'bg-orange-500/15 text-orange-300 border-orange-500/40', txt: 'text-orange-300' },
@@ -1039,7 +1048,8 @@
     // summary pasted into the MoEP online form: what was measured, labelled honestly (window, source)
     function reportSummaryText() {
       const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
-      const now = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const mAt = st.live && st.live.measuredAt;
+      const now = mAt ? 'נמדד ב-' + new Date(mAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'זמן המדידה לא ידוע';
       const m = st.metrics?.PM25 || null;
       const pm = !m ? 'לא נמדד בתחנה'
         : m.hourly != null ? `${Number(m.hourly).toFixed(1)} µg/m³ (שעה אחרונה)`
@@ -1075,8 +1085,9 @@
     function renderAiringStrip() {
       const el = document.getElementById('airingStrip');
       if (!el) return;
-      if (!WIND_FORECAST_CACHE || !WIND_FORECAST_CACHE.length) return;
       const st = STATIONS_DATA.find(s => s.id === APP_STATE.selectedStationId) || STATIONS_DATA[0];
+      const fc = fcFor(st.id);
+      if (!fc || !fc.length) return;
       const S = {
         low: ['פיזור טוב', 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'],
         med: ['רוח חלשה', 'bg-orange-500/15 border-orange-500/40 text-orange-200'],
@@ -1085,7 +1096,7 @@
       };
       // consecutive hours with the same status become one tile ("00:00–09:00 • עשן מהמזרח")
       const groups = [];
-      WIND_FORECAST_CACHE.slice(0, 12).forEach(slot => {
+      fc.slice(0, 12).forEach(slot => {
         const r = computeCombinedHourRisk(slot, st);
         // 'smoke from the east' only when the forecast wind actually comes from the villages' sector
         const s = r.level === 'high' && !(slot.wd >= 30 && slot.wd <= 150) ? ['פיזור חלש', S.med[1]] : (S[r.level] || S.med);
@@ -1109,13 +1120,15 @@
     function computeGuidance(st) {
       if (!st || !Object.keys(st.metrics || {}).length) return null;
       const R = (window.FIRE_LIVE || window.FIRE_V2B);
+      const mAt = st.live && st.live.measuredAt ? Date.parse(st.live.measuredAt) : NaN;
       return AQGuidance.computeGuidance(st, {
         mode: APP_STATE.benchmarkMode,
+        stale: !!st.stale || (Number.isFinite(mAt) && Date.now() - mAt > 2 * 3600000),
         sig: detectPirateFireSignature(st),
         live: R && R.latest ? R.latest : null,
         nameOf: id => (STATIONS_DATA.find(s => s.id === id) || {}).shortName || id,
         who24: whoExceedances().filter(x => x.stationId === st.id),
-        forecast: WIND_FORECAST_CACHE,
+        forecast: fcFor(st.id) || [],
         riskOf: x => computeCombinedHourRisk(x, st)
       });
     }
@@ -1128,11 +1141,15 @@
       const g = computeGuidance(st);
       if (!g) { el.innerHTML = '<div class="text-sm text-slate-400">טוען נתוני אמת…</div>'; return; }
       const lvl = g.lvl, kind = g.kind;
-      const L = [
+      const L = g.noData ? { icon: '⏳', title: 'אין מספיק נתונים עדכניים', cls: 'bg-slate-900 border-slate-600 text-slate-100' } : [
         { icon: '✅', title: 'איכות אוויר טובה', cls: 'bg-emerald-950/50 border-emerald-500/60 text-emerald-50' },
         { icon: '🟠', title: 'רמת מזהמים מוגברת', cls: 'bg-orange-950/55 border-orange-500/60 text-orange-50' },
         { icon: '🔴', title: 'רמת זיהום גבוהה', cls: 'bg-rose-950/60 border-rose-500/70 text-rose-50' }
       ][lvl];
+      if (g.noData) {
+        const mAt = st.live && st.live.measuredAt;
+        g.reason = g.stale && mAt ? 'הקריאה האחרונה מהתחנה: ' + (fmtLastAt(mAt) || '—') : 'אין בתחנה קריאה תקפה מהשעה האחרונה';
+      }
       // smoke at the selected station: the smoke label is the title (same colours as the level)
       if (g.smoke) Object.assign(L, g.smoke === 'high' ? { icon: '🚨', title: 'סבירות גבוהה מאוד לריח חריף / עשן' } : { icon: '💨', title: 'ייתכן ריח חריף / עשן' });
       // events at OTHER stations: a small separate note, never the card colour
@@ -1149,7 +1166,7 @@
       const kb = STATIONS_DATA.find(o => o.id === 'kiryat_binyamin');
       const wSrc = (st.last30m && st.last30m.windDir != null) ? [st.last30m.windDir, st.last30m.windSpeed, '']
         : (kb && kb.last30m && kb.last30m.windDir != null) ? [kb.last30m.windDir, kb.last30m.windSpeed, ' • קריית אתא']
-        : (WIND_FORECAST_CACHE && WIND_FORECAST_CACHE[0] && WIND_FORECAST_CACHE[0].wd != null) ? [WIND_FORECAST_CACHE[0].wd, WIND_FORECAST_CACHE[0].ws, ' • תחזית'] : null;
+        : (fcFor(st.id) && fcFor(st.id)[0] && fcFor(st.id)[0].wd != null) ? [fcFor(st.id)[0].wd, fcFor(st.id)[0].ws, ' • תחזית'] : null;
       const windTag = wSrc ? `<span class="inline-flex items-center min-h-[42px] px-3 rounded-full text-[13px] font-bold bg-black/25 border border-white/15">🧭 רוח מ${degToCompassHe(wSrc[0])} · <bdi dir="ltr">${Math.round(wSrc[0])}°</bdi>${wSrc[1] != null ? ' · <bdi dir="ltr">' + Number(wSrc[1]).toFixed(1) + '</bdi> מ/ש' : ''}${wSrc[2]}</span>` : '';
       const upd = st.live && st.live.measuredAt ? new Date(st.live.measuredAt).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }) : '';
       el.className = 'rounded-3xl border-2 px-5 py-4 shadow-xl ' + L.cls;
@@ -1400,16 +1417,6 @@
       const dd = String(d.getDate()).padStart(2, '0');
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       return `${dd}/${mm}`;
-    }
-
-    function getPastHourSlot(hoursAgo) {
-      const d = new Date();
-      d.setMinutes(0, 0, 0);
-      d.setHours(d.getHours() - hoursAgo);
-      const dd = String(d.getDate()).padStart(2, '0');
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const hh = String(d.getHours()).padStart(2, '0');
-      return { label: `${dd}/${mm} ${hh}:00`, shortLabel: `${hh}:00 (${dd}/${mm})`, hour24: d.getHours() };
     }
 
     function runRetrospectiveFireScan(st) {
@@ -1690,6 +1697,19 @@
       el.textContent = `נתוני אמת מיובאים (נכון ל-${customLabel}) • תחזית רוח: חיה (Open-Meteo)`;
     }
 
+    // permanent monthly archives for the 12-month trend view (fetched on demand, no-store)
+    function ensureMonthlyArchive() {
+      if (window.__archMonthly) return Promise.resolve(window.__archMonthly);
+      if (!window.__archMonthlyP) {
+        const get = async u => { const r = await fetch(u + '?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) throw new Error(u + ': HTTP ' + r.status); return r.json(); };
+        window.__archMonthlyP = get('./data/archives_index.json').then(ix => Promise.all((ix.months || []).slice(-12).map(m =>
+          get('./' + m.file).then(d => ({ ym: m.month, st: d.stations || {} })).catch(() => ({ ym: m.month, st: {} })))))
+          .then(docs => (window.__archMonthly = docs))
+          .catch(e => { window.__archMonthlyP = null; throw e; });
+      }
+      return window.__archMonthlyP;
+    }
+
     function updateCharts() {
       // 1. Time Trend Chart (Hourly 24h / Daily 30d / Monthly 12m)
       const ctxTrend = document.getElementById('chartTimeTrend');
@@ -1706,11 +1726,6 @@
         const pol = polSel?.value || 'PM25';
         const hor = document.getElementById('trendHorizonSelect')?.value || 'hourly';
         const std = POLLUTANT_STANDARDS[pol] || POLLUTANT_STANDARDS.PM25;
-        const base = (st.metrics && st.metrics[pol]) ? st.metrics[pol] : { hourly: 0, daily: 0, monthly: 0 };
-
-        // Deterministic station offset so each station has a distinct curve
-        const stIdx = Math.max(0, STATIONS_DATA.findIndex(s => s.id === st.id));
-        const shift = (arr, k) => arr.map((_, i) => arr[(i + k) % arr.length]);
 
         const convertVal = (v) => {
           if (v == null || isNaN(v)) return null;
@@ -1721,47 +1736,44 @@
         };
         const unitLabel = std.isGas ? getUnitLabel(pol) : 'µg/m³';
 
-        let labels = [], rawSeries = [], rawThreshold = 0;
+        // real readings only: missing hours / days / months stay null (gaps), never a synthetic profile
+        let labels = [], rawSeries = [], rawThreshold = 0, notEnough = '', countLabel = 'חריגות מהסף';
+        const isPM = pol === 'PM25' || pol === 'PM10', isTgt = APP_STATE.benchmarkMode === 'target';
+        const NOT_ENOUGH = 'אין עדיין מספיק נתונים לטווח הזה';
         if (hor === 'hourly') {
-          const realRows = (((window.HISTORY_90D || {})[st.id] || {}).rows || []).slice(-24).filter(r => r[pol] != null);
-          const useReal = realRows.length >= 6;
-          const slots = Array.from({length: 12}, (_, i) => getPastHourSlot((11 - i) * 2));
-          labels = useReal
-            ? realRows.map(r => ilHourLabel(r.t))
-            : slots.map(s => String(s.hour24).padStart(2, "0") + ":00 (פרופיל)");
-          let byHour;
-          if (pol === 'O3') {
-            byHour = [0.48,0.45,0.42,0.40,0.38,0.42,0.46,0.58,0.68,0.78,0.88,0.96,1.02,1.08,1.12,1.10,1.04,0.94,0.82,0.72,0.62,0.56,0.52,0.50];
-          } else if (pol === 'NO2') {
-            byHour = [0.72,0.68,0.65,0.63,0.62,0.70,0.82,1.04,1.18,1.08,0.96,0.84,0.74,0.70,0.68,0.72,0.78,0.95,1.12,1.06,0.98,0.90,0.82,0.76];
-          } else if (pol === 'PM25' || pol === 'PM10' || pol === 'BaP' || pol === 'CH2O') {
-            byHour = [1.08,1.12,1.16,1.15,1.12,1.04,0.95,0.86,0.78,0.70,0.62,0.56,0.52,0.50,0.48,0.52,0.58,0.66,0.76,0.88,0.98,1.06,1.14,1.12];
-          } else {
-            byHour = [0.95,1.02,1.08,1.12,1.14,1.06,0.98,0.90,0.84,0.76,0.68,0.62,0.58,0.56,0.55,0.59,0.64,0.72,0.82,0.88,0.94,1.00,1.04,1.00];
-          }
-          const offset = stIdx % 2 === 0 ? 0 : 1;
-          rawSeries = useReal ? realRows.map(r => r[pol]) : slots.map(s => base.hourly * byHour[(s.hour24 + offset) % 24]);
-          rawThreshold = APP_STATE.benchmarkMode === 'target' ? std.hTarget : std.hEnv;
+          const rows = (((window.HISTORY_90D || {})[st.id] || {}).rows || []);
+          const byT = {}; rows.forEach(r => { byT[Date.parse(r.t)] = r; });
+          const lastT = rows.length ? Date.parse(rows[rows.length - 1].t) : null;
+          const axisT = lastT == null ? [] : Array.from({ length: 24 }, (_, i) => lastT - (23 - i) * 3600000);
+          labels = axisT.map(t => ilHourLabel(new Date(t).toISOString()));
+          rawSeries = axisT.map(t => { const r = byT[t]; return r && Number.isFinite(Number(r[pol])) && r[pol] !== null ? Number(r[pol]) : null; });
+          if (rawSeries.filter(v => v != null).length < 6) notEnough = NOT_ENOUGH;
+          // PM has no hourly limit: hours are compared with the active DAILY reference value
+          rawThreshold = isPM ? (isTgt ? std.dTarget : std.dEnv) : (isTgt ? std.hTarget : std.hEnv);
+          if (isPM) countLabel = 'שעות מעל ערך הייחוס היממתי';
         } else if (hor === 'daily') {
           const realDays = (st.daily30d || []).filter(x => x[pol] != null);
-          if (realDays.length >= 5) {
-            labels = realDays.map(x => x.d.slice(8, 10) + '/' + x.d.slice(5, 7));
-            rawSeries = realDays.map(x => x[pol]);
-          } else {
-            labels = Array.from({length: 15}, (_, i) => `יום ${i * 2 + 1} (בסיס היסטורי)`);
-            const baseDaily = [0.58,0.68,0.78,1.05,0.86,0.54,0.49,0.72,0.96,0.81,0.64,0.58,0.92,0.74,0.62];
-            const stFactors = shift(baseDaily, stIdx);
-            rawSeries = stFactors.map(f => base.daily * f);
-          }
-          rawThreshold = APP_STATE.benchmarkMode === 'target' ? std.dTarget : std.dEnv;
+          labels = realDays.map(x => x.d.slice(8, 10) + '/' + x.d.slice(5, 7));
+          rawSeries = realDays.map(x => x[pol]);
+          if (realDays.length < 2) notEnough = NOT_ENOUGH;
+          rawThreshold = isTgt ? std.dTarget : std.dEnv;
         } else {
-          labels = ['ינו','פבר','מרץ','אפר','מאי','יוני','יול','אוג','ספט','אוק','נוב','דצמ'];
-          const factors = pol === 'O3'
-            ? [0.72,0.78,0.90,1.02,1.12,1.18,1.22,1.19,1.06,0.94,0.80,0.74]
-            : [1.22,1.14,1.04,0.92,0.84,0.78,0.76,0.80,0.88,1.02,1.16,1.26];
-          const mBase = Number.isFinite(base.monthly) ? base.monthly : (Number.isFinite(base.daily) ? base.daily : 0);
-          rawSeries = factors.map(f => mBase * f);
-          rawThreshold = APP_STATE.benchmarkMode === 'target' ? std.mTarget : std.mEnv;
+          // monthly means from the permanent archive_YYYY_MM.json files (loaded on demand)
+          const arch = window.__archMonthly;
+          if (!arch) {
+            notEnough = 'טוען את הארכיון החודשי…';
+            ensureMonthlyArchive().then(() => updateCharts()).catch(() => { window.__archMonthlyErr = true; updateCharts(); });
+            if (window.__archMonthlyErr) notEnough = 'הארכיון החודשי לא נטען';
+          } else {
+            const HE_M = ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יוני', 'יול', 'אוג', 'ספט', 'אוק', 'נוב', 'דצמ'];
+            labels = arch.map(m => HE_M[Number(m.ym.slice(5, 7)) - 1] + ' ' + m.ym.slice(2, 4));
+            rawSeries = arch.map(m => {
+              const vals = ((m.st[st.id] || {}).rows || []).map(r => r[pol]).filter(v => v !== null && Number.isFinite(Number(v))).map(Number);
+              return vals.length >= 360 ? vals.reduce((x, y) => x + y, 0) / vals.length : null; // >= ~half a month of hours
+            });
+            if (!rawSeries.some(v => v != null)) notEnough = NOT_ENOUGH;
+          }
+          rawThreshold = isTgt ? std.mTarget : std.mEnv;
         }
 
         const series = rawSeries.map(convertVal);
@@ -1769,7 +1781,7 @@
         const finite = series.filter(v => v != null);
         const maxVal = finite.length ? Math.max(...finite) : 0;
         const avgVal = finite.length ? +(finite.reduce((a, b) => a + b, 0) / finite.length).toFixed(pol === 'BaP' ? 5 : 2) : 0;
-        const exceedCount = series.filter(v => v > threshold).length;
+        const exceedCount = series.filter(v => v != null && v > threshold).length;
 
         const sumEl = document.getElementById('trendChartSummary');
         if (sumEl) {
@@ -1779,11 +1791,12 @@
               <span class="text-slate-400">•</span>
               <span class="text-sky-300 font-bold">${std.name} (${std.formula})</span>
             </div>
-            <div class="flex flex-wrap items-center gap-2 mono">
+            ${notEnough ? `<div class="trend-not-enough text-[13px] font-bold text-slate-300">${notEnough}</div>` : ''}
+            <div class="flex flex-wrap items-center gap-2 mono${notEnough ? ' hidden' : ''}">
               <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-200">שיא: ${maxVal} ${unitLabel}</span>
               <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300">ממוצע: ${avgVal} ${unitLabel}</span>
               <span class="px-2 py-0.5 rounded ${exceedCount > 0 ? 'bg-rose-500/20 border border-rose-500/50 text-rose-300 font-extrabold' : 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-bold'}">
-                ${exceedCount > 0 ? exceedCount + ' חריגות מהסף' : 'ללא חריגות מהסף'}
+                ${exceedCount > 0 ? exceedCount + ' ' + countLabel : 'ללא ' + countLabel}
               </span>
             </div>
           `;
@@ -1791,9 +1804,9 @@
         }
 
         AQCharts.renderTrend(ctxTrend, {
-          labels, series, threshold, mode: APP_STATE.benchmarkMode,
+          labels: notEnough ? [] : labels, series: notEnough ? [] : series, threshold, mode: APP_STATE.benchmarkMode,
           seriesLabel: `${std.name} (${unitLabel})`,
-          thresholdLabel: `סף ${APP_STATE.benchmarkMode === 'target' ? 'יעד בריאותי (WHO)' : 'תקן סביבה חוקי'} (${threshold} ${unitLabel})`
+          thresholdLabel: (hor === 'hourly' && isPM ? 'ערך ייחוס יממתי – ' : 'סף ') + `${APP_STATE.benchmarkMode === 'target' ? 'יעד בריאותי (WHO)' : 'תקן סביבה חוקי'} (${threshold} ${unitLabel})`
         });
       }
 
@@ -1882,7 +1895,11 @@
       return { aqi: extraAqi, index: 100 - extraAqi };
     }
 
-    let WIND_FORECAST_CACHE = null;
+    // wind forecast per station id (never shows one station's forecast on another station)
+    const WIND_FC_BY_STATION = {};
+    const fcFor = id => WIND_FC_BY_STATION[id] || null;
+    // "smoke from the east": a high-risk hour only when the forecast wind comes from the villages' sector
+    const eastSmoke = (slot, r) => !!r && r.level === 'high' && slot.wd != null && slot.wd >= 30 && slot.wd <= 150;
 
     // short area subtitle shown under the station name (pills + station card)
     const STATION_AREA = {
@@ -1987,8 +2004,8 @@
         // re-render the card/airing strip only when the forecast actually changed (a fresh network
         // answer or another station's forecast); a cache hit with the same slots must not wipe
         // transient card state (copied label, open details).
-        const changed = JSON.stringify(slice) !== JSON.stringify(WIND_FORECAST_CACHE);
-        WIND_FORECAST_CACHE = slice;
+        const changed = JSON.stringify(slice) !== JSON.stringify(WIND_FC_BY_STATION[st.id] || null);
+        WIND_FC_BY_STATION[st.id] = slice;
         window.__windFcRenders = (window.__windFcRenders || 0) + (changed ? 1 : 0);
         if (changed) {
           renderDecisionCard();
@@ -1999,7 +2016,7 @@
 
         const evaluated = slice.map(slot => ({ ...slot, risk: computeCombinedHourRisk(slot, st) }));
         const known = evaluated.filter(e => !e.risk.missing);
-        const highHours = known.filter(e => e.risk.level === 'high').map(e => e.time);
+        const highHours = known.filter(e => eastSmoke(e, e.risk)).map(e => e.time);
         const bestHour = [...known].sort((a, b) => a.risk.score - b.risk.score)[0];
 
         if (sumEl) {
@@ -2007,7 +2024,7 @@
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <strong class="text-white">שקלול משולב (מדד התחנה + תחזית רוח ולילות שקטים ל-12 שעות):</strong>
-                ${highHours.length ? `<span class="text-orange-300 font-bold"> שעות סיכון גבוה ללכידת עשן: <span class="mono">${highHours.join(', ')}</span></span>` : '<span class="text-emerald-300 font-bold"> לא צפויות שעות לכידה חמורה ב-12 השעות הקרובות</span>'}
+                ${!known.length ? '<span class="text-slate-300 font-bold"> אין תחזית זמינה</span>' : highHours.length ? `<span class="text-orange-300 font-bold"> סיכון לעשן מהמזרח: <span class="mono">${highHours.join(', ')}</span></span>` : '<span class="text-emerald-300 font-bold"> לא צפוי סיכון לעשן מהמזרח ב-12 השעות הקרובות</span>'}
               </div>
               <div class="text-[11px] mono text-sky-300 font-bold">
                 ${bestHour ? `שעת הפיזור הטובה ביותר: ${bestHour.time} (${bestHour.ws} m/s ${degToCompassHe(bestHour.wd)})` : 'אין נתוני רוח בתחזית'}
@@ -2019,7 +2036,7 @@
         grid.innerHTML = evaluated.map(slot => {
           const r = slot.risk;
           const cardCls = r.level === 'high' ? 'border-orange-500/60 bg-orange-950/25' : (r.level === 'med' ? 'border-amber-500/40 bg-amber-950/15' : 'border-slate-800 bg-slate-950/75');
-          const riskTxt = r.missing ? '— אין נתון רוח' : (r.level === 'high' ? '💨 סיכון גבוה' : (r.level === 'med' ? '🟡 זהירות' : '🟢 פיזור טוב'));
+          const riskTxt = r.missing ? '— אין נתון רוח' : (eastSmoke(slot, r) ? '💨 סיכון לעשן מהמזרח' : r.level === 'high' ? '🟡 פיזור חלש' : (r.level === 'med' ? '🟡 זהירות' : '🟢 פיזור טוב'));
           return `
             <div class="rounded-xl border ${cardCls} p-2.5 space-y-1">
               <div class="flex items-center justify-between">
@@ -2308,9 +2325,9 @@
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${f.level === 'high' ? 'bg-rose-500/20 text-rose-200' : 'bg-amber-500/20 text-amber-200'}">
                     ${f.level === 'high' ? '🚨 סבירות גבוהה מאוד לריח חריף / עשן' : (f.level === 'dust' ? '🏜️ אובך מינרלי' : '💨 ייתכן ריח חריף / עשן')} 
                   </span>
-                  <span class="mono font-extrabold text-white">${f.dt}</span>
+                  <span class="mono font-extrabold text-white">${escHtml(f.dt)}</span>
                 </div>
-                <div class="text-[11px] text-slate-300 mono">${f.reasons.join(' • ')}</div>
+                <div class="text-[11px] text-slate-300 mono">${f.reasons.map(escHtml).join(' • ')}</div>
               </div>
             `).join('');
           }
@@ -2528,10 +2545,12 @@
       }
 
       async function loadLiveData() {
+        const status = { live: false, history: false, error: null };
+        if (window.FIRE_V2B === undefined) window.__histPending = true; // first load: detector waits for the archive
         try {
           const data = await fetchJson('./live_krayot.json');
+          if (!data || !Array.isArray(data.stations)) throw new Error('live_krayot.json: no stations');
           window.LIVE_DOC = data;
-          if (!data || !Array.isArray(data.stations)) return;
           data.stations.forEach(live => {
             const st = STATIONS_DATA.find(s => s.id === live.id);
             if (!st) return;
@@ -2553,7 +2572,11 @@
           if (data.timestamp) {
             updateLastUpdatedTimestamp(new Date(data.timestamp).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }));
           }
+          status.live = true;
+          // fast first paint: hero card + station buttons from live data, before the 90-day archive arrives
+          try { renderMatrix(); } catch (e) { console.warn('early render failed', e); }
         } catch (e) {
+          status.error = String(e && e.message || e);
           console.warn('live_krayot.json not loaded', e);
         }
         try {
@@ -2568,11 +2591,16 @@
             window.__realScanShown = true;
             try { renderV2BScan(STATIONS_DATA.find(x => x.id === APP_STATE.selectedStationId) || STATIONS_DATA[0], 30); } catch (e) { console.warn('real scan failed', e); }
           }
+          status.history = true;
         } catch (e) {
+          if (!status.error) status.error = String(e && e.message || e);
           console.warn('history_90d.json not loaded', e);
         }
+        window.__histPending = false; // archive in (or failed -> offline fallback as before)
         renderMatrix();
         try { updateCharts(); } catch (e) {}
+        window.__lastLoadStatus = status;
+        return status;
       }
 
       function historyRowsForScanner(stationId, days) {
@@ -2590,8 +2618,11 @@
       document.getElementById('btnRefreshLive')?.addEventListener('click', async (e) => {
         const b = e.currentTarget;
         b.disabled = true; b.textContent = 'מרענן...';
-        try { await loadLiveData(); renderMatrix(); fetchWindForecast(); b.textContent = 'רוענן ✓'; }
-        catch (err) { b.textContent = 'שגיאה'; }
+        try {
+          const r = await loadLiveData();
+          if (!r || !r.live) throw new Error(r && r.error || 'live data not loaded');
+          renderMatrix(); fetchWindForecast(); b.textContent = 'רוענן ✓';
+        } catch (err) { b.textContent = 'שגיאה – הנתונים לא רועננו'; }
         setTimeout(() => { b.textContent = 'רענן נתוני אמת'; b.disabled = false; }, 2000);
       });
 

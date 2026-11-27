@@ -239,6 +239,41 @@ function fontAudit() {
   ok(risk.noPm === 75 && risk.pm35 === 100, `wind risk: no PM -> 0 station points (${JSON.stringify(risk)})`);
   ok(risk.cleared && risk.hasLive, 'live refresh clears stale metrics and reloads fresh ones');
 
+  // v3.5.14: no-data card, honest refresh, real-only trend, per-station forecast, scanner escaping
+  const r2 = await page.evaluate(async () => {
+    const out = {}, st = STATIONS_DATA.find(o => o.id === APP_STATE.selectedStationId);
+    const keepStale = st.stale; st.stale = true; renderMatrix();
+    out.card = document.getElementById('decisionCard').textContent.includes('אין מספיק נתונים עדכניים');
+    out.cardGreen = /איכות אוויר טובה/.test(document.getElementById('decisionCard').textContent);
+    out.pill = (document.querySelector(`.station-pill[data-station-id="${st.id}"]`) || {}).textContent.includes('אין נתונים');
+    st.stale = keepStale; renderMatrix();
+    // honest refresh: make live_krayot.json fail with 503 once
+    const realFetch = window.fetch; window.fetch = (u, o) => String(u).includes('live_krayot.json') ? Promise.resolve(new Response('x', { status: 503 })) : realFetch(u, o);
+    const btn = document.getElementById('btnRefreshLive');
+    for (let i = 0; i < 50 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100)); // previous refresh label resets after 2 s
+    btn.click();
+    for (let i = 0; i < 100 && !/רוענן|שגיאה/.test(btn.textContent); i++) await new Promise(r => setTimeout(r, 100));
+    out.refresh = btn.textContent.trim(); window.fetch = realFetch;
+    // trend: hourly with too few real rows -> message, never a profile curve
+    const keepH = window.HISTORY_90D; window.HISTORY_90D = { [st.id]: { rows: [{ t: '2026-11-24T10:00:00+02:00', PM25: 9 }] } };
+    document.getElementById('trendHorizonSelect').value = 'hourly'; updateCharts();
+    out.trendMsg = document.getElementById('trendChartSummary').textContent.includes('אין עדיין מספיק נתונים לטווח הזה');
+    window.HISTORY_90D = keepH; updateCharts();
+    out.pmLabel = st.metrics.PM25 ? /שעות מעל ערך הייחוס היממתי|אין עדיין מספיק נתונים/.test(document.getElementById('trendChartSummary').textContent) : true;
+    out.noProfile = !/פרופיל|בסיס היסטורי/.test(document.body.innerHTML);
+    // monthly view comes from the archive files
+    document.getElementById('trendHorizonSelect').value = 'monthly'; updateCharts();
+    for (let i = 0; i < 80 && !window.__archMonthly && !window.__archMonthlyErr; i++) await new Promise(r => setTimeout(r, 100));
+    updateCharts();
+    out.monthly = Array.isArray(window.__archMonthly) && window.__archMonthly.length > 0;
+    document.getElementById('trendHorizonSelect').value = 'hourly'; updateCharts();
+    return out;
+  });
+  ok(r2.card && !r2.cardGreen && r2.pill, `stale station -> grey "אין מספיק נתונים עדכניים" card + pill (${JSON.stringify(r2)})`);
+  ok(/שגיאה/.test(r2.refresh) && !/רוענן ✓/.test(r2.refresh), `503 on refresh is reported as an error (${r2.refresh})`);
+  ok(r2.trendMsg && r2.pmLabel && r2.noProfile, 'trend shows real data only (message when too few hours, PM label)');
+  ok(r2.monthly, 'monthly trend loads the archive_YYYY_MM.json files');
+
   // one "last hour": card / buttons / MOEP summary read rolling.hourly, same as the detector
   const roll = await page.evaluate(() => { const bad = []; let n = 0;
     STATIONS_DATA.forEach(st => { const h = st.live && st.live.rolling && st.live.rolling.hourly; if (!h) return;

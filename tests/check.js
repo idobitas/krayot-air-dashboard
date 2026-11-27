@@ -78,7 +78,8 @@ const hasNaN = o => /NaN|undefined/.test(JSON.stringify(o, (k, v) => (typeof v =
 [[0.6], [3.1], [7], [null]].forEach(([c6]) => MODES.forEach(mode => {
   const kishon = station('kishon_mobile5', 'קישון', { C6H6: { hourly: c6, daily: null, monthly: null } });
   const g = G.computeGuidance(kishon, clearCtx(mode));
-  ok(g && !hasNaN(g) && [0, 1, 2].includes(g.lvl), `517 guidance no NaN (C6H6=${c6}, ${mode})`);
+  // v3.5.14: no valid reading -> neutral "no data" (lvl null), never a default green 0
+  ok(g && !hasNaN(g) && (c6 === null ? (g.noData === true && g.lvl === null) : [0, 1, 2].includes(g.lvl)), `517 guidance no NaN (C6H6=${c6}, ${mode})`);
   ['C6H6', 'PM25', 'NO2'].forEach(k => {
     const b = G.barStatus(k, k === 'C6H6' ? c6 : undefined, mode);
     ok(!hasNaN(b) && isFinite(b.pct) && isFinite(b.width), `517 bar ${k} no NaN (C6H6=${c6}, ${mode})`);
@@ -313,6 +314,26 @@ ok(!/st\.pm25_max24h \|\| 18/.test(appSrc), 'no fake PM2.5 = 18 in the wind risk
   ok(/STALE_AFTER = timedelta\(hours=2\)/.test(py) && /"stale": age > STALE_AFTER/.test(py) && /"ageMinutes"/.test(py), 'stale when the latest reading is > 2 h old');
   ok(/pts = points_of\(avg\)\n    if not pts:\n        raise RuntimeError/.test(py.replace(/\r\n/g, '\n')), 'fetch_reference raises on an empty answer');
   ok(/live_end = align_rolling\(stations, references\)/.test(py) && /ALIGN_WITHIN = timedelta\(minutes=30\)/.test(py), 'live windows aligned to one end before writing');
+}
+
+// v3.5.14 round 2
+{
+  for (const mode of MODES) {
+    const none = G.computeGuidance(station('x', 'בדיקה', hourly({ PM25: null, PM10: null })), clearCtx(mode));
+    ok(none && none.noData && none.lvl === null && none.stationLvl === null && none.reason === 'אין מספיק נתונים עדכניים', 'no valid reading -> neutral no-data (' + mode + ')');
+    const stale = G.computeGuidance(station('x', 'בדיקה', hourly({ PM25: 50 })), { ...clearCtx(mode), stale: true });
+    ok(stale && stale.noData && stale.stale && stale.lvl === null, 'stale station -> no-data even with an old high value (' + mode + ')');
+    const fresh = G.computeGuidance(station('x', 'בדיקה', hourly({ PM25: 10 })), clearCtx(mode));
+    ok(fresh && !fresh.noData && fresh.lvl === 0, 'fresh valid reading still green (' + mode + ')');
+  }
+  ok(/const now = mAt \? 'נמדד ב-'/.test(appSrc) && !/const now = new Date\(\)\.toLocaleString/.test(appSrc), 'MOEP summary uses measuredAt, not the current time');
+  ok(!/\(פרופיל\)|בסיס היסטורי\)|byHour = \[0\.|const factors = pol === 'O3'|baseDaily = \[/.test(appSrc), 'no synthetic trend curves left');
+  ok(/שעות מעל ערך הייחוס היממתי/.test(appSrc) && /אין עדיין מספיק נתונים לטווח הזה/.test(appSrc) && /function ensureMonthlyArchive/.test(appSrc), 'trend: real data only, PM hourly label, monthly from archives');
+  ok(/status\.live = true;\n\s*\/\/ fast first paint[^\n]*\n\s*try \{ renderMatrix\(\); \}/.test(appSrc.replace(/\r\n/g, '\n')) && /return status;/.test(appSrc), 'live renders before the archive; loadLiveData returns a status');
+  ok(/if \(!r \|\| !r\.live\) throw/.test(appSrc) && /שגיאה – הנתונים לא רועננו/.test(appSrc), 'refresh button reports failures honestly');
+  ok(/const WIND_FC_BY_STATION = \{\};/.test(appSrc) && !/WIND_FORECAST_CACHE/.test(appSrc), 'wind forecast cached per station');
+  ok(/אין תחזית זמינה/.test(appSrc) && /סיכון לעשן מהמזרח/.test(appSrc) && !/סיכון גבוה ללכידת עשן/.test(appSrc), 'no-forecast text + "סיכון לעשן מהמזרח"');
+  ok(/\$\{escHtml\(f\.dt\)\}/.test(appSrc) && /f\.reasons\.map\(escHtml\)/.test(appSrc), 'dev scanner escapes file text');
 }
 
 console.log(`${passes} passed, ${fails} failed`);
